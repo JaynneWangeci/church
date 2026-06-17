@@ -17,8 +17,8 @@ const councils = [
   { key: "development", label: "Development Committee" },
 ];
 
-const fallbackMembers: Member[] = [
-  { id: "1", name: "Dadson Mbogo", role: "Parish Board Chairman", council: "parish_board" },
+const fallback: Member[] = [
+  { id: "1", name: "Dadson Mbogo", role: "Chairman", council: "parish_board" },
   { id: "2", name: "Jeremiah Kimani", role: "Vice Chairman", council: "parish_board" },
   { id: "3", name: "Kariuki Nderitu", role: "General Secretary", council: "parish_board" },
   { id: "4", name: "Joseph Kamande", role: "Vice General Secretary", council: "parish_board" },
@@ -44,71 +44,61 @@ function initials(name: string): string {
 }
 
 export default function LeadershipSection() {
-  const [members, setMembers] = useState<Member[]>(fallbackMembers);
+  const [members, setMembers] = useState<Member[]>(fallback);
 
   useEffect(() => {
     fetch("/api/committee")
       .then((r) => r.ok && r.json())
       .then((data) => {
-        if (data && Array.isArray(data) && data.length > 0) {
-          setMembers(data);
-        }
+        if (Array.isArray(data) && data.length > 0) setMembers(data);
       })
       .catch(() => {});
   }, []);
 
   return (
-    <section id="leadership" className="bg-maroon px-4 py-20 md:py-28">
-      <div className="mx-auto max-w-5xl">
+    <section id="committee" className="bg-slate px-4 py-24 md:py-32">
+      <div className="mx-auto max-w-4xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="mb-12 text-center"
+          className="text-center"
         >
-          <p className="mb-2 text-sm font-medium uppercase tracking-[0.2em] text-gold/60">
+          <span className="inline-block rounded-full bg-nobuk-muted px-4 py-1.5 text-xs font-medium text-nobuk uppercase tracking-wider">
+            Committee
+          </span>
+          <h2 className="mt-4 text-3xl font-bold text-nobuk md:text-4xl">
             Our Leadership
-          </p>
-          <h2 className="font-display text-3xl font-bold text-cream md:text-5xl">
-            Committee Members
           </h2>
-          <div className="mx-auto mt-4 h-1 w-16 rounded-full bg-gold" />
         </motion.div>
 
         {councils.map((council) => {
-          const councilMembers = members.filter(
-            (m) => m.council === council.key,
-          );
-          if (councilMembers.length === 0) return null;
+          const group = members.filter((m) => m.council === council.key);
+          if (group.length === 0) return null;
 
           return (
-            <div key={council.key} className="mb-10 last:mb-0">
-              <motion.h3
-                initial={{ opacity: 0 }}
-                whileInView={{ opacity: 1 }}
-                viewport={{ once: true }}
-                className="mb-4 text-sm font-bold uppercase tracking-[0.2em] text-gold"
-              >
+            <div key={council.key} className="mt-10 first:mt-8">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted mb-3">
                 {council.label}
-              </motion.h3>
+              </h3>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {councilMembers.map((member, i) => (
+                {group.map((member, i) => (
                   <motion.div
                     key={member.id}
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 10 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: i * 0.05 }}
-                    className="flex items-center gap-3 rounded-xl bg-cream/10 p-4 backdrop-blur-sm"
+                    className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm"
                   >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold/20 text-sm font-bold text-gold">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-nobuk-muted text-xs font-bold text-nobuk">
                       {initials(member.name)}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate font-semibold text-cream">
+                      <p className="text-sm font-medium text-ink truncate">
                         {member.name}
                       </p>
-                      <p className="truncate text-sm text-cream/60">
+                      <p className="text-xs text-muted truncate">
                         {member.role}
                       </p>
                     </div>

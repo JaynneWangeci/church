@@ -5,8 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Check, Loader2, Share2 } from "lucide-react";
 
 type Step = "form" | "processing" | "success";
-type Amount = number | "custom";
-
 const presets = [500, 1000, 2500, 5000, 10000];
 
 interface MemberOption {
@@ -23,21 +21,17 @@ function formatPhone(value: string): string {
 
 export default function DonationForm() {
   const [step, setStep] = useState<Step>("form");
-  const [amount, setAmount] = useState<Amount | null>(null);
+  const [amount, setAmount] = useState<number | "custom" | null>(null);
   const [customAmount, setCustomAmount] = useState("");
   const [donorName, setDonorName] = useState("");
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
   const [honoredMember, setHonoredMember] = useState("");
   const [members, setMembers] = useState<MemberOption[]>([]);
-  const [checkoutRequestId, setCheckoutRequestId] = useState("");
   const [receiptNumber, setReceiptNumber] = useState("");
   const [error, setError] = useState("");
 
-  const finalAmount =
-    amount === "custom"
-      ? Number(customAmount) || 0
-      : amount || 0;
+  const finalAmount = amount === "custom" ? Number(customAmount) || 0 : amount || 0;
 
   useEffect(() => {
     fetch("/api/committee")
@@ -48,49 +42,44 @@ export default function DonationForm() {
       .catch(() => {});
   }, []);
 
-  const pollStatus = useCallback(
-    (checkoutId: string) => {
-      const interval = setInterval(async () => {
-        try {
-          const res = await fetch(
-            `/api/donations/status?checkoutRequestId=${checkoutId}`,
-          );
-          const data = await res.json();
-          if (data.status === "completed") {
-            clearInterval(interval);
-            setReceiptNumber(data.receipt_number);
-            setStep("success");
-          } else if (data.status === "failed") {
-            clearInterval(interval);
-            setError("Payment failed. Please try again.");
-            setStep("form");
-          }
-        } catch {
+  const pollStatus = useCallback((checkoutId: string) => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/donations/status?checkoutRequestId=${checkoutId}`);
+        const data = await res.json();
+        if (data.status === "completed") {
           clearInterval(interval);
-          setError("Network error. Please try again.");
+          setReceiptNumber(data.receipt_number);
+          setStep("success");
+        } else if (data.status === "failed") {
+          clearInterval(interval);
+          setError("Payment failed. Please try again.");
           setStep("form");
         }
-      }, 3000);
-
-      setTimeout(() => {
+      } catch {
         clearInterval(interval);
-        setError("Payment timed out. Please try again.");
+        setError("Network error. Please try again.");
         setStep("form");
-      }, 60000);
-    },
-    [],
-  );
+      }
+    }, 3000);
+
+    setTimeout(() => {
+      clearInterval(interval);
+      setError("Payment timed out. Please try again.");
+      setStep("form");
+    }, 60000);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
 
     if (!finalAmount || finalAmount < 10) {
-      setError("Please enter an amount of at least KES 10");
+      setError("Amount must be at least KES 10");
       return;
     }
     if (!phone || phone.replace(/\s/g, "").length < 10) {
-      setError("Please enter a valid M-Pesa phone number");
+      setError("Enter a valid M-Pesa phone number");
       return;
     }
 
@@ -117,7 +106,6 @@ export default function DonationForm() {
         return;
       }
 
-      setCheckoutRequestId(data.checkout_request_id || data.donation_id);
       pollStatus(data.checkout_request_id || data.donation_id);
     } catch {
       setError("Network error. Please try again.");
@@ -132,7 +120,7 @@ export default function DonationForm() {
     window.open(`https://wa.me/?text=${text}`, "_blank");
   }
 
-  function handleGiveAgain() {
+  function reset() {
     setStep("form");
     setAmount(null);
     setCustomAmount("");
@@ -145,38 +133,29 @@ export default function DonationForm() {
   }
 
   return (
-    <section
-      id="give"
-      className="scroll-mt-16 bg-cream px-4 py-20 md:py-28"
-    >
+    <section id="give" className="scroll-mt-16 bg-white px-4 py-24 md:py-32">
       <div className="mx-auto max-w-lg">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="mb-8 text-center"
-        >
-          <p className="mb-2 text-sm font-medium uppercase tracking-[0.2em] text-maroon/60">
-            Toa • Give
-          </p>
-          <h2 className="font-display text-3xl font-bold text-maroon md:text-4xl">
+        <div className="text-center">
+          <span className="inline-block rounded-full bg-nobuk-muted px-4 py-1.5 text-xs font-medium text-nobuk uppercase tracking-wider">
+            Give
+          </span>
+          <h2 className="mt-4 text-3xl font-bold text-nobuk md:text-4xl">
             Support the Harambee
           </h2>
-          <div className="mx-auto mt-4 h-1 w-16 rounded-full bg-gold" />
-        </motion.div>
+        </div>
 
         <AnimatePresence mode="wait">
           {step === "form" && (
             <motion.form
               key="form"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
               onSubmit={handleSubmit}
-              className="space-y-5"
+              className="mt-8 space-y-5"
             >
               {error && (
-                <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
+                <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
                   {error}
                 </div>
               )}
@@ -185,64 +164,56 @@ export default function DonationForm() {
                 <label className="mb-2 block text-sm font-medium text-ink">
                   Amount (KES)
                 </label>
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                <div className="grid grid-cols-5 gap-2">
                   {presets.map((p) => (
                     <button
                       key={p}
                       type="button"
-                      onClick={() => {
-                        setAmount(p as Amount);
-                        setCustomAmount("");
-                      }}
-                      className={`rounded-xl py-3 text-sm font-bold transition ${
+                      onClick={() => { setAmount(p as any); setCustomAmount(""); }}
+                      className={`rounded-lg py-2.5 text-sm font-semibold transition ${
                         amount === p
-                          ? "bg-maroon text-cream shadow-md"
-                          : "bg-white text-ink hover:bg-maroon/5"
+                          ? "bg-nobuk text-white shadow-sm"
+                          : "bg-slate text-muted hover:bg-nobuk-muted"
                       }`}
                     >
                       {p.toLocaleString()}
                     </button>
                   ))}
                 </div>
-                <div className="mt-2">
-                  <input
-                    type="number"
-                    placeholder="Other amount"
-                    value={customAmount}
-                    onChange={(e) => {
-                      setCustomAmount(e.target.value);
-                      if (e.target.value) setAmount("custom");
-                    }}
-                    className="w-full rounded-xl border border-ink/10 bg-white px-4 py-3 text-lg text-ink outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/20"
-                  />
-                </div>
+                <input
+                  type="number"
+                  placeholder="Custom amount"
+                  value={customAmount}
+                  onChange={(e) => { setCustomAmount(e.target.value); if (e.target.value) setAmount("custom"); }}
+                  className="mt-2 w-full rounded-lg border border-gray-200 bg-slate px-4 py-2.5 text-ink outline-none transition focus:border-nobuk focus:bg-white"
+                />
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-ink">
-                  Jina lako (Your name)
+                  Your name
                 </label>
                 <input
                   type="text"
                   placeholder="e.g. Mary Wanjiku"
                   value={donorName}
                   onChange={(e) => setDonorName(e.target.value)}
-                  className="w-full rounded-xl border border-ink/10 bg-white px-4 py-3 text-ink outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/20"
+                  className="w-full rounded-lg border border-gray-200 bg-slate px-4 py-2.5 text-ink outline-none transition focus:border-nobuk focus:bg-white"
                 />
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-ink">
-                  Namba ya M-Pesa (M-Pesa number)
+                  M-Pesa number
                 </label>
                 <input
                   type="tel"
                   placeholder="07XX XXX XXX"
                   value={phone}
                   onChange={(e) => setPhone(formatPhone(e.target.value))}
-                  className="w-full rounded-xl border border-ink/10 bg-white px-4 py-3 text-lg text-ink outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/20"
+                  className="w-full rounded-lg border border-gray-200 bg-slate px-4 py-2.5 text-ink outline-none transition focus:border-nobuk focus:bg-white"
                 />
-                <p className="mt-1 text-xs text-ink/50">
+                <p className="mt-1 text-xs text-muted">
                   You will receive an M-Pesa prompt to enter your PIN
                 </p>
               </div>
@@ -254,46 +225,42 @@ export default function DonationForm() {
                 <select
                   value={honoredMember}
                   onChange={(e) => setHonoredMember(e.target.value)}
-                  className="w-full rounded-xl border border-ink/10 bg-white px-4 py-3 text-ink outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/20"
+                  className="w-full rounded-lg border border-gray-200 bg-slate px-4 py-2.5 text-ink outline-none transition focus:border-nobuk focus:bg-white"
                 >
                   <option value="">None</option>
                   {members.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
+                    <option key={m.id} value={m.id}>{m.name}</option>
                   ))}
                 </select>
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-ink">
-                  Ujumbe (Message - optional)
+                  Message (optional)
                 </label>
                 <textarea
                   placeholder="With thanksgiving for..."
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   rows={2}
-                  className="w-full rounded-xl border border-ink/10 bg-white px-4 py-3 text-ink outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/20"
+                  className="w-full rounded-lg border border-gray-200 bg-slate px-4 py-2.5 text-ink outline-none transition focus:border-nobuk focus:bg-white"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={!finalAmount || finalAmount < 10}
-                className="w-full rounded-full bg-maroon py-4 text-lg font-bold text-cream shadow-lg shadow-maroon/20 transition hover:bg-maroon/90 disabled:cursor-not-allowed disabled:opacity-40"
+                className="w-full rounded-full bg-nobuk py-3.5 text-base font-semibold text-white shadow-sm transition hover:bg-nobuk-light disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Toa KES {finalAmount.toLocaleString()} via M-Pesa
+                Give KES {finalAmount.toLocaleString()} via M-Pesa
               </button>
 
-              <div className="rounded-xl bg-terracotta-tint p-4 text-center">
-                <p className="text-sm font-medium text-ink/70">
-                  AU — Lipa kwa M-Pesa Paybill
+              <div className="rounded-xl border border-gray-100 bg-slate p-4 text-center">
+                <p className="text-xs font-medium text-muted uppercase tracking-wider">
+                  Or pay directly via M-Pesa Paybill
                 </p>
-                <p className="mt-1 font-display text-2xl font-bold text-maroon">
-                  247 247
-                </p>
-                <p className="text-sm text-ink/60">
+                <p className="mt-1 text-xl font-bold text-nobuk">247 247</p>
+                <p className="text-xs text-muted">
                   Account: <span className="font-semibold">Harambee</span>
                 </p>
               </div>
@@ -303,22 +270,17 @@ export default function DonationForm() {
           {step === "processing" && (
             <motion.div
               key="processing"
-              initial={{ opacity: 0, scale: 0.9 }}
+              initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
-              className="rounded-2xl bg-maroon p-8 text-center text-cream"
+              className="mt-8 rounded-2xl border border-gray-100 bg-slate p-8 text-center shadow-sm"
             >
-              <Loader2
-                size={48}
-                className="mx-auto mb-4 animate-spin text-gold"
-              />
-              <h3 className="font-display text-xl font-bold">
-                Processing...
-              </h3>
-              <p className="mt-2 text-cream/80">
+              <Loader2 size={36} className="mx-auto mb-4 animate-spin text-nobuk" />
+              <h3 className="text-lg font-semibold text-ink">Processing...</h3>
+              <p className="mt-2 text-sm text-muted">
                 Check your phone for the M-Pesa PIN prompt
               </p>
-              <p className="mt-1 text-sm text-cream/60">
+              <p className="mt-1 text-xs text-muted">
                 Amount: KES {finalAmount.toLocaleString()}
               </p>
             </motion.div>
@@ -327,30 +289,29 @@ export default function DonationForm() {
           {step === "success" && (
             <motion.div
               key="success"
-              initial={{ opacity: 0, scale: 0.9 }}
+              initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
-              className="rounded-2xl bg-maroon p-8 text-center text-cream"
+              className="mt-8 rounded-2xl border border-gray-100 bg-slate p-8 text-center shadow-sm"
             >
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", stiffness: 200 }}
-                className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gold"
+                className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-nobuk"
               >
-                <Check size={32} className="text-maroon" />
+                <Check size={28} className="text-white" />
               </motion.div>
 
-              <h3 className="font-display text-2xl font-bold">
+              <h3 className="text-xl font-bold text-ink">
                 Asante sana{donorName ? `, ${donorName}` : ""}!
               </h3>
-              <p className="mt-2 text-cream/80">
-                Your gift of KES {finalAmount.toLocaleString()} has been
-                received. May God bless you abundantly.
+              <p className="mt-2 text-sm text-muted">
+                Your gift of KES {finalAmount.toLocaleString()} has been received.
               </p>
 
               {receiptNumber && (
-                <p className="mt-3 font-mono text-xs text-cream/50">
+                <p className="mt-3 font-mono text-xs text-muted">
                   Receipt: {receiptNumber}
                 </p>
               )}
@@ -358,14 +319,14 @@ export default function DonationForm() {
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <button
                   onClick={handleWhatsAppShare}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-full bg-green-600 px-6 py-3 font-bold text-white transition hover:bg-green-700"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-full bg-green-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700"
                 >
-                  <Share2 size={16} />
+                  <Share2 size={15} />
                   Share on WhatsApp
                 </button>
                 <button
-                  onClick={handleGiveAgain}
-                  className="flex-1 rounded-full bg-cream/20 px-6 py-3 font-bold text-cream transition hover:bg-cream/30"
+                  onClick={reset}
+                  className="flex-1 rounded-full border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-muted transition hover:bg-slate"
                 >
                   Give Again
                 </button>

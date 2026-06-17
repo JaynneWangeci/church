@@ -1,27 +1,32 @@
 @import "tailwindcss";
 
 :root {
-  --color-maroon: #7A1F3D;
-  --color-magenta: #C9447A;
-  --color-gold: #E8B84B;
-  --color-cream: #FBF6EE;
-  --color-ink: #2B1118;
-  --color-terracotta-tint: #F4E4D4;
+  --color-nobuk: #062A30;
+  --color-nobuk-light: #0A3D45;
+  --color-nobuk-muted: #E8F0F1;
+  --color-amber: #D4A853;
+  --color-amber-light: #FDF6E8;
+  --color-slate: #F7F8F9;
+  --color-ink: #1A1A1A;
+  --color-muted: #6B7280;
 }
 
 @theme inline {
-  --color-maroon: var(--color-maroon);
-  --color-magenta: var(--color-magenta);
-  --color-gold: var(--color-gold);
-  --color-cream: var(--color-cream);
+  --color-nobuk: var(--color-nobuk);
+  --color-nobuk-light: var(--color-nobuk-light);
+  --color-nobuk-muted: var(--color-nobuk-muted);
+  --color-amber: var(--color-amber);
+  --color-amber-light: var(--color-amber-light);
+  --color-slate: var(--color-slate);
   --color-ink: var(--color-ink);
-  --color-terracotta-tint: var(--color-terracotta-tint);
+  --color-muted: var(--color-muted);
   --font-body: var(--font-body);
 }
 
 *:focus-visible {
-  outline: 2px solid var(--color-gold);
+  outline: 2px solid var(--color-amber);
   outline-offset: 2px;
+  border-radius: 4px;
 }
 
 html {

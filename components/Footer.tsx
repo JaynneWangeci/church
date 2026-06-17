@@ -2,25 +2,21 @@ import { Play, Globe } from "lucide-react";
 
 export default function Footer() {
   return (
-    <footer className="bg-ink px-4 py-12 text-cream/60">
+    <footer className="border-t border-gray-100 bg-white px-4 py-10">
       <div className="mx-auto max-w-4xl text-center">
-        <p className="font-display text-lg font-bold text-cream">
-          AIPCA Bahati Cathedral
-        </p>
-        <p className="mt-1 text-sm">
-          Bahati, Eastlands, Nairobi, Kenya
-        </p>
+        <p className="text-sm font-bold text-nobuk">AIPCA Bahati Cathedral</p>
+        <p className="mt-1 text-xs text-muted">Bahati, Eastlands, Nairobi</p>
 
-        <div className="mx-auto mt-4 flex items-center justify-center gap-4">
+        <div className="mt-4 flex items-center justify-center gap-4 text-xs">
           <a
             href="#transparency"
-            className="text-sm underline underline-offset-2 transition hover:text-cream"
+            className="text-muted underline underline-offset-2 hover:text-nobuk transition"
           >
             Transparency
           </a>
           <a
             href="/api/ledger/export"
-            className="text-sm underline underline-offset-2 transition hover:text-cream"
+            className="text-muted underline underline-offset-2 hover:text-nobuk transition"
           >
             Download Ledger
           </a>
@@ -31,25 +27,22 @@ export default function Footer() {
             href="https://youtube.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-full p-2 transition hover:bg-cream/10 hover:text-cream"
-            aria-label="YouTube"
+            className="rounded-full p-2 text-muted transition hover:bg-nobuk-muted hover:text-nobuk"
           >
-            <Play size={18} />
+            <Play size={16} />
           </a>
           <a
             href="https://facebook.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-full p-2 transition hover:bg-cream/10 hover:text-cream"
-            aria-label="Facebook"
+            className="rounded-full p-2 text-muted transition hover:bg-nobuk-muted hover:text-nobuk"
           >
-            <Globe size={18} />
+            <Globe size={16} />
           </a>
         </div>
 
-        <p className="mt-6 text-xs">
-          &copy; {new Date().getFullYear()} AIPCA Bahati Cathedral. All rights
-          reserved.
+        <p className="mt-6 text-xs text-muted/60">
+          &copy; {new Date().getFullYear()} AIPCA Bahati Cathedral
         </p>
       </div>
     </footer>

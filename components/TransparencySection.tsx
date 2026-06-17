@@ -2,15 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import CountUp from "react-countup";
-import { Users, TrendingUp, Smartphone, Download } from "lucide-react";
+import { TrendingUp, Users, Download } from "lucide-react";
 
 interface Aggregates {
   total_raised: number;
   total_donors: number;
   avg_gift: number;
-  mpesa_split: number;
-  goal: number;
 }
 
 export default function TransparencySection() {
@@ -25,94 +22,56 @@ export default function TransparencySection() {
 
   const stats = data
     ? [
-        {
-          icon: TrendingUp,
-          label: "Total Raised",
-          value: `KES ${data.total_raised.toLocaleString()}`,
-          sub: `of KES ${data.goal?.toLocaleString() || "5,000,000"} goal`,
-          color: "text-maroon",
-        },
-        {
-          icon: Users,
-          label: "Total Donors",
-          value: data.total_donors.toString(),
-          sub: "and counting",
-          color: "text-maroon",
-        },
-        {
-          icon: Smartphone,
-          label: "Average Gift",
-          value: `KES ${data.avg_gift.toLocaleString()}`,
-          sub: `${data.mpesa_split} via M-Pesa`,
-          color: "text-maroon",
-        },
-        {
-          icon: Download,
-          label: "Full Ledger",
-          value: "Download CSV",
-          sub: "All transactions",
-          color: "text-gold",
-          href: "/api/ledger/export",
-        },
+        { icon: TrendingUp, label: "Total Raised", value: `KES ${data.total_raised.toLocaleString()}` },
+        { icon: Users, label: "Total Donors", value: data.total_donors.toString() },
+        { icon: TrendingUp, label: "Average Gift", value: `KES ${data.avg_gift.toLocaleString()}` },
+        { icon: Download, label: "Full Ledger", value: "Download CSV", href: "/api/ledger/export" },
       ]
     : [];
 
   return (
-    <section id="transparency" className="bg-terracotta-tint px-4 py-20 md:py-28">
+    <section id="transparency" className="bg-slate px-4 py-24 md:py-32">
       <div className="mx-auto max-w-4xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="mb-12 text-center"
+          className="text-center"
         >
-          <p className="mb-2 text-sm font-medium uppercase tracking-[0.2em] text-maroon/60">
+          <span className="inline-block rounded-full bg-nobuk-muted px-4 py-1.5 text-xs font-medium text-nobuk uppercase tracking-wider">
             Transparency
-          </p>
-          <h2 className="font-display text-3xl font-bold text-maroon md:text-5xl">
+          </span>
+          <h2 className="mt-4 text-3xl font-bold text-nobuk md:text-4xl">
             Giving Dashboard
           </h2>
-          <div className="mx-auto mt-4 h-1 w-16 rounded-full bg-gold" />
         </motion.div>
 
         {data && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {stats.map((stat, i) => {
               const Icon = stat.icon;
-              const isLink = !!stat.href;
-
               const content = (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.1 }}
-                  className="rounded-xl bg-white p-5 shadow-sm transition hover:shadow-md"
+                  className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm transition hover:shadow-md"
                 >
-                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-maroon/10">
-                    <Icon size={20} className={stat.color} />
+                  <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-nobuk-muted">
+                    <Icon size={17} className="text-nobuk" />
                   </div>
-                  <p className="text-sm font-medium uppercase tracking-wider text-ink/50">
+                  <p className="text-xs font-medium text-muted uppercase tracking-wider">
                     {stat.label}
                   </p>
-                  <p className="mt-1 font-display text-2xl font-bold text-ink">
-                    {stat.value}
-                  </p>
-                  <p className="text-sm text-ink/50">{stat.sub}</p>
+                  <p className="mt-1 text-xl font-bold text-ink">{stat.value}</p>
                 </motion.div>
               );
 
-              if (isLink) {
-                return (
-                  <a key={stat.label} href={stat.href}>
-                    {content}
-                  </a>
-                );
+              if ("href" in stat) {
+                return <a key={stat.label} href={stat.href}>{content}</a>;
               }
-
-              return (
-                <div key={stat.label}>{content}</div>
-              );
+              return <div key={stat.label}>{content}</div>;
             })}
           </div>
         )}
@@ -121,12 +80,9 @@ export default function TransparencySection() {
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
-          className="mt-8 rounded-xl bg-white p-6 text-center shadow-sm"
+          className="mt-6 text-center text-xs text-muted"
         >
-          <p className="text-sm text-ink/60">
-            Every contribution is recorded and auditable. Download the full
-            ledger for complete transparency.
-          </p>
+          Every contribution is recorded and auditable.
         </motion.div>
       </div>
     </section>

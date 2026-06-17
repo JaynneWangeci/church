@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Church, MapPin, Clock, Heart } from "lucide-react";
+import { MapPin, Clock } from "lucide-react";
 
 const details = [
   {
@@ -11,71 +11,58 @@ const details = [
   },
   {
     icon: Clock,
-    label: "Service Times",
+    label: "Services",
     value: "Sundays 8:00 AM & 10:30 AM",
-  },
-  {
-    icon: Heart,
-    label: "Purpose",
-    value: "Sanctuary, Fellowship Hall, Ministry Growth, Grounds",
   },
 ];
 
 export default function AboutSection() {
   return (
-    <section id="about" className="bg-cream px-4 py-20 md:py-28">
-      <div className="mx-auto max-w-4xl">
+    <section id="about" className="bg-slate px-4 py-24 md:py-32">
+      <div className="mx-auto max-w-2xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="mb-12 text-center"
+          className="text-center"
         >
-          <p className="mb-2 text-sm font-medium uppercase tracking-[0.2em] text-maroon/60">
+          <span className="inline-block rounded-full bg-nobuk-muted px-4 py-1.5 text-xs font-medium text-nobuk uppercase tracking-wider">
             About
-          </p>
-          <h2 className="font-display text-3xl font-bold text-maroon md:text-5xl">
+          </span>
+          <h2 className="mt-4 text-3xl font-bold text-nobuk md:text-4xl">
             AIPCA Bahati Cathedral
           </h2>
-          <div className="mx-auto mt-4 h-1 w-16 rounded-full bg-gold" />
+          <p className="mx-auto mt-4 max-w-lg text-muted leading-relaxed">
+            The African Independent Pentecostal Church of Africa (AIPCA)
+            Cathedral in Bahati has been a spiritual home for the Eastlands
+            community. We are raising KES 5,000,000 to complete our development
+            projects.
+          </p>
         </motion.div>
 
-        <motion.p
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="mx-auto mb-12 max-w-2xl text-center text-lg leading-relaxed text-ink/70"
+          transition={{ delay: 0.2 }}
+          className="mt-8 flex justify-center gap-4"
         >
-          The African Independent Pentecostal Church of Africa (AIPCA) Cathedral
-          in Bahati has been a spiritual home for the Eastlands community. We
-          are raising KES 5,000,000 to complete our development projects —
-          building a sanctuary that honours God and a fellowship hall that
-          unites our community.
-        </motion.p>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          {details.map((item, i) => {
+          {details.map((item) => {
             const Icon = item.icon;
             return (
-              <motion.div
+              <div
                 key={item.label}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="rounded-xl bg-white p-6 shadow-sm"
+                className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm"
               >
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-maroon/10 text-maroon">
-                  <Icon size={20} />
+                <Icon size={16} className="text-nobuk" />
+                <div>
+                  <p className="text-xs text-muted">{item.label}</p>
+                  <p className="text-sm font-medium text-ink">{item.value}</p>
                 </div>
-                <p className="text-sm font-medium uppercase tracking-wider text-ink/50">
-                  {item.label}
-                </p>
-                <p className="mt-1 font-medium text-ink">{item.value}</p>
-              </motion.div>
+              </div>
             );
           })}
-        </div>
+        </motion.div>
       </div>
     </section>
   );

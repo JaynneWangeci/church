@@ -1,101 +1,76 @@
 "use client";
 
-import { useState } from "react";
 import { Menu, X } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState } from "react";
 
-const navLinks = [
+const links = [
   { label: "Home", href: "#home" },
   { label: "About", href: "#about" },
   { label: "Projects", href: "#projects" },
-  { label: "Leadership", href: "#leadership" },
+  { label: "Committee", href: "#committee" },
   { label: "Give", href: "#give" },
-  { label: "Transparency", href: "#transparency" },
 ];
 
-interface HeaderProps {
-  light?: boolean;
-}
-
-export default function Header({ light }: HeaderProps) {
+export default function Header() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-colors ${
-        light
-          ? "bg-cream/95 text-ink backdrop-blur-md"
-          : "bg-ink/80 text-cream backdrop-blur-sm"
-      }`}
-    >
-      <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <a
-          href="#home"
-          className="font-display text-lg font-bold tracking-tight"
-        >
-          <span className="text-gold">AIPCA</span> Bahati
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
+      <nav className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+        <a href="#home" className="text-lg font-bold text-nobuk tracking-tight">
+          Harambee
         </a>
 
         <div className="hidden items-center gap-1 md:flex">
-          {navLinks.map((link) => (
+          {links.map((link) => (
             <a
               key={link.href}
               href={link.href}
-              className={`rounded-lg px-3 py-2 text-sm font-medium transition hover:bg-cream/10 ${
-                light ? "hover:bg-ink/5" : "hover:bg-cream/10"
-              }`}
+              className="rounded-lg px-3 py-2 text-sm text-muted transition hover:text-nobuk hover:bg-nobuk-muted"
             >
               {link.label}
             </a>
           ))}
           <a
             href="#give"
-            className="ml-2 rounded-full bg-gold px-5 py-2 text-sm font-bold text-ink transition hover:bg-gold/90"
+            className="ml-2 rounded-full bg-nobuk px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-nobuk-light"
           >
             Give Now
           </a>
         </div>
 
         <button
-          className="rounded-lg p-2 md:hidden"
+          className="rounded-lg p-2 text-nobuk md:hidden"
           onClick={() => setOpen(!open)}
-          aria-label="Toggle menu"
+          aria-label="Menu"
         >
-          {open ? <X size={24} /> : <Menu size={24} />}
+          {open ? <X size={22} /> : <Menu size={22} />}
         </button>
       </nav>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className={`overflow-hidden border-t md:hidden ${
-              light
-                ? "border-ink/10 bg-cream"
-                : "border-cream/10 bg-ink"
-            }`}
-          >
-            <div className="flex flex-col gap-1 px-4 pb-4 pt-2">
-              {navLinks.map((link) => (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setOpen(false)}
-                  className={`rounded-lg px-3 py-3 text-sm font-medium transition ${
-                    light
-                      ? "hover:bg-ink/5"
-                      : "hover:bg-cream/10"
-                  }`}
-                >
-                  {link.label}
-                </a>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {open && (
+        <div className="border-t border-gray-100 bg-white md:hidden">
+          <div className="flex flex-col gap-1 px-4 pb-4 pt-2">
+            {links.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                onClick={() => setOpen(false)}
+                className="rounded-lg px-3 py-3 text-sm text-muted transition hover:text-nobuk hover:bg-nobuk-muted"
+              >
+                {link.label}
+              </a>
+            ))}
+            <a
+              href="#give"
+              onClick={() => setOpen(false)}
+              className="mt-2 rounded-full bg-nobuk px-5 py-3 text-center text-sm font-semibold text-white"
+            >
+              Give Now
+            </a>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

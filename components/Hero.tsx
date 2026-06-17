@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { ChevronDown } from "lucide-react";
-import ArchProgress from "./ArchProgress";
+import NobukProgress from "./NobukProgress";
 
 interface HeroProps {
   raised: number;
@@ -10,71 +10,56 @@ interface HeroProps {
 }
 
 export default function Hero({ raised, goal }: HeroProps) {
-  const scrollToGive = () => {
-    document.getElementById("give")?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  const scrollToAbout = () => {
-    document.getElementById("about")?.scrollIntoView({ behavior: "smooth" });
+  const scrollTo = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
     <section
       id="home"
-      className="relative flex min-h-screen items-center justify-center overflow-hidden"
+      className="relative flex min-h-screen items-center justify-center bg-white px-4 pt-16"
     >
-      <div className="absolute inset-0 bg-gradient-to-b from-maroon/90 via-magenta/70 to-ink/95" />
-
-      <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-10"
-        style={{
-          backgroundImage: "url('/images/church-bg.svg')",
-        }}
-      />
-
-      <div className="relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center px-4 text-center">
+      <div className="mx-auto flex w-full max-w-2xl flex-col items-center text-center">
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="mb-6"
+          transition={{ duration: 0.6 }}
         >
-          <p className="mb-2 text-sm font-medium uppercase tracking-[0.3em] text-gold">
-            Karibu &bull; Harambee 2026
-          </p>
-          <h1 className="font-display text-4xl font-bold leading-tight text-cream md:text-6xl">
+          <span className="inline-block rounded-full bg-nobuk-muted px-4 py-1.5 text-xs font-medium text-nobuk uppercase tracking-wider">
+            Harambee 2026
+          </span>
+          <h1 className="mt-6 text-4xl font-bold leading-tight text-nobuk md:text-5xl">
             Tujenge Pamoja
           </h1>
-          <p className="mt-3 text-lg text-cream/80 md:text-xl">
-            Building AIPCA Bahati Cathedral together &mdash;{" "}
-            <span className="text-gold">your gift matters</span>
+          <p className="mx-auto mt-3 max-w-md text-lg text-muted">
+            Building AIPCA Bahati Cathedral together
           </p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.8, delay: 0.3 }}
-          className="mb-8 w-full max-w-md"
-        >
-          <ArchProgress raised={raised} goal={goal} />
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.6 }}
-          className="flex flex-col gap-3 sm:flex-row"
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="mt-10 w-full max-w-md rounded-2xl border border-gray-100 bg-slate p-6 shadow-sm"
+        >
+          <NobukProgress raised={raised} goal={goal} />
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+          className="mt-8 flex flex-col gap-3 sm:flex-row"
         >
           <button
-            onClick={scrollToGive}
-            className="rounded-full bg-gold px-10 py-4 text-lg font-bold text-ink shadow-lg shadow-gold/20 transition hover:bg-gold/90 hover:shadow-gold/30"
+            onClick={() => scrollTo("give")}
+            className="rounded-full bg-nobuk px-8 py-3.5 text-base font-semibold text-white shadow-sm transition hover:bg-nobuk-light"
           >
-            Toa Sasa &rarr;
+            Give Now &rarr;
           </button>
           <button
-            onClick={scrollToAbout}
-            className="rounded-full border border-cream/30 bg-cream/10 px-10 py-4 text-lg font-medium text-cream backdrop-blur-sm transition hover:bg-cream/20"
+            onClick={() => scrollTo("about")}
+            className="rounded-full border border-gray-200 bg-white px-8 py-3.5 text-base font-medium text-muted transition hover:bg-slate"
           >
             Learn More
           </button>
@@ -82,11 +67,10 @@ export default function Hero({ raised, goal }: HeroProps) {
       </div>
 
       <button
-        onClick={scrollToGive}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce text-cream/50 transition hover:text-cream"
-        aria-label="Scroll down"
+        onClick={() => scrollTo("about")}
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 text-muted/40 hover:text-muted transition"
       >
-        <ChevronDown size={32} />
+        <ChevronDown size={24} />
       </button>
     </section>
   );
