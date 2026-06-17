@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+:root {
+  --color-maroon: #7A1F3D;
+  --color-magenta: #C9447A;
+  --color-gold: #E8B84B;
+  --color-cream: #FBF6EE;
+  --color-ink: #2B1118;
+  --color-terracotta-tint: #F4E4D4;
+}
+
+@theme inline {
+  --color-maroon: var(--color-maroon);
+  --color-magenta: var(--color-magenta);
+  --color-gold: var(--color-gold);
+  --color-cream: var(--color-cream);
+  --color-ink: var(--color-ink);
+  --color-terracotta-tint: var(--color-terracotta-tint);
+  --font-body: var(--font-body);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}
+
+html {
+  scroll-behavior: smooth;
+}
