@@ -1,5 +1,4 @@
 import dotenv from "dotenv";
-dotenv.config({ path: ".env.local" });
 import express from "express";
 import cors from "cors";
 import { authRouter } from "./routes/auth.js";
@@ -9,6 +8,10 @@ import { donationsRouter } from "./routes/donations.js";
 import { adminRouter } from "./routes/admin.js";
 import { mpesaRouter } from "./routes/mpesa.js";
 import { ledgerRouter } from "./routes/ledger.js";
+
+if (!process.env.VERCEL) {
+  dotenv.config({ path: ".env.local" });
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;
