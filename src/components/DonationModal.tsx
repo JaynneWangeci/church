@@ -76,6 +76,11 @@ export default function DonationModal({ member, onClose }: Props) {
 
     try {
       const campRes = await fetch('/api/campaigns/development-fund');
+      if (!campRes.ok) {
+        const errData = await campRes.json().catch(() => ({}));
+        setError(errData?.error || `Campaign API error (${campRes.status})`);
+        setStep('form'); return;
+      }
       const campData = await campRes.json();
       if (!campData?.id) { setError('Campaign not found'); setStep('form'); return; }
 
@@ -93,7 +98,10 @@ export default function DonationModal({ member, onClose }: Props) {
         }),
       });
       const donData = await donRes.json();
-      if (!donRes.ok || !donData.donation?.id) { setError(donData.error || 'Failed'); setStep('form'); return; }
+      if (!donRes.ok || !donData.donation?.id) {
+        setError(donData?.error || `Donation API error (${donRes.status})`);
+        setStep('form'); return;
+      }
 
       const mpesaRes = await fetch('/api/mpesa/stkpush', {
         method: 'POST',
@@ -106,8 +114,11 @@ export default function DonationModal({ member, onClose }: Props) {
           transaction_desc: isGeneral ? 'General Donation' : `Honour: ${member.name}`,
         }),
       });
-      const mpesaData = await mpesaRes.json();
-      if (!mpesaRes.ok || !mpesaData.CheckoutRequestID) { setError(mpesaData.error || 'M-Pesa failed'); setStep('form'); return; }
+      const mpesaData = await mpesaRes.json().catch(() => ({}));
+      if (!mpesaRes.ok || !mpesaData.CheckoutRequestID) {
+        setError(mpesaData?.errorMessage || mpesaData?.error || `M-Pesa failed (${mpesaRes.status})`);
+        setStep('form'); return;
+      }
 
       pollStatus(mpesaData.CheckoutRequestID);
     } catch (err: any) {

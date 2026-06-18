@@ -74,9 +74,12 @@ mpesaRouter.post("/stkpush", async (req, res) => {
     }
 
     res.json(stkData);
-  } catch (err) {
+  } catch (err: any) {
     console.error("mpesa stkpush error:", err);
-    res.status(500).json({ error: "M-Pesa request failed" });
+    res.status(200).json({
+      errorCode: "500",
+      errorMessage: err?.message || "M-Pesa request failed",
+    });
   }
 });
 
