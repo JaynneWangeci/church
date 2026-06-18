@@ -30,7 +30,7 @@ values (
 insert into admin_users (email, password_hash, name, role)
 values (
   'admin@church.org',
-  '$2a$12$LJ3m4ys3Lg3YOCwKkp/wSeG6NkRpPM.7Y5G0kQ.Y0kY0kY0kY0kY0',
+  '$2a$10$hz33vVsNacrc1wR2gn9LKumtoZTLP762Hff5Ywow5SrLHgTycPLsm',
   'Super Admin',
   'super_admin'
 );
