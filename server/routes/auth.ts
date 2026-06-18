@@ -1,6 +1,11 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
-import { hashPassword, verifyPassword, signToken, verifyToken, logAudit, requireAdmin, getClientIp } from "../lib/admin.js";
+import {
+  hashPassword, verifyPassword, signToken, verifyToken,
+  logAudit, requireAdmin, getClientIp,
+  createSession, invalidateSession,
+  checkLoginRateLimit, recordFailedAttempt, resetFailedAttempts,
+} from "../lib/admin.js";
 
 export const authRouter = Router();
 
@@ -71,33 +76,51 @@ authRouter.post("/login", async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: "Email and password required" });
 
+    const normalizedEmail = email.toLowerCase().trim();
+    const ip = getClientIp(req);
+    const ua = (req.headers["user-agent"] || "").slice(0, 512) || null;
+
+    const rateCheck = await checkLoginRateLimit(normalizedEmail);
+    if (rateCheck.blocked) {
+      return res.status(429).json({
+        error: `Account locked due to too many failed attempts. Try again in ${rateCheck.remainingMinutes} minutes.`,
+      });
+    }
+
     const db = requireService();
     const { data: user, error } = await db
       .from("admin_users")
       .select("*")
-      .eq("email", email.toLowerCase().trim())
+      .eq("email", normalizedEmail)
       .single();
 
-    const ip = getClientIp(req);
-
     if (error || !user || !verifyPassword(password, user.password_hash)) {
+      await recordFailedAttempt(normalizedEmail);
+
       if (user) {
         await logAudit({
           adminId: user.id,
           action: "failed_login",
           ipAddress: ip,
-          details: { email: email.toLowerCase().trim() },
+          userAgent: ua,
+          details: { email: normalizedEmail },
         });
       }
+
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
     const token = signToken({ id: user.id, email: user.email, role: user.role });
 
+    await createSession(user.id, token, ip, ua);
+    await resetFailedAttempts(normalizedEmail);
+    await db.from("admin_users").update({ last_login_ip: ip }).eq("id", user.id);
+
     await logAudit({
       adminId: user.id,
       action: "login",
       ipAddress: ip,
+      userAgent: ua,
     });
 
     res.json({ token, admin: { id: user.id, email: user.email, name: user.name, role: user.role } });
@@ -122,11 +145,17 @@ authRouter.get("/me", requireAdmin, async (req, res) => {
 authRouter.post("/logout", requireAdmin, async (req, res) => {
   try {
     const admin = (req as any).admin;
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : "";
+
+    await invalidateSession(token);
     await logAudit({
       adminId: admin.id,
       action: "logout",
       ipAddress: (req as any).adminIp,
+      userAgent: (req as any).userAgent,
     });
+
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: "Server error" });

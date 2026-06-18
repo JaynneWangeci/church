@@ -1,11 +1,15 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
-import { requireAdmin, requireSuperAdmin, logAudit } from "../lib/admin.js";
+import {
+  requireAdmin, requireSuperAdmin, logAudit,
+  filterDonationsByRole, verifyPassword, hashPassword, getClientIp,
+} from "../lib/admin.js";
 
 export const adminRouter = Router();
 
 adminRouter.get("/stats", requireAdmin, async (req, res) => {
   try {
+    const admin = (req as any).admin;
     const db = requireService();
 
     const { data: campaign } = await db
@@ -20,7 +24,7 @@ adminRouter.get("/stats", requireAdmin, async (req, res) => {
 
     const { data: completedDonations } = await db
       .from("donations")
-      .select("amount, donor_name, status, id, created_at")
+      .select("id, amount, donor_name, status, method, receipt_number, phone, message, created_at, campaign_id")
       .eq("status", "completed")
       .order("created_at", { ascending: false });
 
@@ -34,11 +38,11 @@ adminRouter.get("/stats", requireAdmin, async (req, res) => {
       .select("amount")
       .eq("status", "failed");
 
-    const admin = (req as any).admin;
     await logAudit({
       adminId: admin.id,
       action: "view_stats",
       ipAddress: (req as any).adminIp,
+      userAgent: (req as any).userAgent,
     });
 
     const totalFromDonations = (completedDonations || []).reduce((s, d) => s + Number(d.amount), 0);
@@ -50,6 +54,9 @@ adminRouter.get("/stats", requireAdmin, async (req, res) => {
         .filter(Boolean)
     );
 
+    const filtered = filterDonationsByRole(completedDonations || [], admin.role);
+    const maskedDonations = filtered.slice(0, 20);
+
     const stats = {
       goal,
       raised: totalRaised,
@@ -59,7 +66,7 @@ adminRouter.get("/stats", requireAdmin, async (req, res) => {
       pending_count: (pendingDonations || []).length,
       failed_count: (failedDonations || []).length,
       member_count: 0,
-      recent_donations: (completedDonations || []).slice(0, 20),
+      recent_donations: maskedDonations,
     };
 
     const { count: memberCount } = await db
@@ -87,7 +94,7 @@ adminRouter.get("/audit-logs", requireAdmin, async (req, res) => {
 
     const { data, error } = await db
       .from("audit_logs")
-      .select("id, action, resource_type, resource_id, details, ip_address, created_at, admin_name")
+      .select("*")
       .order("created_at", { ascending: false })
       .limit(limit);
 
@@ -97,6 +104,7 @@ adminRouter.get("/audit-logs", requireAdmin, async (req, res) => {
       adminId: admin.id,
       action: "view_audit_logs",
       ipAddress: (req as any).adminIp,
+      userAgent: (req as any).userAgent,
     });
 
     res.json({ logs: data || [] });
@@ -133,6 +141,7 @@ adminRouter.post("/admins", requireAdmin, requireSuperAdmin, async (req, res) =>
       resourceType: "admin_user",
       resourceId: data.id,
       ipAddress: (req as any).adminIp,
+      userAgent: (req as any).userAgent,
     });
 
     res.status(201).json({ admin: data });
@@ -181,6 +190,7 @@ adminRouter.put("/users/:id", requireAdmin, requireSuperAdmin, async (req, res) 
       resourceType: "admin_user",
       resourceId: data.id,
       ipAddress: (req as any).adminIp,
+      userAgent: (req as any).userAgent,
     });
 
     res.json({ admin: data });
@@ -214,6 +224,7 @@ adminRouter.delete("/users/:id", requireAdmin, requireSuperAdmin, async (req, re
       resourceType: "admin_user",
       resourceId: req.params.id,
       ipAddress: (req as any).adminIp,
+      userAgent: (req as any).userAgent,
     });
 
     res.json({ ok: true });
@@ -262,6 +273,7 @@ adminRouter.put("/users/:id/password", requireAdmin, async (req, res) => {
       resourceType: "admin_user",
       resourceId: req.params.id,
       ipAddress: (req as any).adminIp,
+      userAgent: (req as any).userAgent,
     });
 
     res.json({ ok: true });

@@ -36,7 +36,14 @@ committeeRouter.post("/", requireAdmin, requireAdminOrAbove, async (req, res) =>
     if (error) return res.status(500).json({ error: error.message });
 
     const admin = (req as any).admin;
-    await logAudit({ adminId: admin.id, action: "create_committee", resourceType: "committee_member", resourceId: data.id });
+    await logAudit({
+      adminId: admin.id,
+      action: "create_committee",
+      resourceType: "committee_member",
+      resourceId: data.id,
+      ipAddress: (req as any).ipAddress,
+      userAgent: (req as any).userAgent,
+    });
 
     res.status(201).json({ member: data });
   } catch (err) {
@@ -66,7 +73,14 @@ committeeRouter.patch("/:id", requireAdmin, requireAdminOrAbove, async (req, res
     if (error) return res.status(500).json({ error: error.message });
 
     const admin = (req as any).admin;
-    await logAudit({ adminId: admin.id, action: "update_committee", resourceType: "committee_member", resourceId: data.id });
+    await logAudit({
+      adminId: admin.id,
+      action: "update_committee",
+      resourceType: "committee_member",
+      resourceId: data.id,
+      ipAddress: (req as any).ipAddress,
+      userAgent: (req as any).userAgent,
+    });
 
     res.json({ member: data });
   } catch (err) {
@@ -83,7 +97,14 @@ committeeRouter.delete("/:id", requireAdmin, requireAdminOrAbove, async (req, re
     if (error) return res.status(500).json({ error: error.message });
 
     const admin = (req as any).admin;
-    await logAudit({ adminId: admin.id, action: "delete_committee", resourceType: "committee_member", resourceId: req.params.id });
+    await logAudit({
+      adminId: admin.id,
+      action: "delete_committee",
+      resourceType: "committee_member",
+      resourceId: req.params.id,
+      ipAddress: (req as any).ipAddress,
+      userAgent: (req as any).userAgent,
+    });
 
     res.json({ ok: true });
   } catch (err) {

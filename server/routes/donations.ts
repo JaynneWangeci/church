@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
-import { requireAdmin, logAudit } from "../lib/admin.js";
+import { requireAdmin, logAudit, maskSensitiveData } from "../lib/admin.js";
 
 export const donationsRouter = Router();
 
@@ -17,7 +17,26 @@ donationsRouter.get("/", async (req, res) => {
 
     const { data, error } = await query;
     if (error) return res.status(500).json({ error: error.message });
-    res.json({ donations: data || [] });
+
+    const admin = (req as any).admin;
+    let donations = data || [];
+
+    if (!admin) {
+      donations = donations
+        .filter((d: any) => d.status === "completed")
+        .map((d: any) => {
+          const { phone, checkout_request_id, ...rest } = d;
+          return rest;
+        });
+    } else if (admin.role === "viewer") {
+      donations = donations
+        .filter((d: any) => d.status === "completed")
+        .map((d: any) => maskSensitiveData(d));
+    } else if (admin.role === "admin") {
+      donations = donations.map((d: any) => maskSensitiveData(d));
+    }
+
+    res.json({ donations });
   } catch (err) {
     console.error("donations error:", err);
     res.status(500).json({ error: "Server error" });
@@ -84,6 +103,7 @@ donationsRouter.patch("/:id/status", requireAdmin, async (req, res) => {
       resourceId: data.id,
       details: { status },
       ipAddress: (req as any).adminIp,
+      userAgent: (req as any).userAgent,
     });
 
     res.json({ donation: data });

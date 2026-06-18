@@ -6,9 +6,11 @@ export const mpesaRouter = Router();
 const CONSUMER_KEY = process.env.MPESA_CONSUMER_KEY || "";
 const CONSUMER_SECRET = process.env.MPESA_CONSUMER_SECRET || "";
 const SHORTCODE = process.env.MPESA_SHORTCODE || "174379";
+const TILL_NUMBER = process.env.MPESA_TILL_NUMBER || "835872";
 const PASSKEY = process.env.MPESA_PASSKEY || "";
 const CALLBACK_URL = process.env.MPESA_CALLBACK_URL || "https://yourdomain.com/api/mpesa/callback";
 const ENV = process.env.MPESA_ENV || "sandbox";
+const TRANSACTION_TYPE = process.env.MPESA_TRANSACTION_TYPE || "CustomerBuyGoodsOnline";
 
 const BASE_URL = ENV === "production"
   ? "https://api.safaricom.co.ke"
@@ -40,14 +42,16 @@ mpesaRouter.post("/stkpush", async (req, res) => {
     const timestamp = new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14);
     const password = Buffer.from(`${SHORTCODE}${PASSKEY}${timestamp}`).toString("base64");
 
+    const PartyB = TRANSACTION_TYPE === "CustomerBuyGoodsOnline" ? TILL_NUMBER : SHORTCODE;
+
     const payload = {
       BusinessShortCode: SHORTCODE,
       Password: password,
       Timestamp: timestamp,
-      TransactionType: "CustomerPayBillOnline",
+      TransactionType: TRANSACTION_TYPE,
       Amount: Math.round(Number(amount)),
       PartyA: normalizedPhone,
-      PartyB: SHORTCODE,
+      PartyB,
       PhoneNumber: normalizedPhone,
       CallBackURL: CALLBACK_URL,
       AccountReference: account_reference || "Harambee",
@@ -114,6 +118,11 @@ mpesaRouter.post("/callback", async (req, res) => {
           receipt_number: receiptNumber || `TXN-${Date.now()}`,
         })
         .eq("id", donation.id);
+
+      await db.rpc("increment_campaign_raised", {
+        campaign_id: donation.campaign_id,
+        amount: Number(donation.amount),
+      });
     } else {
       await db
         .from("donations")

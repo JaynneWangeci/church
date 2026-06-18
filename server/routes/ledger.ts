@@ -6,6 +6,11 @@ export const ledgerRouter = Router();
 
 ledgerRouter.get("/export", requireAdmin, async (req, res) => {
   try {
+    const admin = (req as any).admin;
+    if (admin.role === "viewer") {
+      return res.status(403).json({ error: "Viewers cannot export ledger" });
+    }
+
     const db = requireService();
     const { data, error } = await db
       .from("donations")
@@ -15,13 +20,13 @@ ledgerRouter.get("/export", requireAdmin, async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
 
-    const admin = (req as any).admin;
     await logAudit({
       adminId: admin.id,
       action: "export_ledger",
       resourceType: "donation",
       details: { count: data?.length },
       ipAddress: (req as any).adminIp,
+      userAgent: (req as any).userAgent,
     });
 
     const lines = ["Donor,Amount,Method,Status,Receipt,MemberId,Campaign,Date"];
