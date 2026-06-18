@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Heart, Menu, X, MapPin } from 'lucide-react';
+import { Heart, Menu, X } from 'lucide-react';
 
 export default function ChurchHero() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -16,7 +16,6 @@ export default function ChurchHero() {
   const navLinks = [
     { href: '#about', label: 'About' },
     { href: '#contribute', label: 'Contribute' },
-    { href: '#location', label: 'Location' },
   ];
 
   return (
@@ -147,18 +146,12 @@ export default function ChurchHero() {
       </div>
 
       {/* Bottom CTA */}
-      <div className="relative z-10 flex flex-col sm:flex-row items-center justify-center gap-4 px-4 pb-8">
+      <div className="relative z-10 flex items-center justify-center px-4 pb-8">
         <a
           href="#contribute"
           className="bg-white hover:bg-white/90 text-[#1f2a1d] text-sm font-semibold px-5 sm:px-6 py-2.5 sm:py-3 rounded-full transition-colors shadow-sm"
         >
           Give to the Harambee
-        </a>
-        <a
-          href="#location"
-          className="text-white/80 text-sm font-semibold hover:text-white transition-opacity"
-        >
-          Visit Us.
         </a>
       </div>
     </>

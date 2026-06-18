@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, MapPin, Heart } from "lucide-react";
+import { ChevronDown, Heart } from "lucide-react";
 
 const churchHero = "/images/church-opening.jpg";
 
@@ -56,13 +56,6 @@ export default function Hero() {
           >
             <Heart size={18} />
             Give to the Harambee
-          </a>
-          <a
-            href="#location"
-            className="btn-lift inline-flex items-center justify-center gap-2.5 rounded-full border border-white/30 bg-white/10 px-8 py-4 text-base font-semibold text-white backdrop-blur-sm hover:bg-white/20"
-          >
-            <MapPin size={18} />
-            Visit Us
           </a>
         </div>
       </div>

@@ -4,7 +4,6 @@ import { Menu, X, Heart, Shield } from "lucide-react";
 const navLinks = [
   { href: "#about", label: "About" },
   { href: "#give", label: "Give" },
-  { href: "#location", label: "Location" },
 ];
 
 export default function Header() {

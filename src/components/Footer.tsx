@@ -35,12 +35,6 @@ export default function Footer() {
               <Heart size={14} />
               Give
             </a>
-            <a
-              href="#location"
-              className="text-sm text-white/50 transition hover:text-amber"
-            >
-              Location
-            </a>
           </div>
 
           <div className="flex items-center gap-4">
