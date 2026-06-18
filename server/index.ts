@@ -7,6 +7,7 @@ import { committeeRouter } from "./routes/committee.js";
 import { donationsRouter } from "./routes/donations.js";
 import { adminRouter } from "./routes/admin.js";
 import { mpesaRouter } from "./routes/mpesa.js";
+import { c2bRouter } from "./routes/c2b.js";
 import { ledgerRouter } from "./routes/ledger.js";
 import { membersRouter } from "./routes/members.js";
 import { rateLimit } from "./lib/admin.js";
@@ -27,6 +28,7 @@ app.use("/api/committee", committeeRouter);
 app.use("/api/donations", donationsRouter);
 app.use("/api/admin", rateLimit, adminRouter);
 app.use("/api/mpesa", mpesaRouter);
+app.use("/api/c2b", c2bRouter);
 app.use("/api/ledger", rateLimit, ledgerRouter);
 app.use("/api/members", membersRouter);
 

@@ -8,8 +8,6 @@ const CONSUMER_SECRET = process.env.MPESA_CONSUMER_SECRET || "";
 const SHORTCODE = process.env.MPESA_SHORTCODE || "174379";
 const PASSKEY = process.env.MPESA_PASSKEY || "";
 const CALLBACK_URL = process.env.MPESA_CALLBACK_URL || "https://yourdomain.com/api/mpesa/callback";
-const C2B_CONFIRMATION_URL = process.env.MPESA_C2B_CONFIRMATION_URL || `${CALLBACK_URL.replace(/\/callback$/, "")}/c2b/confirmation`;
-const C2B_VALIDATION_URL = process.env.MPESA_C2B_VALIDATION_URL || `${CALLBACK_URL.replace(/\/callback$/, "")}/c2b/validation`;
 const ENV = process.env.MPESA_ENV || "sandbox";
 
 const BASE_URL = ENV === "production"
@@ -124,95 +122,6 @@ mpesaRouter.post("/callback", async (req, res) => {
   } catch (err) {
     console.error("mpesa callback error:", err);
     res.status(200).json({ ok: true });
-  }
-});
-
-// ====== C2B (Tithe-style) endpoints ======
-
-// Safaricom calls this to validate a C2B transaction before processing
-mpesaRouter.post("/c2b/validation", async (req, res) => {
-  res.json({ ResultCode: 0, ResultDesc: "Success" });
-});
-
-// Safaricom calls this after a successful C2B transaction
-mpesaRouter.post("/c2b/confirmation", async (req, res) => {
-  try {
-    const {
-      TransactionType,
-      TransID,
-      TransTime,
-      TransAmount,
-      BusinessShortCode,
-      BillRefNumber,
-      InvoiceNumber,
-      OrgAccountBalance,
-      ThirdPartyTransID,
-      MSISDN,
-      FirstName,
-      MiddleName,
-      LastName,
-    } = req.body;
-
-    const donorName = [FirstName, MiddleName, LastName].filter(Boolean).join(" ");
-    const phone = MSISDN?.toString().replace(/^\+/, "");
-    const campaignSlug = "development-fund";
-
-    const db = requireService();
-
-    const { data: campaign } = await db
-      .from("campaigns")
-      .select("id")
-      .eq("slug", campaignSlug)
-      .eq("is_active", true)
-      .single();
-
-    if (campaign) {
-      await db.from("donations").insert({
-        campaign_id: campaign.id,
-        donor_name: BillRefNumber || donorName || "Anonymous",
-        amount: Number(TransAmount),
-        method: "mpesa",
-        status: "completed",
-        receipt_number: TransID,
-        account_reference: BillRefNumber || null,
-        transaction_id: TransID,
-        donor_phone: phone || null,
-        phone: phone || null,
-      });
-    }
-
-    res.json({ ResultCode: 0, ResultDesc: "Success" });
-  } catch {
-    res.json({ ResultCode: 0, ResultDesc: "Success" });
-  }
-});
-
-// Register C2B validation/confirmation URLs with Safaricom (call once)
-mpesaRouter.post("/c2b/register", async (_req, res) => {
-  try {
-    const accessToken = await getAccessToken();
-
-    const payload = {
-      ShortCode: SHORTCODE,
-      ResponseType: "Completed",
-      ConfirmationURL: C2B_CONFIRMATION_URL,
-      ValidationURL: C2B_VALIDATION_URL,
-    };
-
-    const regRes = await fetch(`${BASE_URL}/mpesa/c2b/v1/registerurl`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await regRes.json();
-    res.json(data);
-  } catch (err) {
-    console.error("c2b register error:", err);
-    res.status(500).json({ error: "C2B registration failed" });
   }
 });
 
