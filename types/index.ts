@@ -60,3 +60,44 @@ export interface LedgerAggregates {
   mpesa_split: number;
   recent_donations: Donation[];
 }
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  name: string;
+  role: "super_admin" | "admin" | "viewer";
+  created_at: string;
+}
+
+export interface AdminSession {
+  id: string;
+  admin_id: string;
+  token_hash: string;
+  expires_at: string;
+  created_at: string;
+}
+
+export type AuditAction =
+  | "login"
+  | "logout"
+  | "view_donations"
+  | "view_donation"
+  | "export_ledger"
+  | "create_committee"
+  | "update_committee"
+  | "delete_committee"
+  | "view_audit_logs"
+  | "create_admin"
+  | "update_admin";
+
+export interface AuditLog {
+  id: string;
+  admin_id: string;
+  action: AuditAction;
+  resource_type: string | null;
+  resource_id: string | null;
+  details: Record<string, unknown> | null;
+  ip_address: string | null;
+  created_at: string;
+  admin_name?: string;
+}

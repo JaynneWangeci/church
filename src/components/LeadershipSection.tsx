@@ -1,0 +1,145 @@
+import { useEffect, useState } from "react";
+import { Church, Medal, Heart, Users } from "lucide-react";
+import { useInView } from "../hooks/useInView";
+
+interface Member {
+  id: string;
+  name: string;
+  role: string;
+  council: string;
+  photo_url: string | null;
+}
+
+const seedMembers: Member[] = [
+  { id: "1", name: "Bishop Muita Njomo", role: "Bishop", council: "parish_board", photo_url: null },
+  { id: "2", name: "Pst. David Kimani", role: "Pastor", council: "parish_board", photo_url: null },
+  { id: "3", name: "Deacon Isaac Muiruri", role: "Deacon", council: "parish_board", photo_url: null },
+  { id: "4", name: "Deacon Macharia Mutuota", role: "Deacon", council: "parish_board", photo_url: null },
+  { id: "5", name: "Deacon Gathogo", role: "Deacon", council: "parish_board", photo_url: null },
+  { id: "6", name: "Mary Wanjiku", role: "Chairlady", council: "women_council", photo_url: null },
+  { id: "7", name: "Margaret Kemunto", role: "Secretary", council: "women_council", photo_url: null },
+  { id: "8", name: "Eunice Nyambura", role: "Treasurer", council: "women_council", photo_url: null },
+  { id: "9", name: "John Mwangi", role: "Chairman", council: "men_council", photo_url: null },
+  { id: "10", name: "Samuel Kamau", role: "Vice Chairman", council: "men_council", photo_url: null },
+  { id: "11", name: "Peter Njoroge", role: "Secretary", council: "men_council", photo_url: null },
+  { id: "12", name: "Daniel Chege", role: "Chairman", council: "development", photo_url: null },
+  { id: "13", name: "Patrick Muthomi", role: "Vice Chair", council: "development", photo_url: null },
+  { id: "14", name: "Jane Wanjeri", role: "Secretary", council: "development", photo_url: null },
+];
+
+const councilLabels: Record<string, { label: string; icon: typeof Church; color: string }> = {
+  parish_board: { label: "Parish Board", icon: Church, color: "bg-nobuk-muted text-nobuk" },
+  women_council: { label: "Women's Council", icon: Users, color: "bg-amber/20 text-amber-dark" },
+  men_council: { label: "Men's Council", icon: Users, color: "bg-gray-200 text-muted" },
+  development: { label: "Development Committee", icon: Medal, color: "bg-amber-light text-amber-dark" },
+};
+
+function initials(name: string): string {
+  return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+}
+
+export default function LeadershipSection() {
+  const [members, setMembers] = useState<Member[]>(seedMembers);
+  const { ref, inView } = useInView();
+
+  useEffect(() => {
+    fetch("/api/committee")
+      .then((r) => r.ok && r.json())
+      .then((data) => {
+        if (data?.members?.length) setMembers(data.members);
+      })
+      .catch(() => {});
+  }, []);
+
+  const grouped = members.reduce(
+    (acc, m) => {
+      (acc[m.council] = acc[m.council] || []).push(m);
+      return acc;
+    },
+    {} as Record<string, Member[]>,
+  );
+
+  if (!members.length) return null;
+
+  return (
+    <section id="leadership" className="scroll-mt-16 bg-nobuk-light px-4 py-24 md:py-32">
+      <div className="mx-auto max-w-6xl">
+        <div className="mx-auto mb-16 max-w-xl text-center">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-light px-4 py-1.5 text-xs font-bold text-amber-dark uppercase tracking-widest">
+            <Medal size={12} />
+            Leadership
+          </span>
+          <h2 className="mt-4 font-heading text-3xl font-bold text-white md:text-4xl">
+            Committee Members
+          </h2>
+          <p className="mt-3 text-white/70">
+            Honour a committee member with your contribution to the Harambee
+          </p>
+        </div>
+
+        <div ref={ref} className="space-y-12">
+          {Object.entries(grouped).map(([council, councilMembers], gi) => {
+            const config = councilLabels[council] || { label: council, icon: Church, color: "bg-amber text-nobuk" };
+            const Icon = config.icon;
+
+            return (
+              <div key={council}>
+                <div className={`mb-5 flex items-center gap-3 ${inView ? "animate-slide-up" : "opacity-0"}`} style={{ animationDelay: `${gi * 0.1}s` }}>
+                  <div className={`flex h-8 w-8 items-center justify-center rounded-full ${config.color}`}>
+                    <Icon size={14} />
+                  </div>
+                  <h3 className="text-lg font-bold text-white">{config.label}</h3>
+                  <div className="h-px flex-1 bg-white/10" />
+                  <span className="text-xs text-white/50">{councilMembers.length} members</span>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {councilMembers.map((member, mi) => (
+                    <div
+                      key={member.id}
+                      className={`card-hover group relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-sm ${
+                        inView ? "animate-slide-up" : "opacity-0"
+                      }`}
+                      style={{ animationDelay: `${gi * 0.1 + mi * 0.05}s` }}
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-nobuk-muted text-sm font-bold text-nobuk transition-all group-hover:scale-110 group-hover:bg-nobuk group-hover:text-white">
+                          {initials(member.name)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-nobuk">{member.name}</p>
+                          <p className="text-xs text-muted">{member.role}</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex items-center gap-1.5 text-xs font-bold text-nobuk opacity-0 transition-opacity group-hover:opacity-100">
+                        <Heart size={12} />
+                        <span>Honour this member</span>
+                      </div>
+
+                      <a
+                        href={`#give?member=${member.id}`}
+                        className="absolute inset-0"
+                        aria-label={`Give and honour ${member.name}`}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className={`mt-12 text-center ${inView ? "animate-fade-in" : "opacity-0"}`} style={{ animationDelay: "0.5s" }}>
+          <a
+            href="#give"
+            className="btn-lift inline-flex items-center gap-2 rounded-full bg-nobuk px-8 py-3.5 text-base font-bold text-white shadow-sm hover:bg-nobuk-light"
+          >
+            <Heart size={18} />
+            Give & Honour
+          </a>
+        </div>
+      </div>
+    </section>
+  );
+}

@@ -1,18 +1,20 @@
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import AboutSection from "@/components/AboutSection";
-import ProjectsSection from "@/components/ProjectsSection";
 import LeadershipSection from "@/components/LeadershipSection";
 import DonationForm from "@/components/DonationForm";
-import TransparencySection from "@/components/TransparencySection";
+import LocationMap from "@/components/LocationMap";
 import Footer from "@/components/Footer";
 import { supabase } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const runtime = "nodejs";
 
 export default async function Home() {
   let raised = 842500;
   let goal = 5000000;
+  let donorCount = 0;
 
   if (supabase) {
     try {
@@ -26,6 +28,13 @@ export default async function Home() {
         raised = Number(campaign.raised);
         goal = Number(campaign.goal);
       }
+
+      const { count } = await supabase
+        .from("donations")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "completed");
+
+      donorCount = count || 0;
     } catch {
       // fallback defaults
     }
@@ -34,12 +43,11 @@ export default async function Home() {
   return (
     <>
       <Header />
-      <Hero raised={raised} goal={goal} />
+      <Hero raised={raised} goal={goal} donorCount={donorCount} />
       <AboutSection />
-      <ProjectsSection />
       <LeadershipSection />
       <DonationForm />
-      <TransparencySection />
+      <LocationMap />
       <Footer />
     </>
   );

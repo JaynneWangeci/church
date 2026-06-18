@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 
 interface RecentDonation {
   donor_name: string | null;
@@ -62,13 +61,11 @@ export default function DonorWall() {
         Recent Givers
       </p>
       <div className="space-y-2">
-        {donations.slice(0, 8).map((d, i) => (
-          <motion.div
+          {donations.slice(0, 8).map((d, i) => (
+          <div
             key={`${d.created_at}-${i}`}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.05 }}
-            className="rounded-lg bg-white px-3 py-2 shadow-sm"
+            className="animate-slide-up rounded-lg bg-white px-3 py-2 shadow-sm"
+            style={{ animationDelay: `${i * 0.05}s` }}
           >
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-ink">
@@ -79,8 +76,8 @@ export default function DonorWall() {
               </p>
             </div>
             <p className="text-xs text-ink/40">{timeAgo(d.created_at)}</p>
-          </motion.div>
-        ))}
+            </div>
+          ))}
       </div>
     </div>
   );

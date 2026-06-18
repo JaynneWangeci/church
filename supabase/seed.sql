@@ -24,3 +24,13 @@ values (
   'KES',
   true
 );
+
+-- Default admin: email admin@church.org / password: admin123
+-- IMPORTANT: Change this password in production!
+insert into admin_users (email, password_hash, name, role)
+values (
+  'admin@church.org',
+  '$2a$12$LJ3m4ys3Lg3YOCwKkp/wSeG6NkRpPM.7Y5G0kQ.Y0kY0kY0kY0kY0',
+  'Super Admin',
+  'super_admin'
+);

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { TrendingUp, Users, Download } from "lucide-react";
 
 interface Aggregates {
@@ -32,31 +31,23 @@ export default function TransparencySection() {
   return (
     <section id="transparency" className="bg-slate px-4 py-24 md:py-32">
       <div className="mx-auto max-w-4xl">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-center"
-        >
+        <div className="animate-slide-up text-center">
           <span className="inline-block rounded-full bg-nobuk-muted px-4 py-1.5 text-xs font-medium text-nobuk uppercase tracking-wider">
             Transparency
           </span>
           <h2 className="mt-4 text-3xl font-bold text-nobuk md:text-4xl">
             Giving Dashboard
           </h2>
-        </motion.div>
+        </div>
 
         {data && (
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {stats.map((stat, i) => {
               const Icon = stat.icon;
               const content = (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
-                  className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm transition hover:shadow-md"
+                <div
+                  className="animate-slide-up rounded-xl border border-gray-100 bg-white p-5 shadow-sm transition hover:shadow-md"
+                  style={{ animationDelay: `${i * 0.1}s` }}
                 >
                   <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-nobuk-muted">
                     <Icon size={17} className="text-nobuk" />
@@ -65,7 +56,7 @@ export default function TransparencySection() {
                     {stat.label}
                   </p>
                   <p className="mt-1 text-xl font-bold text-ink">{stat.value}</p>
-                </motion.div>
+                </div>
               );
 
               if ("href" in stat) {
@@ -76,14 +67,9 @@ export default function TransparencySection() {
           </div>
         )}
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          className="mt-6 text-center text-xs text-muted"
-        >
+        <div className="mt-6 animate-fade-in text-center text-xs text-muted">
           Every contribution is recorded and auditable.
-        </motion.div>
+        </div>
       </div>
     </section>
   );

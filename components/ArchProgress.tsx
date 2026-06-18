@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import CountUp from "react-countup";
 
 interface ArchProgressProps {
@@ -36,7 +35,7 @@ export default function ArchProgress({
           strokeLinecap="round"
           className="text-cream/10"
         />
-        <motion.path
+        <path
           d={`M 20 140 A ${radius} ${radius} 0 0 1 240 140`}
           fill="none"
           stroke="currentColor"
@@ -44,9 +43,10 @@ export default function ArchProgress({
           strokeLinecap="round"
           strokeDasharray={`${progressLength} ${circumference}`}
           className="text-gold"
-          initial={{ strokeDashoffset: circumference }}
-          animate={{ strokeDashoffset: circumference - progressLength }}
-          transition={{ duration: 2, ease: "easeOut" }}
+          style={{
+            strokeDashoffset: circumference - progressLength,
+            transition: "stroke-dashoffset 2s ease-out",
+          }}
         />
       </svg>
 

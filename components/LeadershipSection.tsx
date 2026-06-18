@@ -1,7 +1,7 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
+import { Users, Medal, Shield } from "lucide-react";
 
 interface Member {
   id: string;
@@ -11,10 +11,10 @@ interface Member {
 }
 
 const councils = [
-  { key: "parish_board", label: "Parish Board" },
-  { key: "women_council", label: "Women's Council" },
-  { key: "men_council", label: "Men's Council" },
-  { key: "development", label: "Development Committee" },
+  { key: "parish_board", label: "Parish Board", icon: Shield },
+  { key: "women_council", label: "Women's Council", icon: Medal },
+  { key: "men_council", label: "Men's Council", icon: Medal },
+  { key: "development", label: "Development Committee", icon: Users },
 ];
 
 const fallback: Member[] = [
@@ -56,42 +56,46 @@ export default function LeadershipSection() {
   }, []);
 
   return (
-    <section id="committee" className="bg-slate px-4 py-24 md:py-32">
-      <div className="mx-auto max-w-4xl">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-center"
-        >
-          <span className="inline-block rounded-full bg-nobuk-muted px-4 py-1.5 text-xs font-medium text-nobuk uppercase tracking-wider">
+    <section id="committee" className="scroll-mt-16 bg-slate px-4 py-24 md:py-32">
+      <div className="mx-auto max-w-5xl">
+        <div className="animate-slide-up text-center">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-nobuk-muted px-4 py-1.5 text-xs font-medium text-nobuk uppercase tracking-wider">
+            <Users size={12} />
             Committee
           </span>
           <h2 className="mt-4 text-3xl font-bold text-nobuk md:text-4xl">
-            Our Leadership
+            Honor a Committee Member
           </h2>
-        </motion.div>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted">
+            When giving, you can choose to honour one of our dedicated committee
+            members leading this harambee
+          </p>
+        </div>
 
         {councils.map((council) => {
           const group = members.filter((m) => m.council === council.key);
           if (group.length === 0) return null;
 
+          const Icon = council.icon;
+
           return (
             <div key={council.key} className="mt-10 first:mt-8">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted mb-3">
-                {council.label}
-              </h3>
+              <div className="mb-3 flex items-center gap-2">
+                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-nobuk-muted">
+                  <Icon size={13} className="text-nobuk" />
+                </div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
+                  {council.label}
+                </h3>
+              </div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {group.map((member, i) => (
-                  <motion.div
+                  <div
                     key={member.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: i * 0.05 }}
-                    className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm"
+                    className="animate-slide-up group flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm transition hover:shadow-md hover:border-nobuk/20"
+                    style={{ animationDelay: `${i * 0.03}s` }}
                   >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-nobuk-muted text-xs font-bold text-nobuk">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-nobuk-muted text-sm font-bold text-nobuk transition group-hover:bg-nobuk group-hover:text-white">
                       {initials(member.name)}
                     </div>
                     <div className="min-w-0">
@@ -102,12 +106,25 @@ export default function LeadershipSection() {
                         {member.role}
                       </p>
                     </div>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             </div>
           );
         })}
+
+        <div className="mt-8 animate-fade-in text-center">
+          <a
+            href="#give"
+            onClick={(e) => {
+              e.preventDefault();
+              document.getElementById("give")?.scrollIntoView({ behavior: "smooth" });
+            }}
+            className="inline-flex items-center gap-2 rounded-full bg-nobuk px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-nobuk-light"
+          >
+            Give &amp; Honour a Member
+          </a>
+        </div>
       </div>
     </section>
   );

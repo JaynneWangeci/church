@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import CountUp from "react-countup";
 
 interface NobukProgressProps {
   raised: number;
@@ -19,7 +19,8 @@ export default function NobukProgress({ raised, goal }: NobukProgressProps) {
             Raised
           </p>
           <p className="text-2xl font-bold text-ink tabular-nums">
-            KES {raised.toLocaleString()}
+            KES{" "}
+            <CountUp end={raised} duration={2} separator="," />
           </p>
         </div>
         <div className="text-right">
@@ -32,21 +33,23 @@ export default function NobukProgress({ raised, goal }: NobukProgressProps) {
         </div>
       </div>
 
-      <div className="relative h-2 w-full overflow-hidden rounded-full bg-nobuk-muted">
-        <motion.div
-          className="h-full rounded-full bg-nobuk"
-          initial={{ width: 0 }}
-          animate={{ width: `${percentage}%` }}
-          transition={{ duration: 1.6, ease: "easeOut" }}
+      <div className="relative h-3 w-full overflow-hidden rounded-full bg-nobuk-muted">
+        <div
+          className="h-full animate-progress-fill rounded-full bg-gradient-to-r from-nobuk to-nobuk-light"
+          style={{ width: `${percentage}%` }}
+        />
+        <div
+          className="absolute top-0 left-0 h-full w-12 animate-progress-shine rounded-full bg-white/20 blur-sm"
+          style={{ width: `${percentage}%` }}
         />
       </div>
 
-      <div className="flex justify-between text-xs text-muted">
-        <span className="font-medium">{percentage}% complete</span>
+      <div className="flex items-center justify-between text-xs text-muted">
+        <span className="font-semibold text-nobuk">{percentage}% complete</span>
         <span>
           {remaining > 0
             ? `KES ${remaining.toLocaleString()} to go`
-            : "Goal reached!"}
+            : "Goal reached! \u{1F389}"}
         </span>
       </div>
     </div>
