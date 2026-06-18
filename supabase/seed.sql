@@ -19,7 +19,7 @@ values (
   'development-fund',
   'AIPCA Bahati Cathedral Development Fund',
   'Tujenge pamoja – Building our house of worship together. Support the sanctuary improvements, fellowship hall, ministry growth, and grounds maintenance.',
-  5000000,
+  30000000,
   842500,
   'KES',
   true

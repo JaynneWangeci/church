@@ -14,7 +14,7 @@ adminRouter.get("/stats", requireAdmin, async (req, res) => {
       .eq("slug", "development-fund")
       .single();
 
-    const goal = Number(campaign?.goal || 5000000);
+    const goal = Number(campaign?.goal || 30000000);
     const seedRaised = Number(campaign?.raised || 0);
     const campaignId = campaign?.id;
 

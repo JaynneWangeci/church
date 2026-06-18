@@ -5,7 +5,7 @@ const cards = [
   {
     icon: Target,
     title: "Our Goal",
-    text: "Raise KES 5,000,000 for the AIPCA Bahati Cathedral sanctuary improvements, fellowship hall expansion, ministry growth, and grounds development.",
+    text: "Raise KES 30,000,000 for the AIPCA Bahati Cathedral sanctuary improvements, fellowship hall expansion, ministry growth, and grounds development.",
   },
   {
     icon: Users,
