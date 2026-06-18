@@ -43,6 +43,8 @@ yarn-error.log*
 # temp / notes
 prompt.txt
 key.txt
+*.jpg
+*.png
 supabase/.temp/
 
 # typescript

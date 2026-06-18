@@ -34,6 +34,18 @@ app.use("/api/members", membersRouter);
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
+app.get("/api/debug", (_req, res) => {
+  res.json({
+    has_supabase_url: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+    has_supabase_key: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    has_service_key: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    has_mpesa_key: !!process.env.MPESA_CONSUMER_KEY?.length,
+    has_mpesa_secret: !!process.env.MPESA_CONSUMER_SECRET?.length,
+    mpesa_env: process.env.MPESA_ENV || "not set",
+    shortcode: process.env.MPESA_SHORTCODE || "not set",
+  });
+});
+
 if (process.env.VERCEL !== "1") {
   app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
 }
