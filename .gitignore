@@ -47,6 +47,7 @@ keyy.txt
 consumers.txt
 ver.txt
 safaricom.txt
+vercell.txt
 *.jpg
 *.png
 supabase/.temp/
