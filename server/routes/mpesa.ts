@@ -118,7 +118,7 @@ mpesaRouter.post("/callback", async (req, res) => {
     const { Body } = req.body;
     if (!Body?.stkCallback) return res.status(200).json({ ok: true });
 
-    const { ResultCode, ResultDesc, CheckoutRequestID, CallbackMetadata } = Body.stkCallback;
+    const { ResultCode, CheckoutRequestID, CallbackMetadata } = Body.stkCallback;
 
     const db = requireService();
     const { data: donations } = await db
@@ -130,6 +130,10 @@ mpesaRouter.post("/callback", async (req, res) => {
     if (!donations?.length) return res.status(200).json({ ok: true });
 
     const donation = donations[0];
+
+    if (ENV === "sandbox") {
+      return res.status(200).json({ ok: true });
+    }
 
     if (ResultCode === 0 && CallbackMetadata?.Item) {
       let receiptNumber = "";
