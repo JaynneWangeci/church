@@ -78,6 +78,29 @@ mpesaRouter.post("/stkpush", async (req, res) => {
         .from("donations")
         .update({ checkout_request_id: stkData.CheckoutRequestID })
         .eq("id", donation_id);
+
+      if (ENV === "sandbox") {
+        const { data: donation } = await db
+          .from("donations")
+          .select("id, campaign_id, amount")
+          .eq("id", donation_id)
+          .single();
+
+        if (donation) {
+          await db
+            .from("donations")
+            .update({
+              status: "completed",
+              receipt_number: `SANDBOX-${Date.now()}`,
+            })
+            .eq("id", donation.id);
+
+          await db.rpc("increment_campaign_raised", {
+            campaign_id: donation.campaign_id,
+            amount: Number(donation.amount),
+          });
+        }
+      }
     }
 
     res.json(stkData);
@@ -164,6 +187,20 @@ mpesaRouter.get("/status/:checkoutRequestId", async (req, res) => {
     });
 
     const data = await statusRes.json();
+
+    if (ENV === "sandbox") {
+      const db = requireService();
+      const { data: donation } = await db
+        .from("donations")
+        .select("status, receipt_number")
+        .eq("checkout_request_id", checkoutRequestId)
+        .single();
+
+      if (donation?.status === "completed") {
+        return res.json({ ResultCode: "0", status: "completed", receipt_number: donation.receipt_number });
+      }
+    }
+
     res.json(data);
   } catch (err) {
     console.error("mpesa status error:", err);
