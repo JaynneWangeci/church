@@ -185,73 +185,138 @@ contributionsRouter.get("/export/pdf", requireAdmin, async (req, res) => {
 
     const total = (donations || []).reduce((s, d) => s + Number(d.amount), 0);
     const count = (donations || []).length;
+    const avg = count > 0 ? Math.round(total / count) : 0;
+    const topDonor = (donations || []).reduce((best, d) => Number(d.amount) > Number(best?.amount || 0) ? d : best, null);
+    const genDate = new Date().toLocaleDateString("en-KE", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
-    const doc = new PDFDocument({ size: "A4", margin: 50 });
+    const doc = new PDFDocument({ size: "A4", margin: 50, info: { Title: "Harambee Contribution Report", Author: "AIPCA Bahati Cathedral" } });
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename=harambee-report-${new Date().toISOString().slice(0, 10)}.pdf`);
     doc.pipe(res);
 
-    doc.fontSize(22).font("Helvetica-Bold").fillColor("1f2a1d").text("AIPCA Bahati Cathedral", { align: "center" });
-    doc.fontSize(16).fillColor("C4964A").text("Harambee Contribution Report", { align: "center" });
-    doc.moveDown(0.5);
-    doc.fontSize(10).fillColor("666666").text(`Generated: ${new Date().toLocaleDateString("en-KE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}`, { align: "center" });
+    const pageWidth = doc.page.width - 100;
+    const margin = 50;
+    let pageNum = 0;
+
+    function addFooter() {
+      pageNum++;
+      doc.fontSize(7).fillColor("999999");
+      doc.text(`AIPCA Bahati Cathedral — Harambee Report | Generated ${genDate} | Page ${pageNum}`, margin, doc.page.height - 40, { align: "center", width: pageWidth });
+      doc.rect(margin, doc.page.height - 45, pageWidth, 0.5).fill("C4964A");
+    }
+
+    doc.on("pageAdded", addFooter);
+
+    // ── Decorative top border ──
+    doc.rect(margin, 30, pageWidth, 4).fill("1f2a1d");
+    doc.rect(margin, 34, pageWidth, 1.5).fill("C4964A");
+
+    // ── Header ──
+    doc.moveDown(3);
+    doc.fontSize(26).font("Helvetica-Bold").fillColor("1f2a1d").text("AIPCA Bahati Cathedral", { align: "center" });
+    doc.fontSize(14).fillColor("C4964A").text("Harambee Contribution Report", { align: "center" });
+    doc.moveDown(0.3);
+    doc.fontSize(8).fillColor("999999").text(`Prepared on ${genDate}`, { align: "center" });
     doc.moveDown(1);
 
-    doc.fontSize(14).fillColor("1f2a1d").text(`Total Raised: KES ${total.toLocaleString("en-KE")}`);
-    doc.fontSize(12).fillColor("333333").text(`Total Donations: ${count}`);
-    doc.moveDown(1.5);
+    // ── Summary cards ──
+    const cardW = (pageWidth - 30) / 4;
+    const cardY = doc.y;
+    const cardH = 45;
+    const cards = [
+      { label: "Total Raised", value: `KES ${total.toLocaleString("en-KE")}`, color: "1f2a1d" },
+      { label: "Donations", value: `${count}`, color: "C4964A" },
+      { label: "Average Gift", value: `KES ${avg.toLocaleString("en-KE")}`, color: "2C4056" },
+      { label: "Top Gift", value: topDonor ? `KES ${Number(topDonor.amount).toLocaleString("en-KE")}` : "—", color: "9E7A3A" },
+    ];
+    cards.forEach((card, i) => {
+      const cx = margin + i * (cardW + 10);
+      doc.roundedRect(cx, cardY, cardW, cardH, 4).fill("#FDF7F0");
+      doc.roundedRect(cx, cardY, cardW, cardH, 4).lineWidth(0.5).stroke("#E8EDF2");
+      doc.fontSize(7).font("Helvetica").fillColor("8B7D6B").text(card.label.toUpperCase(), cx + 8, cardY + 6, { width: cardW - 16, align: "center" });
+      doc.fontSize(11).font("Helvetica-Bold").fillColor(card.color).text(card.value, cx + 8, cardY + 20, { width: cardW - 16, align: "center" });
+    });
+    doc.y = cardY + cardH + 20;
 
-    doc.fontSize(11).fillColor("1f2a1d").font("Helvetica-Bold").text("Recent Donations", { underline: true });
+    // ── Separator ──
     doc.moveDown(0.5);
+    doc.rect(margin, doc.y, pageWidth, 0.5).fill("E8EDF2");
+    doc.moveDown(1);
 
-    const pageWidth = doc.page.width - 100;
-    const colWidths = [pageWidth * 0.22, pageWidth * 0.16, pageWidth * 0.12, pageWidth * 0.12, pageWidth * 0.16, pageWidth * 0.22];
-    const headers = ["Donor", "Amount", "Method", "Status", "Receipt", "Date"];
-
+    // ── Table header ──
+    doc.fontSize(9).font("Helvetica-Bold").fillColor("FFFFFF");
+    const colWidths = [pageWidth * 0.22, pageWidth * 0.14, pageWidth * 0.10, pageWidth * 0.10, pageWidth * 0.18, pageWidth * 0.26];
+    const headers = ["Donor", "Amount (KES)", "Method", "Status", "Receipt", "Date"];
     let y = doc.y;
-    let x = 50;
-    doc.fontSize(8).font("Helvetica-Bold").fillColor("FFFFFF");
-    doc.rect(50, y, pageWidth, 14).fill("1f2a1d");
+    let x = margin;
+    doc.rect(margin, y, pageWidth, 16).fill("1f2a1d");
     for (let i = 0; i < headers.length; i++) {
-      doc.text(headers[i], x + 3, y + 3, { width: colWidths[i], align: i === 1 ? "right" : "left" });
+      doc.text(headers[i], x + 4, y + 4, { width: colWidths[i], align: i === 1 ? "right" : "left" });
       x += colWidths[i];
     }
-    y += 14;
+    y += 16;
 
-    doc.font("Helvetica").fontSize(7).fillColor("333333");
+    // ── Table rows ──
+    doc.font("Helvetica").fontSize(8).fillColor("333333");
     for (const d of (donations || []).slice(0, 50)) {
-      if (y > doc.page.height - 60) {
+      if (y > doc.page.height - 70) {
         doc.addPage();
         y = 50;
-        x = 50;
-        doc.fontSize(8).font("Helvetica-Bold").fillColor("FFFFFF");
-        doc.rect(50, y, pageWidth, 14).fill("1f2a1d");
+        x = margin;
+        doc.fontSize(9).font("Helvetica-Bold").fillColor("FFFFFF");
+        doc.rect(margin, y, pageWidth, 16).fill("1f2a1d");
         for (let i = 0; i < headers.length; i++) {
-          doc.text(headers[i], x + 3, y + 3, { width: colWidths[i], align: i === 1 ? "right" : "left" });
+          doc.text(headers[i], x + 4, y + 4, { width: colWidths[i], align: i === 1 ? "right" : "left" });
           x += colWidths[i];
         }
-        y += 14;
-        doc.font("Helvetica").fontSize(7).fillColor("333333");
+        y += 16;
+        doc.font("Helvetica").fontSize(8).fillColor("333333");
       }
 
-      x = 50;
+      x = margin;
       const values = [
-        (d.donor_name || "Anonymous").slice(0, 20),
-        `KES ${Number(d.amount).toLocaleString("en-KE")}`,
+        (d.donor_name || "Anonymous").slice(0, 22),
+        `${Number(d.amount).toLocaleString("en-KE")}`,
         d.method || "—",
         d.status || "—",
-        (d.receipt_number || "—").slice(0, 12),
-        new Date(d.created_at).toLocaleDateString("en-KE"),
+        (d.receipt_number || "—").slice(0, 14),
+        new Date(d.created_at).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" }),
       ];
 
-      doc.rect(50, y, pageWidth, 12).fill(y % 24 === 14 ? "F5F5F5" : "FFFFFF");
+      const isEven = ((y - 50) / 14) % 2 === 0;
+      doc.rect(margin, y, pageWidth, 13).fill(isEven ? "FDF7F0" : "FFFFFF");
       for (let i = 0; i < values.length; i++) {
-        doc.text(values[i], x + 3, y + 2, { width: colWidths[i], align: i === 1 ? "right" : "left" });
+        doc.text(values[i], x + 4, y + 3, { width: colWidths[i], align: i === 1 ? "right" : "left" });
         x += colWidths[i];
       }
-      y += 12;
+      y += 13;
     }
+
+    // ── Bottom summary ──
+    if (y < doc.page.height - 120) {
+      doc.y = y + 20;
+    } else {
+      doc.addPage();
+      doc.y = 50;
+    }
+    doc.moveDown(1);
+    doc.rect(margin, doc.y, pageWidth, 0.5).fill("C4964A");
+    doc.moveDown(0.5);
+    doc.fontSize(9).font("Helvetica-Bold").fillColor("1f2a1d").text(`Report Summary`, { align: "center" });
+    doc.moveDown(0.3);
+    doc.fontSize(8).font("Helvetica").fillColor("666666");
+    doc.text(`Total donations recorded: ${count}`, { align: "center" });
+    doc.text(`Total amount raised: KES ${total.toLocaleString("en-KE")}`, { align: "center" });
+    doc.text(`Average contribution: KES ${avg.toLocaleString("en-KE")}`, { align: "center" });
+    if (topDonor?.donor_name) {
+      doc.text(`Highest contribution: KES ${Number(topDonor.amount).toLocaleString("en-KE")} by ${topDonor.donor_name}`, { align: "center" });
+    }
+    doc.moveDown(1);
+    doc.fontSize(7).fillColor("999999").text("— End of Report —", { align: "center" });
+
+    addFooter = () => {};
+    addFooter();
 
     doc.end();
 

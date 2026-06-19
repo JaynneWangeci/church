@@ -168,9 +168,10 @@ export default function AdminDashboard() {
   }
 
   async function handleBulkAdd() {
-    const names = bulkNames.trim().split('\n').map(n => n.trim()).filter(Boolean);
+    const names = bulkNames.trim().split('\n').map(n => n.trim()).filter(Boolean).sort((a, b) => a.localeCompare(b));
     if (!names.length) { setBulkError("Paste at least one name"); return; }
     setBulkError(""); setBulkResult("");
+    setBulkNames(names.join('\n'));
     let added = 0;
     for (const name of names) {
       try {
@@ -347,15 +348,21 @@ export default function AdminDashboard() {
                 </div>
                 {stats?.recent_donations?.length ? (
                   <div className="space-y-2">
-                    {stats.recent_donations.slice(0, 10).map((d) => (
+                    {stats.recent_donations.slice(0, 10).map((d: any) => (
                       <div key={d.id} className="flex items-center justify-between rounded-lg bg-cream px-3 py-2">
-                        <div>
-                          <p className="text-sm font-medium text-ink">{d.donor_name || "Anonymous"}</p>
-                          <p className="text-xs text-muted">{new Date(d.created_at).toLocaleDateString()}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-ink">{d.donor_name || "Anonymous"}</p>
+                          <p className="text-xs text-muted">{d.created_at ? new Date(d.created_at).toLocaleDateString() : "—"}</p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm font-bold text-ink tabular-nums">KES {d.amount.toLocaleString()}</p>
-                          <span className={`text-xs ${d.status === "completed" ? "text-green-600" : d.status === "pending" ? "text-amber-600" : "text-red-600"}`}>{d.status}</span>
+                        <div className="ml-3 text-right shrink-0">
+                          <p className="text-sm font-bold text-ink tabular-nums">KES {Number(d.amount || 0).toLocaleString()}</p>
+                          <span className={`text-xs font-semibold ${
+                            d.status === "completed" ? "text-green-600" :
+                            d.status === "pending" ? "text-amber-600" :
+                            "text-red-600"
+                          }`}>
+                            {(d.status || "unknown").replace("_", " ")}
+                          </span>
                         </div>
                       </div>
                     ))}
@@ -445,7 +452,23 @@ export default function AdminDashboard() {
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className="mb-1 block text-xs font-bold text-muted">Paste names (one per line)</label>
+                  <label className="mb-1 block text-xs font-bold text-muted">Upload file (.txt or .csv)</label>
+                  <input
+                    type="file"
+                    accept=".txt,.csv"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const text = await file.text();
+                      const names = text.split(/[\n,]/).map(n => n.trim()).filter(Boolean).sort((a, b) => a.localeCompare(b));
+                      setBulkNames(names.join('\n'));
+                      e.target.value = '';
+                    }}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk file:mr-3 file:rounded file:border-0 file:bg-nobuk file:px-3 file:py-1 file:text-xs file:font-semibold file:text-white hover:file:bg-nobuk-light"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-muted">Or paste names (one per line)</label>
                   <textarea
                     value={bulkNames}
                     onChange={(e) => setBulkNames(e.target.value)}
