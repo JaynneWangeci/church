@@ -2,9 +2,17 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   TrendingUp, Users, DollarSign, Clock, AlertCircle,
-  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church,
+  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings,
 } from "lucide-react";
 import type { DashboardStats, AdminUser, ChurchMember } from "../types";
+
+interface AdminUserRecord {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  created_at: string;
+}
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -13,7 +21,7 @@ export default function AdminDashboard() {
   const [logs, setLogs] = useState<unknown[]>([]);
   const [loading, setLoading] = useState(true);
   const [exportOpen, setExportOpen] = useState(false);
-  const [tab, setTab] = useState<"overview" | "members">("overview");
+  const [tab, setTab] = useState<"overview" | "members" | "admins">("overview");
   const [churchMembers, setChurchMembers] = useState<ChurchMember[]>([]);
   const [newName, setNewName] = useState("");
   const [newCouncil, setNewCouncil] = useState("parish_board");
@@ -22,6 +30,21 @@ export default function AdminDashboard() {
   const [bulkCouncil, setBulkCouncil] = useState("parish_board");
   const [bulkError, setBulkError] = useState("");
   const [bulkResult, setBulkResult] = useState("");
+  const [admins, setAdmins] = useState<AdminUserRecord[]>([]);
+  const [showAddAdmin, setShowAddAdmin] = useState(false);
+  const [newAdminEmail, setNewAdminEmail] = useState("");
+  const [newAdminName, setNewAdminName] = useState("");
+  const [newAdminPassword, setNewAdminPassword] = useState("");
+  const [newAdminRole, setNewAdminRole] = useState("admin");
+  const [adminError, setAdminError] = useState("");
+  const [editingAdmin, setEditingAdmin] = useState<AdminUserRecord | null>(null);
+  const [editEmail, setEditEmail] = useState("");
+  const [editName, setEditName] = useState("");
+  const [editRole, setEditRole] = useState("");
+  const [showChangePw, setShowChangePw] = useState(false);
+  const [pwCurrent, setPwCurrent] = useState("");
+  const [pwNew, setPwNew] = useState("");
+  const [pwError, setPwError] = useState("");
   const exportRef = useRef<HTMLDivElement>(null);
 
   const token = localStorage.getItem("token");
@@ -56,6 +79,19 @@ export default function AdminDashboard() {
     } catch { /* silent */ }
   }, [admin?.role]);
 
+  const fetchAdmins = useCallback(async () => {
+    if (admin?.role !== "super_admin") return;
+    try {
+      const res = await fetch("/api/admin/users", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAdmins(data.users || []);
+      }
+    } catch { /* silent */ }
+  }, [admin?.role, token]);
+
   const fetchMembers = useCallback(async () => {
     try {
       const res = await fetch("/api/members");
@@ -73,7 +109,8 @@ export default function AdminDashboard() {
     fetchStats();
     fetchLogs();
     fetchMembers();
-  }, [admin, fetchStats, fetchLogs, fetchMembers]);
+    fetchAdmins();
+  }, [admin, fetchStats, fetchLogs, fetchMembers, fetchAdmins]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -192,7 +229,7 @@ export default function AdminDashboard() {
             <p className="text-xs text-muted">{admin.name} &middot; {admin.role.replace("_", " ")}</p>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => { fetchStats(); fetchLogs(); fetchMembers(); }} className="rounded-lg p-2 text-muted transition hover:bg-cream" title="Refresh">
+            <button onClick={() => { fetchStats(); fetchLogs(); fetchMembers(); fetchAdmins(); }} className="rounded-lg p-2 text-muted transition hover:bg-cream" title="Refresh">
               <RefreshCw size={16} />
             </button>
             <a href="/" className="text-sm text-muted underline underline-offset-2 hover:text-nobuk">View Site</a>
@@ -222,6 +259,16 @@ export default function AdminDashboard() {
               }`}
             >
               Church Members ({churchMembers.length})
+            </button>
+          )}
+          {admin.role === "super_admin" && (
+            <button
+              onClick={() => setTab("admins")}
+              className={`pb-3 text-sm font-bold transition border-b-2 ${
+                tab === "admins" ? "border-nobuk text-nobuk" : "border-transparent text-muted hover:text-nobuk"
+              }`}
+            >
+              Admins ({admins.length})
             </button>
           )}
         </div>
@@ -447,6 +494,238 @@ export default function AdminDashboard() {
                 </div>
               ) : (
                 <p className="text-sm text-muted">No members yet. Add your first church member above.</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {tab === "admins" && (
+          <div className="space-y-6">
+            <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Shield size={16} className="text-nobuk" />
+                  <h2 className="text-sm font-bold text-ink">Admin Users</h2>
+                </div>
+                <button
+                  onClick={() => setShowAddAdmin(!showAddAdmin)}
+                  className="flex items-center gap-1 rounded-lg bg-nobuk px-3 py-1.5 text-xs font-semibold text-white hover:bg-nobuk-light"
+                >
+                  <UserPlus size={14} /> Add Admin
+                </button>
+              </div>
+
+              {showAddAdmin && (
+                <div className="mb-4 rounded-lg border border-gray-200 bg-cream p-4">
+                  <h3 className="mb-3 text-sm font-bold text-ink">New Admin</h3>
+                  {adminError && (
+                    <div className="mb-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">{adminError}</div>
+                  )}
+                  <div className="grid gap-3 sm:grid-cols-4">
+                    <div>
+                      <label className="mb-1 block text-xs font-bold text-muted">Name</label>
+                      <input type="text" value={newAdminName} onChange={(e) => setNewAdminName(e.target.value)}
+                        placeholder="John Doe"
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-bold text-muted">Email</label>
+                      <input type="email" value={newAdminEmail} onChange={(e) => setNewAdminEmail(e.target.value)}
+                        placeholder="admin@church.org"
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-bold text-muted">Password</label>
+                      <input type="password" value={newAdminPassword} onChange={(e) => setNewAdminPassword(e.target.value)}
+                        placeholder="Min 6 chars"
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-bold text-muted">Role</label>
+                      <select value={newAdminRole} onChange={(e) => setNewAdminRole(e.target.value)}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk">
+                        <option value="admin">Admin</option>
+                        <option value="viewer">Viewer</option>
+                        <option value="super_admin">Super Admin</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (!newAdminName || !newAdminEmail || !newAdminPassword) { setAdminError("All fields required"); return; }
+                      setAdminError("");
+                      try {
+                        const res = await fetch("/api/admin/admins", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                          body: JSON.stringify({ name: newAdminName, email: newAdminEmail, password: newAdminPassword, role: newAdminRole }),
+                        });
+                        if (!res.ok) { const d = await res.json(); setAdminError(d.error || "Failed"); return; }
+                        setNewAdminName(""); setNewAdminEmail(""); setNewAdminPassword(""); setNewAdminRole("admin");
+                        setShowAddAdmin(false);
+                        fetchAdmins();
+                      } catch { setAdminError("Network error"); }
+                    }}
+                    className="mt-3 rounded-lg bg-nobuk px-4 py-2 text-xs font-semibold text-white hover:bg-nobuk-light"
+                  >
+                    Create Admin
+                  </button>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {admins.map((a) => (
+                  <div key={a.id} className="rounded-lg border border-gray-100 bg-cream px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold text-ink">{a.name}</p>
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                            a.role === "super_admin"
+                              ? "bg-purple-100 text-purple-700"
+                              : a.role === "admin"
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-gray-100 text-gray-600"
+                          }`}>
+                            {a.role.replace("_", " ")}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted">{a.email}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingAdmin(editingAdmin?.id === a.id ? null : a);
+                            setEditEmail(a.email);
+                            setEditName(a.name);
+                            setEditRole(a.role);
+                          }}
+                          className="rounded-lg px-2 py-1 text-xs text-muted hover:bg-white hover:text-nobuk"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!confirm(`Delete admin "${a.name}"?`)) return;
+                            try {
+                              await fetch(`/api/admin/users/${a.id}`, {
+                                method: "DELETE",
+                                headers: { Authorization: `Bearer ${token}` },
+                              });
+                              fetchAdmins();
+                            } catch {}
+                          }}
+                          className="rounded-lg px-2 py-1 text-xs text-red-500 hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                    {editingAdmin?.id === a.id && (
+                      <div className="mt-3 border-t border-gray-200 pt-3">
+                        <div className="grid gap-3 sm:grid-cols-4">
+                          <div>
+                            <label className="mb-1 block text-xs font-bold text-muted">Name</label>
+                            <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)}
+                              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-bold text-muted">Email</label>
+                            <input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)}
+                              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-bold text-muted">Role</label>
+                            <select value={editRole} onChange={(e) => setEditRole(e.target.value)}
+                              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk">
+                              <option value="super_admin">Super Admin</option>
+                              <option value="admin">Admin</option>
+                              <option value="viewer">Viewer</option>
+                            </select>
+                          </div>
+                          <div className="flex items-end gap-2">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const res = await fetch(`/api/admin/users/${a.id}`, {
+                                    method: "PUT",
+                                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                                    body: JSON.stringify({ name: editName, email: editEmail, role: editRole }),
+                                  });
+                                  if (res.ok) { setEditingAdmin(null); fetchAdmins(); }
+                                } catch {}
+                              }}
+                              className="rounded-lg bg-nobuk px-3 py-2 text-xs font-semibold text-white hover:bg-nobuk-light"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingAdmin(null)}
+                              className="rounded-lg border border-gray-200 px-3 py-2 text-xs text-muted hover:bg-white"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {admins.length === 0 && (
+                  <p className="text-sm text-muted">No admin users found.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <Settings size={16} className="text-nobuk" />
+                <h2 className="text-sm font-bold text-ink">Change My Password</h2>
+              </div>
+              {pwError && (
+                <div className="mb-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">{pwError}</div>
+              )}
+              {!showChangePw ? (
+                <button
+                  onClick={() => setShowChangePw(true)}
+                  className="rounded-lg border border-gray-200 px-4 py-2 text-xs font-semibold text-muted hover:bg-cream"
+                >
+                  Change Password
+                </button>
+              ) : (
+                <div className="flex gap-3">
+                  <input type="password" value={pwCurrent} onChange={(e) => setPwCurrent(e.target.value)}
+                    placeholder="Current password"
+                    className="w-48 rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                  <input type="password" value={pwNew} onChange={(e) => setPwNew(e.target.value)}
+                    placeholder="New password (min 6)"
+                    className="w-48 rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                  <button
+                    onClick={async () => {
+                      if (!pwCurrent || !pwNew) { setPwError("Both fields required"); return; }
+                      if (pwNew.length < 6) { setPwError("Min 6 characters"); return; }
+                      setPwError("");
+                      try {
+                        const res = await fetch(`/api/admin/users/${admin!.id}/password`, {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                          body: JSON.stringify({ currentPassword: pwCurrent, newPassword: pwNew }),
+                        });
+                        if (!res.ok) { const d = await res.json(); setPwError(d.error || "Failed"); return; }
+                        setPwCurrent(""); setPwNew(""); setShowChangePw(false);
+                      } catch { setPwError("Network error"); }
+                    }}
+                    className="rounded-lg bg-nobuk px-4 py-2 text-xs font-semibold text-white hover:bg-nobuk-light"
+                  >
+                    Update
+                  </button>
+                  <button
+                    onClick={() => { setShowChangePw(false); setPwError(""); }}
+                    className="rounded-lg border border-gray-200 px-4 py-2 text-xs text-muted hover:bg-cream"
+                  >
+                    Cancel
+                  </button>
+                </div>
               )}
             </div>
           </div>

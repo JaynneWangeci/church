@@ -60,7 +60,7 @@ export type AuditAction =
   | "create_committee" | "update_committee" | "delete_committee"
   | "view_church_members" | "create_church_member" | "update_church_member" | "delete_church_member"
   | "view_audit_logs"
-  | "create_admin" | "update_admin";
+  | "create_admin" | "update_admin" | "delete_admin" | "update_self_password";
 
 export interface AuditLog {
   id: string;

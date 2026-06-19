@@ -25,12 +25,5 @@ values (
   true
 );
 
--- Default admin: email admin@church.org / password: admin123
--- IMPORTANT: Change this password in production!
-insert into admin_users (email, password_hash, name, role)
-values (
-  'admin@church.org',
-  '$2a$10$hz33vVsNacrc1wR2gn9LKumtoZTLP762Hff5Ywow5SrLHgTycPLsm',
-  'Super Admin',
-  'super_admin'
-);
+-- First admin is created via /admin/setup using ADMIN_INVITE_CODE.
+-- Run the app, go to /admin/setup, and enter the invite code to create the first super_admin.

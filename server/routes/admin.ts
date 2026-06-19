@@ -142,6 +142,134 @@ adminRouter.post("/admins", requireAdmin, requireSuperAdmin, async (req, res) =>
   }
 });
 
+adminRouter.get("/users", requireAdmin, requireSuperAdmin, async (_req, res) => {
+  try {
+    const db = requireService();
+    const { data, error } = await db
+      .from("admin_users")
+      .select("id, email, name, role, created_at")
+      .order("created_at", { ascending: true });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ users: data || [] });
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+adminRouter.put("/users/:id", requireAdmin, requireSuperAdmin, async (req, res) => {
+  try {
+    const db = requireService();
+    const { email, name, role } = req.body;
+    const updates: Record<string, string> = {};
+    if (email) updates.email = email.toLowerCase().trim();
+    if (name) updates.name = name;
+    if (role) updates.role = role;
+
+    const { data, error } = await db
+      .from("admin_users")
+      .update(updates)
+      .eq("id", req.params.id)
+      .select("id, email, name, role")
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    const superAdmin = (req as any).admin;
+    await logAudit({
+      adminId: superAdmin.id,
+      action: "update_admin",
+      resourceType: "admin_user",
+      resourceId: data.id,
+      ipAddress: (req as any).adminIp,
+    });
+
+    res.json({ admin: data });
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+adminRouter.delete("/users/:id", requireAdmin, requireSuperAdmin, async (req, res) => {
+  try {
+    const db = requireService();
+    const superAdmin = (req as any).admin;
+
+    const { data: target } = await db
+      .from("admin_users")
+      .select("id")
+      .eq("id", req.params.id)
+      .single();
+
+    if (!target) return res.status(404).json({ error: "Admin not found" });
+    if (target.id === superAdmin.id) {
+      return res.status(400).json({ error: "Cannot delete yourself" });
+    }
+
+    const { error } = await db.from("admin_users").delete().eq("id", req.params.id);
+    if (error) return res.status(500).json({ error: error.message });
+
+    await logAudit({
+      adminId: superAdmin.id,
+      action: "delete_admin",
+      resourceType: "admin_user",
+      resourceId: req.params.id,
+      ipAddress: (req as any).adminIp,
+    });
+
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+adminRouter.put("/users/:id/password", requireAdmin, async (req, res) => {
+  try {
+    const db = requireService();
+    const admin = (req as any).admin;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters" });
+    }
+
+    const isSelf = admin.id === req.params.id;
+
+    if (isSelf) {
+      const { data: user } = await db
+        .from("admin_users")
+        .select("password_hash")
+        .eq("id", admin.id)
+        .single();
+
+      if (!user || !verifyPassword(currentPassword, user.password_hash)) {
+        return res.status(403).json({ error: "Current password is incorrect" });
+      }
+    } else if (admin.role !== "super_admin") {
+      return res.status(403).json({ error: "Only super_admin can change other admins' passwords" });
+    }
+
+    const hash = hashPassword(newPassword);
+    const { error } = await db
+      .from("admin_users")
+      .update({ password_hash: hash })
+      .eq("id", req.params.id);
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    await logAudit({
+      adminId: admin.id,
+      action: isSelf ? "update_self_password" : "update_admin",
+      resourceType: "admin_user",
+      resourceId: req.params.id,
+      ipAddress: (req as any).adminIp,
+    });
+
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 adminRouter.get("/audit-actions", requireAdmin, requireSuperAdmin, async (_req, res) => {
   try {
     const db = requireService();
