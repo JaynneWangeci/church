@@ -49,6 +49,7 @@ ver.txt
 safaricom.txt
 vercell.txt
 pat.txt
+supabasepat.txt
 *.jpg
 *.png
 supabase/.temp/
