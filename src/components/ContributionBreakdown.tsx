@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Trophy, TrendingUp, Users, Calendar, Medal, ChevronDown, ChevronUp, Receipt } from "lucide-react";
+import { Trophy, TrendingUp, Users, Calendar, ChevronDown, ChevronUp, Receipt } from "lucide-react";
 
 interface BreakdownMember {
   id: string;
@@ -43,16 +43,6 @@ function timeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
-function councilBadge(council: string): string {
-  const map: Record<string, string> = {
-    parish_board: "Parish Board",
-    women_council: "Women's Council",
-    men_council: "Men's Council",
-    development: "Development",
-  };
-  return map[council] || council;
-}
-
 const DEFAULT_DATA: BreakdownData = {
   members: [],
   today_total: 0,
@@ -64,7 +54,6 @@ const DEFAULT_DATA: BreakdownData = {
 export default function ContributionBreakdown() {
   const [data, setData] = useState<BreakdownData>(DEFAULT_DATA);
   const [expanded, setExpanded] = useState(false);
-  const [showAll, setShowAll] = useState(false);
 
   const fetchBreakdown = useCallback(async () => {
     try {
@@ -81,10 +70,6 @@ export default function ContributionBreakdown() {
     const interval = setInterval(fetchBreakdown, 5000);
     return () => clearInterval(interval);
   }, [fetchBreakdown]);
-
-  const top5 = data.members.slice(0, 5);
-  const rest = data.members.slice(5);
-  const displayMembers = showAll ? data.members : top5;
 
   return (
     <section className="bg-white px-4 py-24 md:py-32">
@@ -172,79 +157,6 @@ export default function ContributionBreakdown() {
                 ))
               )}
             </div>
-          )}
-        </div>
-
-        {/* Leaderboard */}
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-100 bg-gray-50 px-6 py-4">
-            <div className="flex items-center gap-2">
-              <Medal size={16} className="text-amber-dark" />
-              <span className="text-sm font-bold text-nobuk">Member Honour Roll</span>
-              <span className="ml-auto text-xs text-muted">Ranked by total contributions</span>
-            </div>
-          </div>
-
-          {displayMembers.length === 0 ? (
-            <div className="px-6 py-12 text-center">
-              <Trophy size={32} className="mx-auto mb-3 text-gray-300" />
-              <p className="text-sm font-medium text-muted">No honoured contributions yet</p>
-              <p className="mt-1 text-xs text-muted/70">When members are honoured, they'll appear here</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {/* Header */}
-              <div className="hidden items-center px-6 py-2 text-[10px] font-bold uppercase tracking-widest text-muted sm:flex">
-                <span className="w-10 text-center">#</span>
-                <span className="flex-1">Member</span>
-                <span className="w-20 text-right">Count</span>
-                <span className="w-28 text-right">Total</span>
-              </div>
-
-              {displayMembers.map((m, i) => {
-                const isTop3 = i < 3;
-                return (
-                  <div
-                    key={m.id}
-                    className={`flex items-center px-6 py-4 transition hover:bg-gray-50 ${
-                      isTop3 ? "bg-gradient-to-r from-amber-light/30 via-transparent to-transparent" : ""
-                    }`}
-                  >
-                    <div className="flex w-10 items-center justify-center">
-                      {isTop3 ? (
-                        <span className="text-lg">{["🥇", "🥈", "🥉"][i]}</span>
-                      ) : (
-                        <span className="text-sm font-bold text-muted">{m.rank}</span>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-nobuk">{m.name}</p>
-                      <p className="text-[11px] text-muted">{councilBadge(m.council)}</p>
-                    </div>
-                    <div className="w-20 text-right">
-                      <p className="text-sm font-semibold text-nobuk">{m.count}</p>
-                      <p className="text-[10px] text-muted">gifts</p>
-                    </div>
-                    <div className="w-28 text-right">
-                      <p className="text-sm font-bold text-nobuk">{formatKES(m.total)}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {data.members.length > 5 && (
-            <button
-              onClick={() => setShowAll(!showAll)}
-              className="flex w-full items-center justify-center gap-1 border-t border-gray-100 px-6 py-3 text-sm font-semibold text-nobuk transition hover:bg-gray-50"
-            >
-              {showAll ? (
-                <>Show Top 5 <ChevronUp size={16} /></>
-              ) : (
-                <>Show All ({data.members.length}) <ChevronDown size={16} /></>
-              )}
-            </button>
           )}
         </div>
       </div>
