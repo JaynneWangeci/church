@@ -168,23 +168,56 @@ export default function AdminDashboard() {
   }
 
   async function handleBulkAdd() {
-    const names = bulkNames.trim().split('\n').map(n => n.trim()).filter(Boolean).sort((a, b) => a.localeCompare(b));
-    if (!names.length) { setBulkError("Paste at least one name"); return; }
+    const lines = bulkNames.trim().split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lines.length) { setBulkError("Paste at least one name"); return; }
     setBulkError(""); setBulkResult("");
-    setBulkNames(names.join('\n'));
+
+    const parsed = lines.map(parseLine).filter(Boolean) as { name: string; council: string }[];
+    if (!parsed.length) { setBulkError("No valid entries"); return; }
+
+    const existing = new Map(churchMembers.map(m => [m.name.toLowerCase().trim(), m]));
+    const toAdd: { name: string; council: string }[] = [];
+    const duplicates: string[] = [];
+
+    for (const entry of parsed) {
+      if (existing.has(entry.name.toLowerCase())) {
+        const dup = existing.get(entry.name.toLowerCase())!;
+        duplicates.push(`${entry.name} (already in ${councilLabels[dup.council] || dup.council})`);
+      } else {
+        toAdd.push(entry);
+      }
+    }
+
+    toAdd.sort((a, b) => a.name.localeCompare(b.name));
+
+    if (!toAdd.length) {
+      setBulkError("All names already exist in the database.");
+      return;
+    }
+
+    const addedNames = new Set<string>();
+    const serverDups: string[] = [];
     let added = 0;
-    for (const name of names) {
+    for (const { name, council } of toAdd) {
       try {
         const res = await fetch("/api/members", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ name, council: bulkCouncil }),
+          body: JSON.stringify({ name, council }),
         });
-        if (res.ok) added++;
+        if (res.ok) { added++; addedNames.add(name); continue; }
+        if (res.status === 409) serverDups.push(`${name} (already in DB)`);
       } catch {}
     }
-    setBulkResult(`${added} of ${names.length} members added`);
-    setBulkNames("");
+
+    const allDups = [...duplicates, ...serverDups];
+    const keptLines = parsed.filter(e => !addedNames.has(e.name));
+    let msg = `${added} member${added !== 1 ? 's' : ''} added.`;
+    if (allDups.length) {
+      msg += `\n${allDups.length} duplicate${allDups.length !== 1 ? 's' : ''} skipped:\n${allDups.join('\n')}`;
+    }
+    setBulkResult(msg);
+    setBulkNames(keptLines.length ? keptLines.map(e => e.name).join('\n') : "");
     if (added > 0) fetchMembers();
   }
 
@@ -233,6 +266,29 @@ export default function AdminDashboard() {
     men_council: "Men's Council",
     development: "Development Committee",
   };
+
+  const labelToCouncil: Record<string, string> = {
+    'parish board': 'parish_board',
+    'women\'s council': 'women_council',
+    'women council': 'women_council',
+    'men\'s council': 'men_council',
+    'men council': 'men_council',
+    'development committee': 'development',
+    development: 'development',
+  };
+
+  function parseLine(line: string): { name: string; council: string } | null {
+    const trimmed = line.trim();
+    if (!trimmed) return null;
+    const match = trimmed.match(/^(.+?)\s*[,|]\s*(.+)$/) || trimmed.match(/^(.+?)\s*-\s*(.+)$/);
+    if (match) {
+      const name = match[1].trim();
+      const councilLabel = match[2].trim().toLowerCase();
+      const council = labelToCouncil[councilLabel];
+      if (name && council) return { name, council };
+    }
+    return { name: trimmed, council: bulkCouncil };
+  }
 
   return (
     <div className="min-h-screen bg-cream">
@@ -460,8 +516,19 @@ export default function AdminDashboard() {
                       const file = e.target.files?.[0];
                       if (!file) return;
                       const text = await file.text();
-                      const names = text.split(/[\n,]/).map(n => n.trim()).filter(Boolean).sort((a, b) => a.localeCompare(b));
-                      setBulkNames(names.join('\n'));
+                      const rawLines = text.split('\n').map(l => l.trim()).filter(Boolean);
+                      const seen = new Set<string>();
+                      const lines: string[] = [];
+                      for (const line of rawLines) {
+                        const sep = line.match(/^([^,|\-]+?)\s*[,|\-]\s*(.+)$/);
+                        const name = sep ? sep[1].trim() : line;
+                        const nameKey = name.toLowerCase();
+                        if (nameKey && !seen.has(nameKey)) {
+                          seen.add(nameKey);
+                          lines.push(line);
+                        }
+                      }
+                      setBulkNames(lines.join('\n'));
                       e.target.value = '';
                     }}
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk file:mr-3 file:rounded file:border-0 file:bg-nobuk file:px-3 file:py-1 file:text-xs file:font-semibold file:text-white hover:file:bg-nobuk-light"

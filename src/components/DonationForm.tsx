@@ -53,8 +53,11 @@ export default function DonationForm() {
   const [genMemberOpen, setGenMemberOpen] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
   const [memberOpen, setMemberOpen] = useState(false);
+  const [honNameOpen, setHonNameOpen] = useState(false);
+  const [honNameSearch, setHonNameSearch] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
   const genDropdownRef = useRef<HTMLDivElement>(null);
+  const honNameDropdownRef = useRef<HTMLDivElement>(null);
 
   const [receiptNumber, setReceiptNumber] = useState("");
   const [donationId, setDonationId] = useState("");
@@ -89,6 +92,15 @@ export default function DonationForm() {
     return acc;
   }, {} as Record<string, MemberOption[]>);
 
+  const honNameFiltered = honNameSearch
+    ? members.filter(m => m.name.toLowerCase().includes(honNameSearch.toLowerCase()))
+    : members;
+
+  const honNameGrouped = honNameFiltered.reduce((acc, m) => {
+    (acc[m.council] = acc[m.council] || []).push(m);
+    return acc;
+  }, {} as Record<string, MemberOption[]>);
+
   useEffect(() => {
     fetch("/api/members")
       .then((r) => r.ok && r.json())
@@ -105,6 +117,9 @@ export default function DonationForm() {
       }
       if (genDropdownRef.current && !genDropdownRef.current.contains(e.target as Node)) {
         setGenMemberOpen(false);
+      }
+      if (honNameDropdownRef.current && !honNameDropdownRef.current.contains(e.target as Node)) {
+        setHonNameOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClick);
@@ -230,6 +245,7 @@ export default function DonationForm() {
   function handleHonourSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!honoredMember) { setError("Please select a member to honour"); return; }
+    if (!honName.trim()) { setError("Please select your name"); return; }
     const amount = honAmount === "custom" ? Number(honCustom) || 0 : honAmount || 0;
     processDonation({ amount, donorName: honName, phone: honPhone, message: honMessage, honoredMemberId: honoredMember });
   }
@@ -552,12 +568,67 @@ export default function DonationForm() {
                 </div>
 
                 <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4">
+                  <div className="mb-4" ref={honNameDropdownRef}>
                     <label className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-nobuk">
-                      <User size={14} className="text-amber" /> Your name <span className="font-normal text-muted">(optional)</span>
+                      <User size={14} className="text-amber" /> Your name <span className="text-red-500">*</span>
                     </label>
-                    <input type="text" placeholder="e.g. Mary Wanjiku" value={honName} onChange={(e) => setHonName(e.target.value)}
-                      className="w-full rounded-xl border-2 border-gray-200 bg-white px-4 py-3 text-nobuk outline-none transition focus:border-nobuk" />
+                    <div className="relative">
+                      <button type="button" onClick={() => setHonNameOpen(!honNameOpen)}
+                        className="flex w-full cursor-pointer items-center gap-3 rounded-xl border-2 border-gray-200 bg-white px-4 py-3 text-left outline-none transition-all hover:border-nobuk focus:border-nobuk">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-nobuk text-sm font-bold text-white shadow-sm">
+                          {initials(honName || "?")}
+                        </div>
+                        <span className="text-base font-bold text-nobuk">{honName || <span className="font-medium text-muted">Select a church member</span>}</span>
+                        <ChevronDown size={20} className={`ml-auto shrink-0 text-muted transition ${honNameOpen ? "rotate-180" : ""}`} />
+                      </button>
+
+                      {honNameOpen && (
+                        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border-2 border-gray-200 bg-white shadow-xl animate-scale-in">
+                          <div className="border-b border-gray-100 bg-gray-50 p-3">
+                            <div className="relative">
+                              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+                              <input type="text" placeholder="Search members..." value={honNameSearch}
+                                onChange={(e) => setHonNameSearch(e.target.value)}
+                                className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm font-medium text-nobuk outline-none focus:border-nobuk focus:ring-2 focus:ring-nobuk/20" />
+                            </div>
+                          </div>
+                          <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                            {councilOrder.map(council => {
+                              const councilMembers = honNameGrouped[council];
+                              if (!councilMembers?.length) return null;
+                              const meta = councilMeta[council] || { label: council, icon: Medal };
+                              const Icon = meta.icon;
+                              return (
+                                <div key={council}>
+                                  <div className="sticky top-0 flex items-center gap-2 bg-gray-50 px-4 py-2">
+                                    <Icon size={14} className="text-muted" />
+                                    <span className="text-xs font-bold text-muted uppercase tracking-wider">{meta.label}</span>
+                                    <span className="ml-auto text-[10px] text-muted">{councilMembers.length}</span>
+                                  </div>
+                                  {councilMembers.map((m) => (
+                                    <button key={m.id} type="button"
+                                      onClick={() => { setHonName(m.name); setHonNameSearch(""); setHonNameOpen(false); }}
+                                      className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-all hover:bg-gray-50 ${
+                                        honName === m.name ? "bg-gray-50 font-bold" : ""
+                                      }`}>
+                                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                                        honName === m.name ? "bg-nobuk text-white" : "bg-gray-200 text-muted"
+                                      }`}>
+                                        {m.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <p className={`text-sm ${honName === m.name ? "text-nobuk" : "text-nobuk font-medium"}`}>{m.name}</p>
+                                      </div>
+                                      {honName === m.name && <Check size={16} className="text-nobuk" />}
+                                    </button>
+                                  ))}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <label className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-nobuk">
@@ -582,7 +653,7 @@ export default function DonationForm() {
                   <p className="mt-1 text-sm text-muted">Paybill: <span className="font-bold text-nobuk">835 872</span> Account: <span className="font-bold text-amber-dark">Your Name</span></p>
                 </div>
 
-                <button type="submit" disabled={!honoredMember || (!honAmount && !honCustom)}
+                <button type="submit" disabled={!honoredMember || !honName.trim() || (!honAmount && !honCustom)}
                   className="btn-lift w-full rounded-full bg-nobuk py-3.5 text-base font-bold text-white shadow-sm hover:bg-nobuk-light disabled:cursor-not-allowed disabled:opacity-40">
                   {honoredMember ? `Honour ${selectedMember?.name} with KES ${(honAmount === "custom" ? Number(honCustom) || 0 : honAmount || 0).toLocaleString()}` : "Select a member to honour"}
                 </button>

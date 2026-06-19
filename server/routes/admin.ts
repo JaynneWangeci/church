@@ -21,21 +21,19 @@ adminRouter.get("/stats", requireAdmin, async (req, res) => {
     const goal = Number(campaign?.goal || 30000000);
     const campaignId = campaign?.id;
 
-    const { data: completedDonations } = await db
-      .from("donations")
+    let query = db.from("donations")
       .select("id, amount, donor_name, status, method, receipt_number, phone, message, created_at, campaign_id")
-      .eq("status", "completed")
-      .order("created_at", { ascending: false });
+      .eq("status", "completed");
+    if (campaignId) query = query.eq("campaign_id", campaignId);
+    const { data: completedDonations } = await query.order("created_at", { ascending: false });
 
-    const { data: pendingDonations } = await db
-      .from("donations")
-      .select("amount")
-      .eq("status", "pending");
+    let pendingQuery = db.from("donations").select("amount").eq("status", "pending");
+    if (campaignId) pendingQuery = pendingQuery.eq("campaign_id", campaignId);
+    const { data: pendingDonations } = await pendingQuery;
 
-    const { data: failedDonations } = await db
-      .from("donations")
-      .select("amount")
-      .eq("status", "failed");
+    let failedQuery = db.from("donations").select("amount").eq("status", "failed");
+    if (campaignId) failedQuery = failedQuery.eq("campaign_id", campaignId);
+    const { data: failedDonations } = await failedQuery;
 
     await logAudit({
       adminId: admin.id,
@@ -68,7 +66,7 @@ adminRouter.get("/stats", requireAdmin, async (req, res) => {
     };
 
     const { count: memberCount } = await db
-      .from("committee_members")
+      .from("church_members")
       .select("*", { count: "exact", head: true });
 
     stats.member_count = memberCount || 0;

@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { X, Heart, User, Phone, MessageSquare, Check, Loader2 } from 'lucide-react';
+import { useState, useCallback, useEffect } from 'react';
+import { X, Heart, User, Phone, MessageSquare, Check, Loader2, ChevronDown, Search } from 'lucide-react';
 
 type Step = 'form' | 'processing' | 'success';
 
@@ -37,6 +37,25 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
   const [finalAmount, setFinalAmount] = useState(0);
   const [finalDonorName, setFinalDonorName] = useState('');
 
+  const [memberList, setMemberList] = useState<Member[]>([]);
+  const [showNameDropdown, setShowNameDropdown] = useState(false);
+  const [nameSearch, setNameSearch] = useState('');
+
+  useEffect(() => {
+    fetch('/api/members')
+      .then(r => r.ok && r.json())
+      .then(data => { if (data?.members?.length) setMemberList(data.members); })
+      .catch(() => {});
+  }, []);
+
+  const nameFiltered = nameSearch
+    ? memberList.filter(m => m.name.toLowerCase().includes(nameSearch.toLowerCase()))
+    : memberList;
+
+  function initials(n: string): string {
+    return n.split(' ').map(x => x[0]).join('').toUpperCase().slice(0, 2);
+  }
+
   const pollStatus = useCallback((checkoutId: string) => {
     const interval = setInterval(async () => {
       try {
@@ -66,6 +85,7 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
 
   async function processDonation() {
     setError('');
+    if (!name.trim()) { setError('Please select your name'); return; }
     const amt = amount === 'custom' ? Number(customAmount) || 0 : amount || 0;
     if (amt < 10) { setError('Amount must be at least KES 10'); return; }
     const cleanPhone = phone.replace(/\s/g, '');
@@ -188,15 +208,48 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
 
               <div>
                 <label className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-[#1f2a1d]">
-                  <User size={14} className="text-[#85AB8B]" /> Your name <span className="font-normal text-[#4b5b47]">(optional)</span>
+                  <User size={14} className="text-[#85AB8B]" /> Your name <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Mary Wanjiku"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  className="w-full rounded-xl border border-[#2d3a2a]/20 bg-white px-4 py-3 text-sm text-[#1f2a1d] outline-none transition focus:border-[#336443] placeholder:text-[#4b5b47]/40"
-                />
+                <div className="relative">
+                  <button type="button" onClick={() => setShowNameDropdown(!showNameDropdown)}
+                    className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-[#2d3a2a]/20 bg-white px-4 py-3 text-left outline-none transition-all hover:border-[#336443] focus:border-[#336443]">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#336443] text-xs font-bold text-white">
+                      {initials(name || "?")}
+                    </div>
+                    <span className="text-sm font-bold text-[#1f2a1d]">{name || <span className="font-normal text-[#4b5b47]">Select a member...</span>}</span>
+                    <ChevronDown size={18} className={`ml-auto shrink-0 text-[#85AB8B] transition ${showNameDropdown ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {showNameDropdown && (
+                    <div className="absolute top-full left-0 right-0 z-30 mt-1 overflow-hidden rounded-xl border border-[#2d3a2a]/10 bg-white shadow-lg">
+                      <div className="border-b border-[#2d3a2a]/5 p-2">
+                        <div className="relative">
+                          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4b5b47]" />
+                          <input type="text" placeholder="Search members..." value={nameSearch}
+                            onChange={(e) => setNameSearch(e.target.value)}
+                            className="w-full rounded-lg border border-[#2d3a2a]/10 bg-[#f5f7f4] py-2 pl-8 pr-3 text-xs font-medium text-[#1f2a1d] outline-none focus:border-[#336443]" autoFocus />
+                        </div>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto divide-y divide-[#2d3a2a]/5">
+                        {nameFiltered.map(m => (
+                          <button key={m.id} type="button"
+                            onClick={() => { setName(m.name); setNameSearch(''); setShowNameDropdown(false); }}
+                            className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-all hover:bg-[#85AB8B]/5 ${
+                              name === m.name ? 'bg-[#85AB8B]/10 font-bold' : ''
+                            }`}>
+                            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                              name === m.name ? 'bg-[#336443] text-white' : 'bg-[#85AB8B]/20 text-[#336443]'
+                            }`}>
+                              {initials(m.name)}
+                            </div>
+                            <p className={`text-sm ${name === m.name ? 'text-[#1f2a1d]' : 'text-[#1f2a1d] font-medium'}`}>{m.name}</p>
+                            {name === m.name && <Check size={14} className="ml-auto text-[#336443]" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -229,7 +282,7 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
               <button
                 type="button"
                 onClick={processDonation}
-                disabled={!amount && !customAmount}
+                disabled={!name.trim() || (!amount && !customAmount)}
                 className="btn-lift w-full rounded-full bg-[#1f2a1d] py-3.5 text-base font-bold text-white shadow-sm hover:bg-[#2a3827] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {isGeneral

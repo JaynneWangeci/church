@@ -29,9 +29,21 @@ membersRouter.post("/", requireAdmin, requireAdminOrAbove, async (req, res) => {
     const { name, council } = req.body;
     if (!name || !council) return res.status(400).json({ error: "name and council required" });
 
+    const trimmed = name.trim();
+
+    const { data: existing } = await db
+      .from("church_members")
+      .select("id, name, council")
+      .eq("is_active", true)
+      .ilike("name", trimmed);
+
+    if (existing?.length) {
+      return res.status(409).json({ error: "A member with this name already exists", duplicate: existing[0] });
+    }
+
     const { data, error } = await db
       .from("church_members")
-      .insert({ name: name.trim(), council })
+      .insert({ name: trimmed, council })
       .select()
       .single();
 

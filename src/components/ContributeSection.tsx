@@ -107,36 +107,71 @@ export default function ContributeSection() {
           </div>
 
           <div ref={ref} className="mx-auto max-w-lg">
-            {/* Your name combobox */}
+            {/* Your name - dropdown selector */}
             <div ref={dropdownRef} className="relative">
               <label className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-[#1f2a1d]">
-                <User size={14} className="text-[#85AB8B]" /> Your name
+                <User size={14} className="text-[#85AB8B]" /> Your name <span className="text-red-500">*</span>
               </label>
-              <div className="relative">
-                <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#85AB8B]/60" />
-                <input
-                  type="text"
-                  placeholder="Type your name or search a member..."
-                  value={inputValue}
-                  onFocus={() => setShowSuggestions(true)}
-                  onChange={e => {
-                    setInputValue(e.target.value);
-                    if (selectedMember) setSelectedMember(null);
-                    setShowSuggestions(true);
-                  }}
-                  className="w-full rounded-2xl border-2 border-[#336443]/20 bg-white py-4 pl-11 pr-12 text-base text-[#1f2a1d] outline-none transition placeholder:text-[#4b5b47]/40 focus:border-[#336443]"
-                />
-                <ChevronDown
-                  size={18}
-                  className={`absolute right-4 top-1/2 -translate-y-1/2 text-[#85AB8B]/60 transition cursor-pointer ${showSuggestions ? 'rotate-180' : ''}`}
-                  onClick={() => setShowSuggestions(!showSuggestions)}
-                />
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowSuggestions(!showSuggestions)}
+                className="flex w-full cursor-pointer items-center gap-3 rounded-2xl border-2 border-[#336443]/20 bg-white px-4 py-4 text-left outline-none transition-all hover:border-[#336443] focus:border-[#336443]"
+              >
+                {selectedMember ? (
+                  <>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#336443] text-sm font-bold text-white shadow-sm">
+                      {initials(selectedMember.name)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-base font-bold text-[#1f2a1d]">{selectedMember.name}</p>
+                      {selectedMember.council && (
+                        <p className="text-xs font-medium text-[#4b5b47]">
+                          {councilMeta[selectedMember.council]?.label || selectedMember.council}
+                        </p>
+                      )}
+                    </div>
+                  </>
+                ) : inputValue.trim() ? (
+                  <>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#85AB8B]/30 text-sm font-bold text-[#336443]">
+                      {initials(inputValue)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-base font-bold text-[#1f2a1d]">{inputValue}</p>
+                      <p className="text-xs font-medium text-[#4b5b47]">Custom name</p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-gray-300 bg-gray-50 text-[#85AB8B]">
+                      <User size={16} />
+                    </div>
+                    <span className="text-base font-medium text-[#4b5b47]">Select or type your name...</span>
+                  </>
+                )}
+                <ChevronDown size={20} className={`ml-auto shrink-0 text-[#85AB8B] transition ${showSuggestions ? 'rotate-180' : ''}`} />
+              </button>
 
               {/* Suggestions dropdown */}
               {showSuggestions && (
                 <div className="absolute top-full left-0 right-0 z-20 mt-2 overflow-hidden rounded-2xl border border-[#2d3a2a]/10 bg-white shadow-xl animate-scale-in">
-                  <div className="max-h-80 overflow-y-auto divide-y divide-[#2d3a2a]/5">
+                  <div className="border-b border-[#2d3a2a]/10 p-3">
+                    <div className="relative">
+                      <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4b5b47]" />
+                      <input
+                        type="text"
+                        placeholder="Search or type your name..."
+                        value={inputValue}
+                        onChange={e => {
+                          setInputValue(e.target.value);
+                          if (selectedMember) setSelectedMember(null);
+                        }}
+                        className="w-full rounded-xl border border-[#2d3a2a]/10 bg-white py-2.5 pl-9 pr-3 text-sm font-medium text-[#1f2a1d] outline-none focus:border-[#336443]"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto divide-y divide-[#2d3a2a]/5">
                     {councilOrder.map(council => {
                       const councilMembers = grouped[council];
                       if (!councilMembers?.length) return null;
@@ -185,11 +220,9 @@ export default function ContributeSection() {
                         </div>
                       );
                     })}
-                    {filtered.length === 0 && (
-                      <div className="px-4 py-12 text-center">
-                        <Search size={24} className="mx-auto mb-2 text-[#85AB8B]/30" />
-                        <p className="text-sm font-medium text-[#4b5b47]">No members found</p>
-                        <p className="text-xs text-[#4b5b47]/60">Using "{inputValue}" as your name</p>
+                    {filtered.length === 0 && inputValue.trim() && (
+                      <div className="px-4 py-6 text-center">
+                        <p className="text-sm font-medium text-[#4b5b47]">Using "<span className="font-bold text-[#1f2a1d]">{inputValue}</span>" as your name</p>
                       </div>
                     )}
                   </div>
