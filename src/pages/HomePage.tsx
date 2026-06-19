@@ -11,9 +11,9 @@ export default function HomePage() {
       <SlideshowBackground />
       <div className="relative z-10">
         <ChurchHero />
+        <ContributeSection />
         <LiveProgress />
         <AboutSection />
-        <ContributeSection />
         <Footer />
       </div>
     </main>
