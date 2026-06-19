@@ -14,6 +14,7 @@ interface RecentDonation {
   id: string;
   donor_name: string | null;
   amount: number;
+  phone: string | null;
   message: string | null;
   created_at: string;
   member_name: string | null;
@@ -77,7 +78,7 @@ export default function ContributionBreakdown() {
 
   useEffect(() => {
     fetchBreakdown();
-    const interval = setInterval(fetchBreakdown, 10000);
+    const interval = setInterval(fetchBreakdown, 5000);
     return () => clearInterval(interval);
   }, [fetchBreakdown]);
 
@@ -158,9 +159,10 @@ export default function ContributionBreakdown() {
                 data.recent.map((d) => (
                   <div key={d.id} className="flex items-center justify-between px-6 py-3 transition hover:bg-gray-50">
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-nobuk">{d.donor_name || "Anonymous"}</p>
+                      <p className="text-sm font-semibold text-nobuk">{d.donor_name || d.phone || "Anonymous"}</p>
                       <p className="text-xs text-muted">
                         {d.member_name ? `In honour of ${d.member_name}` : "General Fund"}
+                        {d.phone && d.donor_name && (<> <span className="mx-1">&middot;</span> {d.phone}</>)}
                         <span className="mx-1">&middot;</span>
                         {timeAgo(d.created_at)}
                       </p>

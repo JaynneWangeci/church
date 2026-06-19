@@ -26,7 +26,7 @@ contributionsRouter.get("/breakdown", async (_req, res) => {
         .eq("status", "completed"),
 
       db.from("donations")
-        .select("id, donor_name, amount, message, created_at, church_member_id, church_members(name)")
+        .select("id, donor_name, amount, phone, message, created_at, church_member_id, church_members(name)")
         .eq("status", "completed")
         .order("created_at", { ascending: false })
         .limit(20),
@@ -52,14 +52,22 @@ contributionsRouter.get("/breakdown", async (_req, res) => {
     const overallTotal = (overallData.data || []).reduce((sum: number, d: any) => sum + Number(d.amount), 0);
     const overallCount = (overallData.data || []).length;
 
-    const recent = (recentData.data || []).map((d: any) => ({
-      id: d.id,
-      donor_name: d.donor_name,
-      amount: Number(d.amount),
-      message: d.message,
-      created_at: d.created_at,
-      member_name: d.church_members?.name || null,
-    }));
+    const recent = (recentData.data || []).map((d: any) => {
+      let phone: string | null = null;
+      if (d.phone) {
+        const raw = String(d.phone);
+        phone = raw.length > 4 ? `***${raw.slice(-4)}` : `***${raw}`;
+      }
+      return {
+        id: d.id,
+        donor_name: d.donor_name,
+        amount: Number(d.amount),
+        phone,
+        message: d.message,
+        created_at: d.created_at,
+        member_name: d.church_members?.name || null,
+      };
+    });
 
     res.json({ members, today_total: todayTotal, overall_total: overallTotal, overall_count: overallCount, recent });
   } catch (err) {
