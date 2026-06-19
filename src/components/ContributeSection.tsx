@@ -85,7 +85,7 @@ export default function ContributeSection() {
     if (selectedMember) {
       setShowModal(true);
     } else {
-      setSelectedMember({ id: 'general', name: donorName.trim() || 'General Harambee Fund', council: '' });
+      setSelectedMember({ id: 'general', name: 'General Harambee Fund', council: '' });
       setShowModal(true);
     }
   }
