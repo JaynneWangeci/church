@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { X, Heart, User, Phone, MessageSquare, Check, Loader2, Share2 } from 'lucide-react';
+import { X, Heart, User, Phone, MessageSquare, Check, Loader2 } from 'lucide-react';
 
 type Step = 'form' | 'processing' | 'success';
 
@@ -125,13 +125,6 @@ export default function DonationModal({ member, onClose }: Props) {
       setError(err?.message || 'Network error. Please try again.');
       setStep('form');
     }
-  }
-
-  function handleWhatsAppShare() {
-    const text = encodeURIComponent(
-      `I just gave KES ${finalAmount.toLocaleString()} to AIPCA Bahati Harambee!${!isGeneral ? ` In honour of ${member.name}.` : ''}${receiptNumber ? ` Receipt: ${receiptNumber}` : ''}`,
-    );
-    window.open(`https://wa.me/?text=${text}`, '_blank');
   }
 
   function reset() {
@@ -293,12 +286,6 @@ export default function DonationModal({ member, onClose }: Props) {
                 <p className="mt-3 font-mono text-xs text-[#4b5b47]">Receipt: {receiptNumber}</p>
               )}
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <button
-                  onClick={handleWhatsAppShare}
-                  className="btn-lift flex flex-1 items-center justify-center gap-2 rounded-full bg-green-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-green-700"
-                >
-                  <Share2 size={15} /> Share on WhatsApp
-                </button>
                 <button
                   onClick={reset}
                   className="btn-lift flex-1 rounded-full border border-[#2d3a2a]/20 px-5 py-2.5 text-sm font-bold text-[#4b5b47] hover:border-[#336443] hover:text-[#336443]"

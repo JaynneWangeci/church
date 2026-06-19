@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Check, Loader2, Share2, ChevronDown, Search, Phone, User, MessageSquare, Heart, Medal, Church, Users } from "lucide-react";
+import { Check, Loader2, ChevronDown, Search, Phone, User, MessageSquare, Heart, Medal, Church, Users } from "lucide-react";
 import { useInView } from "../hooks/useInView";
 
 type Tab = "general" | "honour";
@@ -208,13 +208,6 @@ export default function DonationForm() {
     if (!honoredMember) { setError("Please select a member to honour"); return; }
     const amount = honAmount === "custom" ? Number(honCustom) || 0 : honAmount || 0;
     processDonation({ amount, donorName: honName, phone: honPhone, message: honMessage, honoredMemberId: honoredMember });
-  }
-
-  function handleWhatsAppShare() {
-    const text = encodeURIComponent(
-      `I just gave KES ${finalAmount.toLocaleString()} to AIPCA Bahati Harambee!${finalHonouredMember ? ` In honour of ${finalHonouredMember.name}.` : ""}${receiptNumber ? ` Receipt: ${receiptNumber}` : ""} Join me: ${window.location.origin}#give`,
-    );
-    window.open(`https://wa.me/?text=${text}`, "_blank");
   }
 
   function reset() {
@@ -538,10 +531,6 @@ export default function DonationForm() {
             )}
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              <button onClick={handleWhatsAppShare}
-                className="btn-lift flex flex-1 items-center justify-center gap-2 rounded-full bg-green-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-green-700">
-                <Share2 size={15} /> Share on WhatsApp
-              </button>
               <button onClick={reset}
                 className="btn-lift flex-1 rounded-full border-2 border-gray-200 bg-white px-5 py-2.5 text-sm font-bold text-muted hover:border-nobuk hover:text-nobuk">
                 Give Again

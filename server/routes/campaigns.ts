@@ -23,7 +23,7 @@ campaignsRouter.get("/:slug", async (req, res) => {
 
     const raised = sumData?.reduce((acc, d) => acc + Number(d.amount), 0) || 0;
 
-    res.json({ ...data, raised: raised + Number(data.raised || 0) });
+    res.json({ ...data, raised });
   } catch (err) {
     console.error("campaign error:", err);
     res.status(500).json({ error: "Server error" });
