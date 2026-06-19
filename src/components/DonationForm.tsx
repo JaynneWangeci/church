@@ -38,7 +38,7 @@ export default function DonationForm() {
 
   const [genAmount, setGenAmount] = useState<number | "custom" | null>(null);
   const [genCustom, setGenCustom] = useState("");
-  const [genName, setGenName] = useState("");
+  const [genSelectedMember, setGenSelectedMember] = useState("");
   const [genPhone, setGenPhone] = useState("");
   const [genMessage, setGenMessage] = useState("");
 
@@ -49,9 +49,12 @@ export default function DonationForm() {
   const [honMessage, setHonMessage] = useState("");
   const [honoredMember, setHonoredMember] = useState("");
   const [members, setMembers] = useState<MemberOption[]>([]);
+  const [genMemberSearch, setGenMemberSearch] = useState("");
+  const [genMemberOpen, setGenMemberOpen] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
   const [memberOpen, setMemberOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const genDropdownRef = useRef<HTMLDivElement>(null);
 
   const [receiptNumber, setReceiptNumber] = useState("");
   const [donationId, setDonationId] = useState("");
@@ -62,6 +65,7 @@ export default function DonationForm() {
   const { ref, inView } = useInView();
 
   const selectedMember = members.find((m) => m.id === honoredMember);
+  const genSelected = members.find((m) => m.id === genSelectedMember);
 
   const filteredMembers = memberSearch
     ? members.filter((m) =>
@@ -69,7 +73,18 @@ export default function DonationForm() {
       )
     : members;
 
+  const genFilteredMembers = genMemberSearch
+    ? members.filter((m) =>
+        m.name.toLowerCase().includes(genMemberSearch.toLowerCase())
+      )
+    : members;
+
   const groupedMembers = filteredMembers.reduce((acc, m) => {
+    (acc[m.council] = acc[m.council] || []).push(m);
+    return acc;
+  }, {} as Record<string, MemberOption[]>);
+
+  const genGroupedMembers = genFilteredMembers.reduce((acc, m) => {
     (acc[m.council] = acc[m.council] || []).push(m);
     return acc;
   }, {} as Record<string, MemberOption[]>);
@@ -88,6 +103,9 @@ export default function DonationForm() {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setMemberOpen(false);
       }
+      if (genDropdownRef.current && !genDropdownRef.current.contains(e.target as Node)) {
+        setGenMemberOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -102,6 +120,12 @@ export default function DonationForm() {
       setHonoredMember(memberParam);
     }
   }, [members]);
+
+  useEffect(() => {
+    if (tab === "general" && honoredMember && !genSelectedMember) {
+      setGenSelectedMember(honoredMember);
+    }
+  }, [tab, honoredMember, genSelectedMember]);
 
   const pollStatus = useCallback((checkoutId: string) => {
     const interval = setInterval(async () => {
@@ -200,7 +224,7 @@ export default function DonationForm() {
   function handleGeneralSubmit(e: React.FormEvent) {
     e.preventDefault();
     const amount = genAmount === "custom" ? Number(genCustom) || 0 : genAmount || 0;
-    processDonation({ amount, donorName: genName, phone: genPhone, message: genMessage });
+    processDonation({ amount, donorName: genSelected?.name || "", phone: genPhone, message: genMessage });
   }
 
   function handleHonourSubmit(e: React.FormEvent) {
@@ -212,7 +236,7 @@ export default function DonationForm() {
 
   function reset() {
     setStep("form");
-    setGenAmount(null); setGenCustom(""); setGenName(""); setGenPhone(""); setGenMessage("");
+    setGenAmount(null); setGenCustom(""); setGenSelectedMember(""); setGenPhone(""); setGenMessage("");
     setHonAmount(null); setHonCustom(""); setHonName(""); setHonPhone(""); setHonMessage("");
     setHonoredMember(""); setReceiptNumber(""); setDonationId(""); setError(""); setFinalHonouredMember(null);
   }
@@ -286,10 +310,91 @@ export default function DonationForm() {
                 <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
                   <div className="mb-4">
                     <label className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-nobuk">
-                      <User size={14} className="text-amber" /> Your name <span className="font-normal text-muted">(optional)</span>
+                      <Church size={14} className="text-amber" /> Donor (church member)
                     </label>
-                    <input type="text" placeholder="e.g. Mary Wanjiku" value={genName} onChange={(e) => setGenName(e.target.value)}
-                      className="w-full rounded-xl border-2 border-gray-200 bg-white px-4 py-3 text-nobuk outline-none transition focus:border-nobuk" />
+                    <div ref={genDropdownRef} className="relative">
+                      <button type="button" onClick={() => setGenMemberOpen(!genMemberOpen)}
+                        className="flex w-full cursor-pointer items-center gap-3 rounded-xl border-2 border-gray-200 bg-white px-4 py-3 text-left outline-none transition-all hover:border-nobuk focus:border-nobuk">
+                        {genSelected ? (
+                          <>
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-nobuk text-sm font-bold text-white shadow-sm">
+                              {initials(genSelected.name)}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-base font-bold text-nobuk">{genSelected.name}</p>
+                              <p className="text-xs font-medium text-muted">
+                                {councilMeta[genSelected.council]?.label || genSelected.council}
+                              </p>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-gray-300 bg-gray-50 text-amber">
+                              <Church size={16} />
+                            </div>
+                            <span className="text-base font-medium text-muted">Select a church member</span>
+                          </>
+                        )}
+                        <ChevronDown size={20} className={`ml-auto shrink-0 text-muted transition ${genMemberOpen ? "rotate-180" : ""}`} />
+                      </button>
+
+                      {genMemberOpen && (
+                        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border-2 border-gray-200 bg-white shadow-xl animate-scale-in">
+                          <div className="border-b border-gray-100 bg-gray-50 p-3">
+                            <div className="relative">
+                              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+                              <input type="text" placeholder="Search members..." value={genMemberSearch}
+                                onChange={(e) => setGenMemberSearch(e.target.value)}
+                                className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm font-medium text-nobuk outline-none focus:border-nobuk focus:ring-2 focus:ring-nobuk/20" />
+                            </div>
+                          </div>
+                          <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                            {councilOrder.map(council => {
+                              const councilMembers = genGroupedMembers[council];
+                              if (!councilMembers?.length) return null;
+                              const meta = councilMeta[council] || { label: council, icon: Medal };
+                              const Icon = meta.icon;
+                              return (
+                                <div key={council}>
+                                  <div className="sticky top-0 flex items-center gap-2 bg-gray-50 px-4 py-2">
+                                    <Icon size={14} className="text-muted" />
+                                    <span className="text-xs font-bold text-muted uppercase tracking-wider">{meta.label}</span>
+                                    <span className="ml-auto text-[10px] text-muted">{councilMembers.length}</span>
+                                  </div>
+                                  {councilMembers.map((m) => (
+                                    <button key={m.id} type="button"
+                                      onClick={() => { setGenSelectedMember(m.id); setGenMemberOpen(false); setGenMemberSearch(""); }}
+                                      className={`flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition-all ${
+                                        genSelectedMember === m.id
+                                          ? "bg-nobuk-muted font-bold shadow-inner"
+                                          : "hover:bg-gray-50 hover:pl-5"
+                                      }`}>
+                                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold shadow-sm ${
+                                        genSelectedMember === m.id ? "bg-nobuk text-white" : "bg-gray-100 text-muted"
+                                      }`}>{initials(m.name)}</div>
+                                      <div className="min-w-0">
+                                        <p className={`text-sm ${genSelectedMember === m.id ? "text-nobuk font-bold" : "text-nobuk font-medium"}`}>{m.name}</p>
+                                      </div>
+                                      {genSelectedMember === m.id && (
+                                        <div className="ml-auto flex h-6 w-6 items-center justify-center rounded-full bg-nobuk">
+                                          <Check size={14} className="text-white" />
+                                        </div>
+                                      )}
+                                    </button>
+                                  ))}
+                                </div>
+                              );
+                            })}
+                            {genFilteredMembers.length === 0 && (
+                              <div className="px-4 py-8 text-center">
+                                <Search size={24} className="mx-auto mb-2 text-gray-300" />
+                                <p className="text-sm font-medium text-muted">No members found</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <label className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-nobuk">
