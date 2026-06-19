@@ -48,6 +48,7 @@ consumers.txt
 ver.txt
 safaricom.txt
 vercell.txt
+pat.txt
 *.jpg
 *.png
 supabase/.temp/
