@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   TrendingUp, Users, DollarSign, Clock, AlertCircle,
-  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileText, Presentation, Search,
+  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileText, Presentation, Search, ScanSearch,
 } from "lucide-react";
 import type { DashboardStats, AdminUser, ChurchMember } from "../types";
 
@@ -46,6 +46,9 @@ export default function AdminDashboard() {
   const [pwNew, setPwNew] = useState("");
   const [pwError, setPwError] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
+  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
+  const [deduping, setDeduping] = useState(false);
+  const [dedupResult, setDedupResult] = useState("");
   const [analytics, setAnalytics] = useState<any>(null);
   const [exporting, setExporting] = useState<string | null>(null);
   const exportRef = useRef<HTMLDivElement>(null);
@@ -156,27 +159,27 @@ export default function AdminDashboard() {
 
   async function addMember(e: React.FormEvent) {
     e.preventDefault();
-    if (!newName.trim()) { setMemberError("Name required"); return; }
+    if (!newName.trim()) { setMemberError("Kindly provide the member's name"); return; }
     try {
       const res = await fetch("/api/members", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: newName.trim(), council: newCouncil }),
       });
-      if (!res.ok) { const d = await res.json(); setMemberError(d.error || "Failed"); return; }
+      if (!res.ok) { const d = await res.json(); setMemberError(d.error || "Something went wrong. Please try again."); return; }
       setNewName("");
       setMemberError("");
       fetchMembers();
-    } catch { setMemberError("Network error"); }
+    } catch { setMemberError("A connection issue occurred. Please try again."); }
   }
 
   async function handleBulkAdd() {
     const lines = bulkNames.trim().split('\n').map(l => l.trim()).filter(Boolean);
-    if (!lines.length) { setBulkError("Paste at least one name"); return; }
+    if (!lines.length) { setBulkError("Please paste at least one name to add"); return; }
     setBulkError(""); setBulkResult("");
 
     const parsed = lines.map(parseLine).filter(Boolean) as { name: string; council: string }[];
-    if (!parsed.length) { setBulkError("No valid entries"); return; }
+    if (!parsed.length) { setBulkError("We couldn't identify any names. Use 'Name - Council' or 'Name, Council' format."); return; }
 
     const existing = new Map(churchMembers.map(m => [m.name.toLowerCase().trim(), m]));
     const toAdd: { name: string; council: string }[] = [];
@@ -194,7 +197,7 @@ export default function AdminDashboard() {
     toAdd.sort((a, b) => a.name.localeCompare(b.name));
 
     if (!toAdd.length) {
-      setBulkError("All names already exist in the database.");
+      setBulkError("All these names are already in our church registry.");
       return;
     }
 
@@ -224,6 +227,14 @@ export default function AdminDashboard() {
     if (added > 0) fetchMembers();
   }
 
+  function toggleMember(id: string) {
+    setSelectedMembers(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
   async function deleteMember(id: string) {
     try {
       await fetch(`/api/members/${id}`, {
@@ -232,6 +243,36 @@ export default function AdminDashboard() {
       });
       fetchMembers();
     } catch {}
+  }
+
+  async function handleBulkDelete() {
+    if (selectedMembers.size === 0) return;
+    if (!confirm(`Remove ${selectedMembers.size} member${selectedMembers.size !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+    try {
+      await fetch("/api/members/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ids: Array.from(selectedMembers) }),
+      });
+      setSelectedMembers(new Set());
+      fetchMembers();
+    } catch {}
+  }
+
+  async function handleDedup() {
+    if (!confirm("Find and remove duplicate member names? This cannot be undone.")) return;
+    setDeduping(true);
+    setDedupResult("");
+    try {
+      const res = await fetch("/api/members/dedup", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setDedupResult(data.message || "Done.");
+      if (data.deduped > 0) fetchMembers();
+    } catch { setDedupResult("Something went wrong. Please try again."); }
+    finally { setDeduping(false); }
   }
 
   function handleLogout() {
@@ -575,17 +616,32 @@ export default function AdminDashboard() {
               <div className="mb-4 flex items-center gap-2">
                 <Users size={16} className="text-nobuk" />
                 <h2 className="text-sm font-bold text-ink">Church Members</h2>
-                <span className="ml-auto text-xs text-muted">{churchMembers.length} total</span>
+                <button onClick={handleDedup} disabled={deduping}
+                  className="ml-auto flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-muted hover:bg-cream transition disabled:opacity-40">
+                  <ScanSearch size={14} /> {deduping ? "Scanning..." : "Find Duplicates"}
+                </button>
+                <span className="text-xs text-muted">{churchMembers.length} total</span>
               </div>
-              <div className="relative mb-4">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-                <input
-                  type="text"
-                  placeholder="Search members to delete..."
-                  value={memberSearch}
-                  onChange={e => setMemberSearch(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 bg-cream py-2.5 pl-9 pr-3 text-sm text-ink outline-none focus:border-nobuk"
-                />
+              {dedupResult && (
+                <div className="mb-3 rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-xs text-green-700">{dedupResult}</div>
+              )}
+              <div className="mb-4 flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+                  <input
+                    type="text"
+                    placeholder="Search members..."
+                    value={memberSearch}
+                    onChange={e => setMemberSearch(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 bg-cream py-2.5 pl-9 pr-3 text-sm text-ink outline-none focus:border-nobuk"
+                  />
+                </div>
+                {selectedMembers.size > 0 && (
+                  <button onClick={handleBulkDelete}
+                    className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white hover:bg-red-700 transition">
+                    <Trash2 size={14} /> Delete {selectedMembers.size} selected
+                  </button>
+                )}
               </div>
               {churchMembers.length ? (
                 <div className="space-y-4">
@@ -605,6 +661,9 @@ export default function AdminDashboard() {
                           {filteredCouncil.map((m) => (
                             <div key={m.id} className="flex items-center justify-between rounded-lg bg-cream px-3 py-2">
                               <div className="flex items-center gap-3">
+                                <input type="checkbox" checked={selectedMembers.has(m.id)}
+                                  onChange={() => toggleMember(m.id)}
+                                  className="h-4 w-4 rounded border-gray-300 text-nobuk focus:ring-nobuk" />
                                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-nobuk-muted text-xs font-bold text-nobuk">
                                   {m.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}
                                 </div>
@@ -683,7 +742,7 @@ export default function AdminDashboard() {
                   </div>
                   <button
                     onClick={async () => {
-                      if (!newAdminName || !newAdminEmail || !newAdminPassword) { setAdminError("All fields required"); return; }
+                      if (!newAdminName || !newAdminEmail || !newAdminPassword) { setAdminError("Please fill in all fields"); return; }
                       setAdminError("");
                       try {
                         const res = await fetch("/api/admin/admins", {
@@ -691,11 +750,11 @@ export default function AdminDashboard() {
                           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                           body: JSON.stringify({ name: newAdminName, email: newAdminEmail, password: newAdminPassword, role: newAdminRole }),
                         });
-                        if (!res.ok) { const d = await res.json(); setAdminError(d.error || "Failed"); return; }
+                        if (!res.ok) { const d = await res.json(); setAdminError(d.error || "Something went wrong. Please try again."); return; }
                         setNewAdminName(""); setNewAdminEmail(""); setNewAdminPassword(""); setNewAdminRole("admin");
                         setShowAddAdmin(false);
                         fetchAdmins();
-                      } catch { setAdminError("Network error"); }
+                      } catch { setAdminError("A connection issue occurred. Please try again."); }
                     }}
                     className="mt-3 rounded-lg bg-nobuk px-4 py-2 text-xs font-semibold text-white hover:bg-nobuk-light"
                   >
@@ -833,8 +892,8 @@ export default function AdminDashboard() {
                     className="w-48 rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
                   <button
                     onClick={async () => {
-                      if (!pwCurrent || !pwNew) { setPwError("Both fields required"); return; }
-                      if (pwNew.length < 6) { setPwError("Min 6 characters"); return; }
+                      if (!pwCurrent || !pwNew) { setPwError("Please enter both current and new password"); return; }
+                      if (pwNew.length < 6) { setPwError("Password must be at least 6 characters"); return; }
                       setPwError("");
                       try {
                         const res = await fetch(`/api/admin/users/${admin!.id}/password`, {
@@ -842,9 +901,9 @@ export default function AdminDashboard() {
                           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                           body: JSON.stringify({ currentPassword: pwCurrent, newPassword: pwNew }),
                         });
-                        if (!res.ok) { const d = await res.json(); setPwError(d.error || "Failed"); return; }
+                        if (!res.ok) { const d = await res.json(); setPwError(d.error || "Something went wrong. Please try again."); return; }
                         setPwCurrent(""); setPwNew(""); setShowChangePw(false);
-                      } catch { setPwError("Network error"); }
+                      } catch { setPwError("A connection issue occurred. Please try again."); }
                     }}
                     className="rounded-lg bg-nobuk px-4 py-2 text-xs font-semibold text-white hover:bg-nobuk-light"
                   >

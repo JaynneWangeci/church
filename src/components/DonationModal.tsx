@@ -67,29 +67,29 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
           setStep('success');
         } else if (data.ResultCode !== undefined && String(data.ResultCode) !== '0') {
           clearInterval(interval);
-          setError('Payment failed. Please try again.');
+          setError('The transaction didn\'t complete. You can try again or use M-Pesa Paybill 835872 directly.');
           setStep('form');
         }
       } catch (err: any) {
         clearInterval(interval);
-        setError(err?.message || 'Network error. Please try again.');
+        setError(err?.message || 'A connection issue occurred. Kindly try again.');
         setStep('form');
       }
     }, 3000);
     setTimeout(() => {
       clearInterval(interval);
-      setError('Payment timed out. Please try again.');
+      setError('The M-Pesa prompt did not arrive. Please ensure your phone is on and try again.');
       setStep('form');
     }, 60000);
   }, []);
 
   async function processDonation() {
     setError('');
-    if (!name.trim()) { setError('Please select your name'); return; }
+    if (!name.trim()) { setError('Kindly select your name'); return; }
     const amt = amount === 'custom' ? Number(customAmount) || 0 : amount || 0;
-    if (amt < 10) { setError('Amount must be at least KES 10'); return; }
+    if (amt < 10) { setError('Please enter an amount of KES 10 or more'); return; }
     const cleanPhone = phone.replace(/\s/g, '');
-    if (!cleanPhone || cleanPhone.length < 10) { setError('Enter a valid M-Pesa phone number'); return; }
+    if (!cleanPhone || cleanPhone.length < 10) { setError('Kindly provide the M-Pesa phone number you registered with'); return; }
 
     setStep('processing');
     setFinalAmount(amt);
@@ -99,11 +99,11 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
       const campRes = await fetch('/api/campaigns/development-fund');
       if (!campRes.ok) {
         const errData = await campRes.json().catch(() => ({}));
-        setError(errData?.error || `Campaign API error (${campRes.status})`);
+        setError(errData?.error || "We're having trouble connecting. Kindly try again.");
         setStep('form'); return;
       }
       const campData = await campRes.json();
-      if (!campData?.id) { setError('Campaign not found'); setStep('form'); return; }
+      if (!campData?.id) { setError("We're setting up the campaign. Please try again shortly."); setStep('form'); return; }
 
       const donRes = await fetch('/api/donations', {
         method: 'POST',
@@ -120,7 +120,7 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
       });
       const donData = await donRes.json();
       if (!donRes.ok || !donData.donation?.id) {
-        setError(donData?.error || `Donation API error (${donRes.status})`);
+        setError(donData?.error || "Something went wrong. Please try again.");
         setStep('form'); return;
       }
 
@@ -137,7 +137,7 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
       });
       const mpesaData = await mpesaRes.json().catch(() => ({}));
       if (!mpesaRes.ok || !mpesaData.CheckoutRequestID) {
-        setError(mpesaData?.errorMessage || mpesaData?.error || `M-Pesa failed (${mpesaRes.status})`);
+        setError(mpesaData?.errorMessage || mpesaData?.error || 'The M-Pesa request didn\'t go through. Please try again or use Paybill 835872 directly.');
         setStep('form'); return;
       }
 

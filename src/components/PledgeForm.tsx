@@ -26,9 +26,9 @@ export default function PledgeForm({ onClose, onCreated, donorName: initialName 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    if (!name.trim()) { setError(t('Please enter your name', 'Tafadhali ingiza jina lako')); return; }
+    if (!name.trim()) { setError(t('Kindly enter your name', 'Tafadhali ingiza jina lako')); return; }
     const amt = Number(amount);
-    if (!amt || amt < 10) { setError(t('Amount must be at least KES 10', 'Kiasi lazma kiwe angalau KES 10')); return; }
+    if (!amt || amt < 10) { setError(t('Please enter an amount of KES 10 or more', 'Kiasi lazma kiwe angalau KES 10')); return; }
     setSubmitting(true);
     try {
       const res = await fetch('/api/pledges', {
@@ -36,7 +36,7 @@ export default function PledgeForm({ onClose, onCreated, donorName: initialName 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ donor_name: name.trim(), amount: amt, whatsapp_number: phone || null, reminder_freq: reminderFreq }),
       });
-      if (!res.ok) { const d = await res.json(); setError(d.error || 'Failed'); return; }
+      if (!res.ok) { const d = await res.json(); setError(d.error || t('Something went wrong. Please try again.', 'Kuna tatizo. Tafadhali jaribu tena.')); return; }
       onCreated();
       onClose();
     } catch { setError(t('Network error', 'Hitilafu ya mtandao')); }

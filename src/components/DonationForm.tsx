@@ -155,19 +155,19 @@ export default function DonationForm() {
           setStep("success");
         } else if (data.ResultCode !== undefined && String(data.ResultCode) !== "0") {
           clearInterval(interval);
-          setError("Payment failed. Please try again.");
+          setError("The transaction didn't complete. You can try again or use M-Pesa Paybill 835872 directly.");
           setStep("form");
         }
       } catch (err: any) {
         clearInterval(interval);
-        setError(err?.message || "Network error. Please try again.");
+        setError(err?.message || "A connection issue occurred. Kindly try again.");
         setStep("form");
       }
     }, 3000);
 
     setTimeout(() => {
       clearInterval(interval);
-      setError("Payment timed out. Please try again.");
+      setError("The M-Pesa prompt did not arrive. Please ensure your phone is on and try again.");
       setStep("form");
     }, 60000);
   }, []);
@@ -182,12 +182,12 @@ export default function DonationForm() {
     setError("");
 
     if (!params.amount || params.amount < 10) {
-      setError("Amount must be at least KES 10");
+      setError("Please enter an amount of KES 10 or more");
       setStep("form");
       return;
     }
     if (!params.phone || params.phone.replace(/\s/g, "").length < 10) {
-      setError("Enter a valid M-Pesa phone number");
+      setError("Kindly provide the M-Pesa phone number you registered with");
       setStep("form");
       return;
     }
@@ -200,7 +200,7 @@ export default function DonationForm() {
     try {
       const campRes = await fetch("/api/campaigns/development-fund");
       const campData = await campRes.json();
-      if (!campData?.id) { setError("Campaign not found"); setStep("form"); return; }
+      if (!campData?.id) { setError("We're setting up the campaign. Please try again shortly."); setStep("form"); return; }
 
       const donRes = await fetch("/api/donations", {
         method: "POST",
@@ -216,7 +216,7 @@ export default function DonationForm() {
         }),
       });
       const donData = await donRes.json();
-      if (!donRes.ok || !donData.donation?.id) { setError(donData.error || "Failed"); setStep("form"); return; }
+      if (!donRes.ok || !donData.donation?.id) { setError(donData.error || "Something went wrong. Please try again."); setStep("form"); return; }
 
       setDonationId(donData.donation.id);
 
@@ -232,7 +232,7 @@ export default function DonationForm() {
         }),
       });
       const mpesaData = await mpesaRes.json();
-      if (!mpesaRes.ok || !mpesaData.CheckoutRequestID) { setError(mpesaData.error || "M-Pesa failed"); setStep("form"); return; }
+      if (!mpesaRes.ok || !mpesaData.CheckoutRequestID) { setError(mpesaData.error || "The M-Pesa request didn't go through. Please try again or use Paybill 835872 directly."); setStep("form"); return; }
 
       pollStatus(mpesaData.CheckoutRequestID);
     } catch (err: any) { setError(err?.message || "Network error. Please try again."); setStep("form"); }
@@ -246,8 +246,8 @@ export default function DonationForm() {
 
   function handleHonourSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!honoredMember) { setError("Please select a member to honour"); return; }
-    if (!honName.trim()) { setError("Please select your name"); return; }
+    if (!honoredMember) { setError("Kindly select a church member to honour"); return; }
+    if (!honName.trim()) { setError("Kindly select your name"); return; }
     const amount = honAmount === "custom" ? Number(honCustom) || 0 : honAmount || 0;
     processDonation({ amount, donorName: honName, phone: honPhone, message: honMessage, honoredMemberId: honoredMember });
   }
@@ -676,7 +676,7 @@ export default function DonationForm() {
 
               {showPledgeForm && (
                 <PledgeForm
-                  donorName={honName || honoredMember ? selectedMember?.name : ''}
+                  donorName={(honName || honoredMember) ? selectedMember?.name : ''}
                   onClose={() => setShowPledgeForm(false)}
                   onCreated={() => {}}
                 />

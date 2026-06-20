@@ -16,10 +16,57 @@ membersRouter.get("/", async (_req, res) => {
       .order("name");
 
     if (error) return res.status(500).json({ error: error.message });
-    res.json({ members: data || [] });
+    res.json({ member: data });
   } catch (err) {
-    console.error("members error:", err);
-    res.status(500).json({ error: "Server error" });
+    console.error("member create error:", err);
+    res.status(500).json({ error: "Something went wrong. Please try again." });
+  }
+});
+
+membersRouter.post("/dedup", requireAdmin, requireAdminOrAbove, async (_req, res) => {
+  try {
+    const db = requireService();
+    const { data: all } = await db.from("church_members").select("*").eq("is_active", true).order("created_at");
+    if (!all?.length) return res.json({ deduped: 0, message: "No members found in the registry." });
+
+    const seen = new Map<string, typeof all[0]>();
+    const toDeactivate: string[] = [];
+    const toDelete: string[] = [];
+
+    for (const m of all) {
+      const key = m.name.toLowerCase().trim();
+      if (seen.has(key)) {
+        const prev = seen.get(key)!;
+        toDeactivate.push(prev.id);
+        toDelete.push(m.id);
+      } else {
+        seen.set(key, m);
+      }
+    }
+
+    let deactivated = 0;
+    if (toDeactivate.length) {
+      const { error: e1 } = await db.from("church_members").update({ is_active: false }).in("id", toDeactivate);
+      if (!e1) deactivated += toDeactivate.length;
+    }
+    if (toDelete.length) {
+      const { error: e2 } = await db.from("church_members").delete().in("id", toDelete);
+      if (!e2) deactivated += toDelete.length;
+    }
+
+    const admin = (_req as any).admin;
+    await logAudit({
+      adminId: admin.id,
+      action: "dedup_church_members",
+      resourceType: "church_member",
+      resourceId: `${deactivated} deduped`,
+      ipAddress: (_req as any).adminIp,
+    });
+
+    res.json({ deduped: deactivated, message: `${deactivated} duplicate record${deactivated !== 1 ? 's' : ''} removed.` });
+  } catch (err) {
+    console.error("dedup error:", err);
+    res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });
 
@@ -61,7 +108,33 @@ membersRouter.post("/", requireAdmin, requireAdminOrAbove, async (req, res) => {
     res.status(201).json({ member: data });
   } catch (err) {
     console.error("member create error:", err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Something went wrong. Please try again." });
+  }
+});
+
+membersRouter.post("/bulk-delete", requireAdmin, requireAdminOrAbove, async (req, res) => {
+  try {
+    const db = requireService();
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: "Please select at least one member to remove" });
+
+    const { error } = await db.from("church_members").delete().in("id", ids);
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    const admin = (req as any).admin;
+    await logAudit({
+      adminId: admin.id,
+      action: "bulk_delete_church_members",
+      resourceType: "church_member",
+      resourceId: ids.join(","),
+      ipAddress: (req as any).adminIp,
+    });
+
+    res.json({ ok: true, deleted: ids.length });
+  } catch (err) {
+    console.error("bulk delete error:", err);
+    res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });
 
@@ -95,7 +168,7 @@ membersRouter.patch("/:id", requireAdmin, requireAdminOrAbove, async (req, res) 
     res.json({ member: data });
   } catch (err) {
     console.error("member update error:", err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });
 
@@ -118,6 +191,6 @@ membersRouter.delete("/:id", requireAdmin, requireAdminOrAbove, async (req, res)
     res.json({ ok: true });
   } catch (err) {
     console.error("member delete error:", err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });
