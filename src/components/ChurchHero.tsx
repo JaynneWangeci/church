@@ -1,171 +1,272 @@
-import { useState, useEffect } from 'react';
-import { Heart, Menu, X } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Heart } from 'lucide-react';
 import { useLang } from '../context/LanguageContext';
 import DonationModal from './DonationModal';
 
+const TITLE = 'Building His House, Together.';
+const SW_TITLE = 'Kujenga Nyumba Yake, Pamoja.';
+
 export default function ChurchHero() {
-  const { t } = useLang();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const { lang, t } = useLang();
   const [showGive, setShowGive] = useState(false);
+  const [revealedChars, setRevealedChars] = useState(0);
+  const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
+  const [scrolled, setScrolled] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rafRef = useRef<number>(0);
+
+  const heading = lang === 'en' ? TITLE : SW_TITLE;
 
   useEffect(() => {
-    if (menuOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => { document.body.style.overflow = ''; };
-  }, [menuOpen]);
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
-  const navLinks = [
-    { href: '#about', label: t('About', 'Kuhusu') },
-    { href: '#contribute', label: t('Contribute', 'Changia') },
-  ];
+  useEffect(() => {
+    if (revealedChars < heading.length) {
+      const timer = setTimeout(() => setRevealedChars(prev => prev + 1), 40);
+      return () => clearTimeout(timer);
+    }
+  }, [revealedChars, heading.length]);
+
+  const onMouseMove = useCallback((e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMousePos({
+      x: (e.clientX - rect.left) / rect.width,
+      y: (e.clientY - rect.top) / rect.height,
+    });
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const particles: {
+      x: number; y: number; vx: number; vy: number;
+      size: number; alpha: number; pulse: number;
+    }[] = [];
+
+    for (let i = 0; i < 60; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
+        size: Math.random() * 2.5 + 0.5,
+        alpha: Math.random() * 0.4 + 0.1,
+        pulse: Math.random() * Math.PI * 2,
+      });
+    }
+
+    let mouseX = canvas.width / 2;
+    let mouseY = canvas.height / 2;
+
+    const handleMouse = (e: MouseEvent) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    };
+    window.addEventListener('mousemove', handleMouse);
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const time = Date.now() * 0.001;
+
+      for (const p of particles) {
+        p.x += p.vx + (mouseX - canvas.width / 2) * 0.0001;
+        p.y += p.vy + (mouseY - canvas.height / 2) * 0.0001;
+        p.pulse += 0.02;
+
+        if (p.x < -10) p.x = canvas.width + 10;
+        if (p.x > canvas.width + 10) p.x = -10;
+        if (p.y < -10) p.y = canvas.height + 10;
+        if (p.y > canvas.height + 10) p.y = -10;
+
+        const alpha = p.alpha * (0.6 + 0.4 * Math.sin(p.pulse));
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+        ctx.fill();
+
+        const dx = mouseX - p.x;
+        const dy = mouseY - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 120) {
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(mouseX, mouseY);
+          ctx.strokeStyle = `rgba(91,155,213,${0.08 * (1 - dist / 120)})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      }
+      rafRef.current = requestAnimationFrame(animate);
+    }
+    animate();
+
+    const handleResize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      window.removeEventListener('mousemove', handleMouse);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
 
   return (
-    <>
-      {/* Navigation */}
-      <nav className="relative z-30 flex items-center justify-between px-4 sm:px-6 md:px-10 py-4 sm:py-6">
-        <div className="flex items-center gap-2 text-white/95">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#5B9BD5]/20 backdrop-blur-sm border border-white/20">
-            <img src="/images/a.jpeg" alt="AIPCA" className="h-8 w-8 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+    <section
+      onMouseMove={onMouseMove}
+      className="relative z-10 flex min-h-screen flex-col"
+    >
+      {/* Particle canvas */}
+      <canvas
+        ref={canvasRef}
+        className="fixed inset-0 pointer-events-none z-0"
+      />
+
+      {/* Liquid-glass navbar */}
+      <nav
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out ${
+          scrolled
+            ? 'top-3 mx-4 max-w-6xl xl:mx-auto rounded-2xl bg-[#1B2838]/80 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/20'
+            : 'top-0 bg-transparent'
+        }`}
+        style={{
+          left: scrolled ? '50%' : '0',
+          transform: scrolled ? 'translateX(-50%)' : 'none',
+        }}
+      >
+        <div className="flex items-center justify-between px-5 py-3">
+          <div className="flex items-center gap-3">
+            <div className="relative flex h-9 w-9 items-center justify-center">
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#5B9BD5]/40 to-[#5B9BD5]/10 animate-pulse" />
+              <img
+                src="/images/a.jpeg"
+                alt="AIPCA"
+                className="relative h-8 w-8 rounded-full object-cover ring-2 ring-white/20"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-lg font-bold tracking-tight text-white">AIPCA</span>
+              <span className="hidden sm:inline text-sm font-medium text-white/50">Bahati Cathedral</span>
+            </div>
           </div>
-          <span className="text-lg sm:text-xl md:text-2xl font-semibold tracking-tight" style={{ fontFamily: '"Neue Haas Grotesk Display Pro 55 Roman", "Neue Haas Grotesk Text Pro", "Helvetica Neue", Helvetica, Arial, sans-serif' }}>
-            AIPCA<sup className="text-[10px] sm:text-xs font-medium ml-0.5">®</sup>
-          </span>
-        </div>
 
-        <div className="hidden lg:flex items-center gap-1 bg-white/15 backdrop-blur-md rounded-full pl-6 pr-1 py-1 shadow-sm border border-white/20">
-          {navLinks.map((link, i) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className={`text-sm px-3 py-2 transition-colors ${
-                i === 0 ? 'font-semibold text-white' : 'font-medium text-white/70 hover:text-white'
-              }`}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowGive(true)}
+              className="group relative overflow-hidden rounded-full bg-white/10 px-5 py-2 text-sm font-semibold text-white transition-all duration-300 hover:bg-white/20 hover:shadow-lg hover:shadow-white/10 active:scale-[0.97]"
             >
-              {link.label}
-            </a>
-          ))}
-          <a
-            href="#contribute"
-            className="ml-2 bg-white hover:bg-white/90 text-[#1B2838] text-sm font-semibold px-5 py-2.5 rounded-full transition-colors"
-            onClick={(e) => { e.preventDefault(); setShowGive(true); }}
-          >
-            {t('Give Now', 'Toa Sasa')}
-          </a>
-        </div>
-
-        <div className="flex items-center gap-3 sm:gap-6 text-white/95">
-          <button
-            onClick={() => setMenuOpen(v => !v)}
-            className="lg:hidden relative flex items-center justify-center w-10 h-10 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-white transition-all duration-300 hover:bg-white/25"
-            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-            aria-expanded={menuOpen}
-          >
-            <Menu className={`w-5 h-5 absolute transition-all duration-300 ${menuOpen ? 'opacity-0 rotate-90 scale-50' : 'opacity-100 rotate-0 scale-100'}`} />
-            <X className={`w-5 h-5 absolute transition-all duration-300 ${menuOpen ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-50'}`} />
-          </button>
+              <span className="relative z-10 flex items-center gap-2">
+                <Heart size={14} className="text-[#5B9BD5] group-hover:scale-110 transition-transform duration-300" />
+                {t('Give Now', 'Toa Sasa')}
+              </span>
+            </button>
+          </div>
         </div>
       </nav>
 
-      {/* Mobile menu overlay */}
-      <div
-        className={`lg:hidden fixed inset-0 z-20 transition-opacity duration-300 ${
-          menuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-        }`}
-        onClick={() => setMenuOpen(false)}
-      >
-        <div className="absolute inset-0 bg-[#1B2838]/60 backdrop-blur-sm" />
-      </div>
-
-      {/* Mobile menu drawer */}
-      <div
-        className={`lg:hidden fixed top-0 right-0 bottom-0 z-20 w-[85%] max-w-sm bg-[#1B2838]/95 backdrop-blur-xl shadow-2xl transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-          menuOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
-      >
-        <div className="flex flex-col h-full pt-24 px-8 pb-8">
-          <div className="flex items-center gap-3 mb-10">
-            <img src="/images/a.jpeg" alt="" className="h-10 w-10 rounded-full object-cover border border-white/20" />
-            <div>
-              <p className="text-white font-semibold text-sm">AIPCA Bahati</p>
-              <p className="text-white/50 text-xs">Harambee 2026</p>
-            </div>
-          </div>
-          <div className="flex flex-col gap-1">
-            {navLinks.map((link, i) => (
-              <a
-                key={link.href}
-                href={link.href}
-                onClick={() => setMenuOpen(false)}
-                className={`text-2xl font-semibold text-white py-4 border-b border-white/10 transition-all duration-500 ${
-                  menuOpen ? 'translate-x-0 opacity-100' : 'translate-x-8 opacity-0'
-                }`}
-                style={{ transitionDelay: menuOpen ? `${150 + i * 70}ms` : '0ms' }}
-              >
-                {link.label}
-              </a>
-            ))}
-          </div>
-          <div
-            className={`mt-8 flex flex-col gap-4 transition-all duration-500 ${
-              menuOpen ? 'translate-x-0 opacity-100' : 'translate-x-8 opacity-0'
-            }`}
-            style={{ transitionDelay: menuOpen ? '400ms' : '0ms' }}
-          >
-            <a
-              href="#contribute"
-              onClick={(e) => { e.preventDefault(); setMenuOpen(false); setShowGive(true); }}
-              className="mt-2 bg-[#5B9BD5] hover:bg-[#6d9a74] text-[#1B2838] text-sm font-semibold px-5 py-3 rounded-full transition-colors text-center"
-            >
-              {t('Give Now', 'Toa Sasa')}
-            </a>
-          </div>
-        </div>
-      </div>
-
       {/* Hero content */}
-      <div className="relative z-10 flex flex-col items-center text-center pt-12 sm:pt-16 md:pt-20 px-4 sm:px-6 pb-8">
-        <div className="animate-fade-in">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 backdrop-blur-sm px-4 py-1.5 text-xs font-semibold tracking-widest text-[#5B9BD5] uppercase border border-white/10">
-            <Heart size={12} />
-            2026 {t('Harambee', 'Harambee')} · Tujenge Pamoja
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 pb-20 pt-28">
+        <div
+          className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 backdrop-blur-sm"
+          style={{
+            opacity: revealedChars > 0 ? 1 : 0,
+            transform: revealedChars > 0 ? 'translateY(0)' : 'translateY(10px)',
+            transition: 'opacity 0.6s ease-out, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
+          }}
+        >
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#5B9BD5] opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-[#5B9BD5]" />
+          </span>
+          <span className="text-[10px] font-semibold tracking-[0.2em] text-[#5B9BD5] uppercase">
+            2026 · {t('Tujenge Pamoja', 'Tujenge Pamoja')}
           </span>
         </div>
+
         <h1
-          className="font-normal leading-[0.95] text-white text-[2rem] sm:text-4xl md:text-5xl lg:text-[4.75rem] xl:text-[5.25rem] max-w-5xl mt-6"
-          style={{ fontFamily: '"Neue Haas Grotesk Display Pro 55 Roman", "Neue Haas Grotesk Text Pro", "Helvetica Neue", Helvetica, Arial, sans-serif', letterSpacing: '-0.035em' }}
+          className="text-center text-[2.5rem] leading-[1] font-bold tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl"
+          style={{
+            fontFamily: '"Neue Haas Grotesk Display Pro 55 Roman", "Helvetica Neue", Arial, sans-serif',
+            letterSpacing: '-0.04em',
+          }}
         >
-          AIPCA{' '}
-          <span className="text-[#5B9BD5]">
-            Bahati
-            <br className="hidden sm:block" /> Cathedral
-          </span>
+          {heading.split('').map((char, i) => (
+            <span
+              key={i}
+              className="inline-block"
+              style={{
+                opacity: i < revealedChars ? 1 : 0,
+                transform: i < revealedChars ? 'translateY(0) scale(1)' : 'translateY(30px) scale(0.9)',
+                transition: `opacity 0.4s ease-out, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1) ${i * 0.02}s`,
+                color: char === '.' || char === ',' ? '#5B9BD5' : undefined,
+              }}
+            >
+              {char === ' ' ? '\u00A0' : char}
+            </span>
+          ))}
         </h1>
-        <p className="mt-6 sm:mt-8 text-white/70 text-sm sm:text-base md:text-lg leading-relaxed max-w-md px-2">
-          <span className="italic text-[#5B9BD5]/80">&ldquo;Unless the Lord builds the house, its builders labour in vain.&rdquo;</span>
+
+        <p
+          className="mt-6 max-w-lg text-center text-sm text-white/50 sm:text-base"
+          style={{
+            opacity: revealedChars >= heading.length ? 1 : 0,
+            transform: revealedChars >= heading.length ? 'translateY(0)' : 'translateY(15px)',
+            transition: 'opacity 0.8s ease-out 0.2s, transform 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.2s',
+          }}
+        >
+          <span className="italic text-[#5B9BD5]/70">&ldquo;{t('Unless the Lord builds the house, its builders labour in vain.', 'Bwana asipojenga nyumba, wajengaji hufanya kazi bure.')}&rdquo;</span>
           <br />
-          <span className="text-white/50">Psalm 127:1</span>
+          <span className="text-white/30">Psalm 127:1</span>
         </p>
+
+        <div
+          style={{
+            opacity: revealedChars >= heading.length ? 1 : 0,
+            transform: revealedChars >= heading.length ? 'translateY(0)' : 'translateY(15px)',
+            transition: 'opacity 0.8s ease-out 0.4s, transform 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.4s',
+          }}
+          className="mt-8 flex items-center gap-4"
+        >
+          <button
+            onClick={() => setShowGive(true)}
+            className="group relative overflow-hidden rounded-full bg-white px-6 py-3 text-sm font-bold text-[#1B2838] transition-all duration-300 hover:shadow-xl hover:shadow-white/20 active:scale-[0.97]"
+          >
+            <span className="relative z-10">{t('Give to the Harambee', 'Toa kwa Harambee')}</span>
+            <span className="absolute inset-0 bg-gradient-to-r from-white via-[#E8F0FE] to-white translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
+          </button>
+        </div>
       </div>
 
-      {/* Bottom CTA */}
-      <div className="relative z-10 flex items-center justify-center px-4 pb-8">
-        <button
-          onClick={() => setShowGive(true)}
-          className="bg-white hover:bg-white/90 text-[#1B2838] text-sm font-semibold px-5 sm:px-6 py-2.5 sm:py-3 rounded-full transition-colors shadow-sm"
-        >
-          {t('Give to the Harambee', 'Toa kwa Harambee')}
-        </button>
+      {/* Scroll indicator */}
+      <div
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2"
+        style={{
+          opacity: revealedChars >= heading.length ? 0.4 : 0,
+          transition: 'opacity 1s ease-out 0.8s',
+        }}
+      >
+        <span className="text-[10px] font-medium tracking-widest text-white/30 uppercase">{t('Scroll', 'Tembea')}</span>
+        <div className="h-8 w-[1px] bg-gradient-to-b from-white/40 to-transparent animate-scroll-indicator" />
       </div>
 
       {showGive && (
         <DonationModal
-          member={{ id: 'general', name: '', role: '', council: '', photo_url: null }}
+          member={{ id: 'general', name: '' }}
           onClose={() => setShowGive(false)}
         />
       )}
-    </>
+    </section>
   );
 }

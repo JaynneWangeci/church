@@ -145,31 +145,33 @@ export default function DonationForm() {
   }, [tab, honoredMember, genSelectedMember]);
 
   const pollStatus = useCallback((checkoutId: string) => {
-    const interval = setInterval(async () => {
+    let attempts = 0;
+    const maxAttempts = 100;
+    const poll = async () => {
       try {
         const res = await fetch(`/api/mpesa/status/${checkoutId}`);
         const data = await res.json();
         if (String(data.ResultCode) === "0" || data.status === "completed") {
-          clearInterval(interval);
           setReceiptNumber(data.receipt_number || `TXN-${Date.now()}`);
           setStep("success");
-        } else if (data.ResultCode !== undefined && String(data.ResultCode) !== "0") {
-          clearInterval(interval);
+          return;
+        }
+        if (data.ResultCode !== undefined && String(data.ResultCode) !== "0" && data.status !== "pending") {
           setError("The transaction didn't complete. You can try again or use M-Pesa Paybill 835872 directly.");
           setStep("form");
+          return;
         }
-      } catch (err: any) {
-        clearInterval(interval);
-        setError(err?.message || "A connection issue occurred. Kindly try again.");
+      } catch {}
+      attempts++;
+      if (attempts < maxAttempts) {
+        const delay = Math.min(3000 * Math.pow(1.08, attempts), 10000);
+        setTimeout(poll, delay);
+      } else {
+        setError("M-Pesa is taking longer than usual. Your donation may still process — check your M-Pesa messages and refresh.");
         setStep("form");
       }
-    }, 3000);
-
-    setTimeout(() => {
-      clearInterval(interval);
-      setError("The M-Pesa prompt did not arrive. Please ensure your phone is on and try again.");
-      setStep("form");
-    }, 60000);
+    };
+    poll();
   }, []);
 
   async function processDonation(params: {
@@ -178,6 +180,7 @@ export default function DonationForm() {
     phone: string;
     message: string;
     honoredMemberId?: string;
+    churchMemberId?: string;
   }) {
     setError("");
 
@@ -211,8 +214,8 @@ export default function DonationForm() {
           amount: params.amount,
           phone: params.phone.replace(/\s/g, ""),
           message: params.message || null,
-          honored_member_id: null,
-          church_member_id: params.honoredMemberId || null,
+          honored_member_id: params.honoredMemberId || null,
+          church_member_id: params.churchMemberId || null,
         }),
       });
       const donData = await donRes.json();
@@ -261,7 +264,7 @@ export default function DonationForm() {
       }
     }
 
-    processDonation({ amount, donorName, phone: genPhone, message: genMessage });
+    processDonation({ amount, donorName, phone: genPhone, message: genMessage, churchMemberId: genSelectedMember || undefined });
   }
 
   async function handleHonourSubmit(e: React.FormEvent) {
@@ -286,7 +289,7 @@ export default function DonationForm() {
     }
 
     const amount = honAmount === "custom" ? Number(honCustom) || 0 : honAmount || 0;
-    processDonation({ amount, donorName: honName, phone: honPhone, message: honMessage, honoredMemberId: honoredMember });
+    processDonation({ amount, donorName: honName, phone: honPhone, message: honMessage, honoredMemberId: honoredMember, churchMemberId: honoredMember });
   }
 
   function reset() {

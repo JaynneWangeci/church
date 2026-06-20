@@ -85,30 +85,33 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
   }
 
   const pollStatus = useCallback((checkoutId: string) => {
-    const interval = setInterval(async () => {
+    let attempts = 0;
+    const maxAttempts = 100;
+    const poll = async () => {
       try {
         const res = await fetch(`/api/mpesa/status/${checkoutId}`);
         const data = await res.json();
         if (String(data.ResultCode) === '0' || data.status === 'completed') {
-          clearInterval(interval);
           setReceiptNumber(data.receipt_number || `TXN-${Date.now()}`);
           setStep('success');
-        } else if (data.ResultCode !== undefined && String(data.ResultCode) !== '0') {
-          clearInterval(interval);
+          return;
+        }
+        if (data.ResultCode !== undefined && String(data.ResultCode) !== '0' && data.status !== 'pending') {
           setError('The transaction didn\'t complete. You can try again or use M-Pesa Paybill 835872 directly.');
           setStep('form');
+          return;
         }
-      } catch (err: any) {
-        clearInterval(interval);
-        setError(err?.message || 'A connection issue occurred. Kindly try again.');
+      } catch {}
+      attempts++;
+      if (attempts < maxAttempts) {
+        const delay = Math.min(3000 * Math.pow(1.08, attempts), 10000);
+        setTimeout(poll, delay);
+      } else {
+        setError('M-Pesa is taking longer than usual. Your donation may still process — check your M-Pesa messages and refresh.');
         setStep('form');
       }
-    }, 3000);
-    setTimeout(() => {
-      clearInterval(interval);
-      setError('The M-Pesa prompt did not arrive. Please ensure your phone is on and try again.');
-      setStep('form');
-    }, 60000);
+    };
+    poll();
   }, []);
 
   async function processDonation() {

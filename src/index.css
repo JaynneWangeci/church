@@ -257,6 +257,15 @@ html {
   animation: ken-burns 12s ease-out forwards;
 }
 
+@keyframes scroll-indicator {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(8px); opacity: 0; }
+}
+
+.animate-scroll-indicator {
+  animation: scroll-indicator 2s ease-in-out infinite;
+}
+
 .card-hover {
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
@@ -306,6 +315,7 @@ html {
   .animate-reveal,
   .animate-crossfade,
   .animate-ken-burns,
+  .animate-scroll-indicator,
   .card-hover,
   .btn-lift,
   .in-view-fade {

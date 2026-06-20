@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
+import { sendWhatsApp } from "../lib/twilio.js";
 
 export const mpesaRouter = Router();
 
@@ -48,6 +49,23 @@ async function getAccessToken(): Promise<string> {
     expiresAt: Date.now() + (Number(data.expires_in) - 60) * 1000,
   };
   return data.access_token;
+}
+
+function whatsAppConfirmation(donation: any): void {
+  const name = donation.donor_name || "Mungu anakupenda";
+  const amount = Number(donation.amount).toLocaleString("en-KE");
+  const receipt = donation.receipt_number || "";
+  const msg =
+    `🙏 *Harambee Donation Confirmation* — AIPCA Bahati Cathedral\n\n` +
+    `Asante sana ${name}!\n` +
+    `Your gift of *KES ${amount}* has been received successfully.\n` +
+    `${receipt ? `Receipt: ${receipt}\n` : ""}` +
+    `\n"Each of you should give what you have decided in your heart to give, not reluctantly or under compulsion, for God loves a cheerful giver." — 2 Corinthians 9:7\n` +
+    `\n_Baraka tele, familia yako ya AIPCA inakuombea._ 🇰🇪\n\n` +
+    `*EN* — Thank you for building His house. Your generosity is building the Kingdom of God in Bahati and beyond. May the Lord bless you abundantly.\n` +
+    `*SW* — Asante kwa kujenga Nyumba Yake. Mungu akubariki sana, na tujenge pamoja!`;
+
+  sendWhatsApp(donation.phone, msg).catch(() => {});
 }
 
 mpesaRouter.post("/stkpush", async (req, res) => {
@@ -126,6 +144,8 @@ mpesaRouter.post("/stkpush", async (req, res) => {
             campaign_id: donation.campaign_id,
             amount: Number(donation.amount),
           });
+
+          whatsAppConfirmation({ ...donation, receipt_number: `SANDBOX-${Date.now()}` });
         }
       }
     }
@@ -180,6 +200,8 @@ mpesaRouter.post("/callback", async (req, res) => {
         campaign_id: donation.campaign_id,
         amount: Number(donation.amount),
       });
+
+      whatsAppConfirmation({ ...donation, receipt_number: receiptNumber });
     } else {
       await db
         .from("donations")
@@ -202,7 +224,7 @@ mpesaRouter.get("/status/:checkoutRequestId", async (req, res) => {
     // Always check DB first — callback may have already finalized it
     const { data: donation } = await db
       .from("donations")
-      .select("id, campaign_id, amount, status, receipt_number")
+      .select("id, campaign_id, amount, status, receipt_number, phone, donor_name")
       .eq("checkout_request_id", checkoutRequestId)
       .single();
 
@@ -258,6 +280,8 @@ mpesaRouter.get("/status/:checkoutRequestId", async (req, res) => {
         campaign_id: donation.campaign_id,
         amount: Number(donation.amount),
       });
+
+      whatsAppConfirmation({ ...donation, receipt_number: receiptNumber });
 
       return res.json({ ResultCode: "0", status: "completed", receipt_number: receiptNumber });
     }
