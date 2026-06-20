@@ -37,6 +37,12 @@ settingsRouter.put("/", requireAdmin, requireAdminOrAbove, async (req, res) => {
       resourceId: Object.keys(entries).join(","),
       ipAddress: (req as any).ipAddress,
       userAgent: (req as any).userAgent,
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("settings update error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 // Harambee event info (public, no auth)
@@ -52,12 +58,5 @@ settingsRouter.get("/harambee", async (_req, res) => {
     res.json({ date: dateStr, days_remaining: daysRemaining, passed: diffMs < 0 });
   } catch {
     res.json({ date: "2026-09-27", days_remaining: 99, passed: false });
-  }
-});
-
-    res.json({ ok: true });
-  } catch (err) {
-    console.error("settings update error:", err);
-    res.status(500).json({ error: "Server error" });
   }
 });
