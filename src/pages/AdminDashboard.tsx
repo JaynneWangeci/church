@@ -8,6 +8,9 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePie, Pie, Cell, Legend,
 } from "recharts";
 import type { DashboardStats, AdminUser, ChurchMember } from "../types";
+import * as pdfjs from "pdfjs-dist";
+
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs`;
 
 interface AdminUserRecord {
   id: string;
@@ -573,41 +576,44 @@ export default function AdminDashboard() {
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className="mb-1 block text-xs font-bold text-muted">Upload file (.txt or .csv)</label>
+                  <label className="mb-1 block text-xs font-bold text-muted">Upload PDF with names</label>
                   <input
                     type="file"
-                    accept=".txt,.csv"
+                    accept=".pdf"
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
-                      const text = await file.text();
-                      const rawLines = text.split('\n').map(l => l.trim()).filter(Boolean);
-                      const seen = new Set<string>();
-                      const lines: string[] = [];
-                      for (const line of rawLines) {
-                        const sep = line.match(/^([^,|\-]+?)\s*[,|\-]\s*(.+)$/);
-                        const name = sep ? sep[1].trim() : line;
-                        const nameKey = name.toLowerCase();
-                        if (nameKey && !seen.has(nameKey)) {
-                          seen.add(nameKey);
-                          lines.push(line);
+                      try {
+                        setBulkError("");
+                        const buffer = await file.arrayBuffer();
+                        const pdf = await pdfjs.getDocument(buffer).promise;
+                        let fullText = "";
+                        for (let i = 1; i <= pdf.numPages; i++) {
+                          const page = await pdf.getPage(i);
+                          const content = await page.getTextContent();
+                          fullText += content.items.map((item: any) => item.str).join(" ") + "\n";
                         }
+                        const rawLines = fullText.split("\n").map(l => l.trim()).filter(Boolean);
+                        const seen = new Set<string>();
+                        const lines: string[] = [];
+                        for (const line of rawLines) {
+                          const sep = line.match(/^([^,|\-]+?)\s*[,|\-]\s*(.+)$/);
+                          const name = sep ? sep[1].trim() : line;
+                          const nameKey = name.toLowerCase();
+                          if (nameKey && !seen.has(nameKey)) {
+                            seen.add(nameKey);
+                            lines.push(line);
+                          }
+                        }
+                        setBulkNames(lines.join("\n"));
+                      } catch (err: any) {
+                        setBulkError("Failed to read PDF: " + (err?.message || "Invalid file"));
                       }
-                      setBulkNames(lines.join('\n'));
-                      e.target.value = '';
+                      e.target.value = "";
                     }}
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk file:mr-3 file:rounded file:border-0 file:bg-nobuk file:px-3 file:py-1 file:text-xs file:font-semibold file:text-white hover:file:bg-nobuk-light"
                   />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold text-muted">Or paste names (one per line)</label>
-                  <textarea
-                    value={bulkNames}
-                    onChange={(e) => setBulkNames(e.target.value)}
-                    placeholder="John Doe&#10;Jane Smith&#10;Mary Wanjiku"
-                    rows={6}
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk resize-none"
-                  />
+                  <p className="mt-1 text-[10px] text-muted">PDF with one name per line or comma-separated</p>
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-bold text-muted">Council for all</label>
