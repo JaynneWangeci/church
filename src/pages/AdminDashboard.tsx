@@ -7,7 +7,7 @@ import {
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePie, Pie, Cell, Legend,
 } from "recharts";
-import type { DashboardStats, AdminUser, ChurchMember } from "../types";
+import type { DashboardStats, AdminUser, ChurchMember, CommitteeMember } from "../types";
 import * as pdfjs from "pdfjs-dist";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs`;
@@ -27,7 +27,7 @@ export default function AdminDashboard() {
   const [logs, setLogs] = useState<unknown[]>([]);
   const [loading, setLoading] = useState(true);
   const [exportOpen, setExportOpen] = useState(false);
-  const [tab, setTab] = useState<"overview" | "members" | "admins" | "analytics">("overview");
+  const [tab, setTab] = useState<"overview" | "members" | "admins" | "analytics" | "council">("overview");
   const [churchMembers, setChurchMembers] = useState<ChurchMember[]>([]);
   const [newName, setNewName] = useState("");
   const [newCouncil, setNewCouncil] = useState("parish_board");
@@ -58,6 +58,17 @@ export default function AdminDashboard() {
   const [analytics, setAnalytics] = useState<any>(null);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [analyticsRange, setAnalyticsRange] = useState<"7d" | "30d" | "90d" | "1y" | "all">("30d");
+  const [committeeMembers, setCommitteeMembers] = useState<CommitteeMember[]>([]);
+  const [newComName, setNewComName] = useState("");
+  const [newComRole, setNewComRole] = useState("");
+  const [newComCouncil, setNewComCouncil] = useState("parish_board");
+  const [newComOrder, setNewComOrder] = useState("0");
+  const [comError, setComError] = useState("");
+  const [editingCom, setEditingCom] = useState<CommitteeMember | null>(null);
+  const [editComName, setEditComName] = useState("");
+  const [editComRole, setEditComRole] = useState("");
+  const [editComCouncil, setEditComCouncil] = useState("");
+  const [editComOrder, setEditComOrder] = useState("0");
   const [exporting, setExporting] = useState<string | null>(null);
   const exportRef = useRef<HTMLDivElement>(null);
 
@@ -134,6 +145,16 @@ export default function AdminDashboard() {
     } catch { /* silent */ }
   }, []);
 
+  const fetchCommittee = useCallback(async () => {
+    try {
+      const res = await fetch("/api/committee");
+      if (res.ok) {
+        const data = await res.json();
+        setCommitteeMembers(data.members || []);
+      }
+    } catch { /* silent */ }
+  }, []);
+
   useEffect(() => { checkAuth(); }, [checkAuth]);
   useEffect(() => {
     if (!admin) return;
@@ -143,7 +164,8 @@ export default function AdminDashboard() {
     fetchMembers();
     fetchAdmins();
     fetchAnalytics();
-  }, [admin, fetchStats, fetchLogs, fetchMembers, fetchAdmins, fetchAnalytics]);
+    fetchCommittee();
+  }, [admin, fetchStats, fetchLogs, fetchMembers, fetchAdmins, fetchAnalytics, fetchCommittee]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -359,7 +381,7 @@ export default function AdminDashboard() {
             <p className="text-xs text-muted">{admin.name} &middot; {admin.role.replace("_", " ")}</p>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => { fetchStats(); fetchLogs(); fetchMembers(); fetchAdmins(); fetchAnalytics(); }} className="rounded-lg p-2 text-muted transition hover:bg-cream" title="Refresh">
+            <button onClick={() => { fetchStats(); fetchLogs(); fetchMembers(); fetchAdmins(); fetchAnalytics(); fetchCommittee(); }} className="rounded-lg p-2 text-muted transition hover:bg-cream" title="Refresh">
               <RefreshCw size={16} />
             </button>
             <a href="/" className="text-sm text-muted underline underline-offset-2 hover:text-nobuk">View Site</a>
@@ -399,6 +421,17 @@ export default function AdminDashboard() {
               }`}
             >
               Admins ({admins.length})
+            </button>
+          )}
+          {(admin.role === "admin" || admin.role === "super_admin") && (
+            <button
+              onClick={() => setTab("council")}
+              className={`pb-3 text-sm font-bold transition border-b-2 ${
+                tab === "council" ? "border-nobuk text-nobuk" : "border-transparent text-muted hover:text-nobuk"
+              }`}
+            >
+              <Users size={14} className="inline mr-1" />
+              Council ({committeeMembers.length})
             </button>
           )}
           <button
@@ -944,6 +977,198 @@ export default function AdminDashboard() {
                     Cancel
                   </button>
                 </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {tab === "council" && (
+          <div className="grid gap-8 lg:grid-cols-3">
+            {/* Add committee member form */}
+            <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm lg:col-span-1">
+              <div className="mb-4 flex items-center gap-2">
+                <UserPlus size={16} className="text-nobuk" />
+                <h2 className="text-sm font-bold text-ink">Add Council Member</h2>
+              </div>
+              <div className="space-y-4">
+                {comError && (
+                  <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">{comError}</div>
+                )}
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-muted">Name</label>
+                  <input type="text" value={newComName} onChange={(e) => setNewComName(e.target.value)}
+                    placeholder="e.g. John Doe"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-muted">Role</label>
+                  <input type="text" value={newComRole} onChange={(e) => setNewComRole(e.target.value)}
+                    placeholder="e.g. Chairman"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-muted">Council</label>
+                  <select value={newComCouncil} onChange={(e) => setNewComCouncil(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk">
+                    <option value="parish_board">Parish Board</option>
+                    <option value="women_council">Women's Council</option>
+                    <option value="men_council">Men's Council</option>
+                    <option value="development">Development Committee</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-muted">Display Order</label>
+                  <input type="number" value={newComOrder} onChange={(e) => setNewComOrder(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!newComName.trim() || !newComRole.trim()) { setComError("Name and role are required"); return; }
+                    setComError("");
+                    try {
+                      const res = await fetch("/api/committee", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ name: newComName.trim(), role: newComRole.trim(), council: newComCouncil, order: parseInt(newComOrder) || 0 }),
+                      });
+                      if (!res.ok) { const d = await res.json(); setComError(d.error || "Failed to add"); return; }
+                      setNewComName(""); setNewComRole(""); setNewComCouncil("parish_board"); setNewComOrder("0");
+                      fetchCommittee();
+                    } catch { setComError("Connection issue"); }
+                  }}
+                  className="w-full rounded-lg bg-nobuk py-2.5 text-sm font-bold text-white hover:bg-nobuk-light">
+                  Add Council Member
+                </button>
+              </div>
+            </div>
+
+            {/* Committee members list */}
+            <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm lg:col-span-2">
+              <div className="mb-4 flex items-center gap-2">
+                <Users size={16} className="text-nobuk" />
+                <h2 className="text-sm font-bold text-ink">Council Leadership</h2>
+                <span className="text-xs text-muted">{committeeMembers.length} total</span>
+              </div>
+              {committeeMembers.length ? (
+                <div className="space-y-4">
+                  {(["parish_board", "women_council", "men_council", "development"] as const).map((council) => {
+                    const filtered = committeeMembers.filter(m => m.council === council).sort((a, b) => a.order - b.order);
+                    if (filtered.length === 0) return null;
+                    return (
+                      <div key={council}>
+                        <div className="mb-2 flex items-center gap-2">
+                          <Church size={14} className="text-muted" />
+                          <h3 className="text-xs font-bold text-muted uppercase tracking-wider">{councilLabels[council]}</h3>
+                          <span className="text-[10px] text-muted">{filtered.length}</span>
+                        </div>
+                        <div className="space-y-1">
+                          {filtered.map((m) => (
+                            <div key={m.id} className="rounded-lg border border-gray-100 bg-cream px-4 py-3">
+                              <div className="flex items-center justify-between">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-nobuk-muted text-xs font-bold text-nobuk">
+                                      {m.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-bold text-ink">{m.name}</p>
+                                      <p className="text-xs text-muted">{m.role} {m.order > 0 && `· #${m.order}`}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 ml-2 shrink-0">
+                                  <button
+                                    onClick={() => {
+                                      setEditingCom(editingCom?.id === m.id ? null : m);
+                                      setEditComName(m.name);
+                                      setEditComRole(m.role);
+                                      setEditComCouncil(m.council);
+                                      setEditComOrder(String(m.order));
+                                    }}
+                                    className="rounded-lg px-2 py-1 text-xs text-muted hover:bg-white hover:text-nobuk"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      if (!confirm(`Remove "${m.name}" from council?`)) return;
+                                      try {
+                                        await fetch(`/api/committee/${m.id}`, {
+                                          method: "DELETE",
+                                          headers: { Authorization: `Bearer ${token}` },
+                                        });
+                                        fetchCommittee();
+                                      } catch {}
+                                    }}
+                                    className="rounded-lg px-2 py-1 text-xs text-red-500 hover:bg-red-50"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
+                              {editingCom?.id === m.id && (
+                                <div className="mt-3 border-t border-gray-200 pt-3">
+                                  <div className="grid gap-3 sm:grid-cols-5">
+                                    <div>
+                                      <label className="mb-1 block text-xs font-bold text-muted">Name</label>
+                                      <input type="text" value={editComName} onChange={(e) => setEditComName(e.target.value)}
+                                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                                    </div>
+                                    <div>
+                                      <label className="mb-1 block text-xs font-bold text-muted">Role</label>
+                                      <input type="text" value={editComRole} onChange={(e) => setEditComRole(e.target.value)}
+                                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                                    </div>
+                                    <div>
+                                      <label className="mb-1 block text-xs font-bold text-muted">Council</label>
+                                      <select value={editComCouncil} onChange={(e) => setEditComCouncil(e.target.value)}
+                                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk">
+                                        <option value="parish_board">Parish Board</option>
+                                        <option value="women_council">Women's Council</option>
+                                        <option value="men_council">Men's Council</option>
+                                        <option value="development">Development Committee</option>
+                                      </select>
+                                    </div>
+                                    <div>
+                                      <label className="mb-1 block text-xs font-bold text-muted">Order</label>
+                                      <input type="number" value={editComOrder} onChange={(e) => setEditComOrder(e.target.value)}
+                                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                                    </div>
+                                    <div className="flex items-end gap-2">
+                                      <button
+                                        onClick={async () => {
+                                          try {
+                                            const res = await fetch(`/api/committee/${m.id}`, {
+                                              method: "PATCH",
+                                              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                                              body: JSON.stringify({ name: editComName, role: editComRole, council: editComCouncil, order: parseInt(editComOrder) || 0 }),
+                                            });
+                                            if (res.ok) { setEditingCom(null); fetchCommittee(); }
+                                          } catch {}
+                                        }}
+                                        className="rounded-lg bg-nobuk px-3 py-2 text-xs font-semibold text-white hover:bg-nobuk-light"
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        onClick={() => setEditingCom(null)}
+                                        className="rounded-lg border border-gray-200 px-3 py-2 text-xs text-muted hover:bg-white"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted">No council members yet. Add your first member above.</p>
               )}
             </div>
           </div>
