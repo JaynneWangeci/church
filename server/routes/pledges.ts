@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
+import { sendWhatsApp } from "../lib/twilio.js";
 
 export const pledgesRouter = Router();
 
@@ -31,6 +32,22 @@ pledgesRouter.post("/", async (req, res) => {
       .single();
 
     if (error) return res.status(500).json({ error: error.message });
+
+    // Send WhatsApp confirmation
+    if (data?.whatsapp_number) {
+      const amt = Number(data.amount).toLocaleString("en-KE");
+      const msg =
+        `🙏 *Pledge Confirmation* — AIPCA Bahati Cathedral\n\n` +
+        `Hi ${data.donor_name}! Thank you for your pledge of *KES ${amt}* towards the Harambee Development Fund.\n\n` +
+        `"Each of you should give what you have decided in your heart to give, not reluctantly or under compulsion, for God loves a cheerful giver." — 2 Corinthians 9:7\n\n` +
+        `_Baraka tele, familia yako ya AIPCA inakuombea._ 🇰🇪\n\n` +
+        `You can track your progress and make payments at any time.\n` +
+        `*EN* — Thank you for building His house. May the Lord bless you abundantly.\n` +
+        `*SW* — Asante kwa kujenga Nyumba Yake. Mungu akubariki sana, na tujenge pamoja!`;
+
+      sendWhatsApp(data.whatsapp_number, msg).catch(() => {});
+    }
+
     res.status(201).json({ pledge: data });
   } catch (err) {
     console.error("pledge create error:", err);
@@ -108,6 +125,34 @@ pledgesRouter.get("/search/name", async (req, res) => {
     res.json({ pledges: pledges || [], donations: donations || [], honoured: honoured || [] });
   } catch (err) {
     console.error("pledge search error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+pledgesRouter.patch("/:id", async (req, res) => {
+  try {
+    const db = requireService();
+    const { amount, reminder_freq, whatsapp_number } = req.body;
+
+    const { data: pledge } = await db.from("pledges").select("*").eq("id", req.params.id).single();
+    if (!pledge) return res.status(404).json({ error: "Pledge not found" });
+
+    const updates: any = {};
+    if (amount) { updates.amount = Number(amount); updates.remaining = Math.max(0, Number(amount) - Number(pledge.paid)); }
+    if (reminder_freq) updates.reminder_freq = reminder_freq;
+    if (whatsapp_number !== undefined) updates.whatsapp_number = whatsapp_number;
+
+    const { data, error } = await db
+      .from("pledges")
+      .update(updates)
+      .eq("id", req.params.id)
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ pledge: data });
+  } catch (err) {
+    console.error("pledge update error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

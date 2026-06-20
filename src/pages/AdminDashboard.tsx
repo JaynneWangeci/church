@@ -466,6 +466,8 @@ export default function AdminDashboard() {
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-ink">{d.donor_name || "Anonymous"}</p>
                           <p className="text-xs text-muted">{d.created_at ? new Date(d.created_at).toLocaleDateString() : "—"}</p>
+                          {d.receipt_number && <p className="text-[10px] font-mono text-muted">{d.receipt_number}</p>}
+                          {d.phone && <p className="text-[10px] text-muted">{d.phone}</p>}
                         </div>
                         <div className="ml-3 text-right shrink-0">
                           <p className="text-sm font-bold text-ink tabular-nums">KES {Number(d.amount || 0).toLocaleString()}</p>
@@ -476,6 +478,12 @@ export default function AdminDashboard() {
                           }`}>
                             {(d.status || "unknown").replace("_", " ")}
                           </span>
+                          {d.status === "completed" && d.phone && (
+                            <button onClick={async () => { await fetch(`/api/mpesa/resend-whatsapp/${d.id}`, { method: "POST" }); }}
+                              className="ml-1 rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-600 hover:bg-blue-200">
+                              WA
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}

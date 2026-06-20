@@ -24,8 +24,8 @@ export default function HomePage() {
       <div className="relative z-10 pt-10">
         <ChurchHero />
         <ContributeSection />
-        <LiveProgress />
         <PledgeBoard />
+        <LiveProgress />
         <AboutSection />
 
         {/* Google Maps pin */}

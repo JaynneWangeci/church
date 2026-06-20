@@ -61,13 +61,26 @@ export default function PledgeForm({ onClose, onCreated, donorName: initialName 
   }, []);
 
   const filtered = name
-    ? members.filter(m => m.name.toLowerCase().includes(name.toLowerCase()))
+    ? members
+        .map(m => ({
+          ...m,
+          _score: m.name.toLowerCase() === name.toLowerCase() ? 3
+            : m.name.toLowerCase().startsWith(name.toLowerCase()) ? 2
+            : m.name.toLowerCase().includes(name.toLowerCase()) ? 1 : 0,
+        }))
+        .filter(m => m._score > 0)
+        .sort((a, b) => b._score - a._score || a.name.localeCompare(b.name))
     : members;
 
   const grouped = filtered.reduce((acc, m) => {
-    (acc[m.council] = acc[m.council] || []).push(m);
+    const key = m.council || 'other';
+    (acc[key] = acc[key] || []).push(m);
     return acc;
   }, {} as Record<string, Member[]>);
+
+  const councilOrder = Object.keys(councilMeta).filter(c => grouped[c]?.length);
+  const extraCouncils = Object.keys(grouped).filter(c => !councilMeta[c]);
+  const allCouncils = [...councilOrder, ...extraCouncils];
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -128,13 +141,13 @@ export default function PledgeForm({ onClose, onCreated, donorName: initialName 
                 className="w-full rounded-xl border border-gray-200 py-3 pl-9 pr-4 text-sm text-gray-900 outline-none focus:border-blue-500" />
             </div>
 
-            {showSuggestions && filtered.length > 0 && (
+            {showSuggestions && (
               <div className="absolute top-full left-0 right-0 z-20 mt-1 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg animate-scale-in">
                 <div className="max-h-48 overflow-y-auto divide-y divide-gray-100">
-                  {councilOrder.map(council => {
+                  {allCouncils.length > 0 ? allCouncils.map(council => {
                     const councilMembers = grouped[council];
                     if (!councilMembers?.length) return null;
-                    const meta = councilMeta[council] || { label: council, icon: Medal };
+                    const meta = councilMeta[council] || { label: council.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), icon: Medal };
                     const Icon = meta.icon;
                     return (
                       <div key={council}>
@@ -158,7 +171,11 @@ export default function PledgeForm({ onClose, onCreated, donorName: initialName 
                         ))}
                       </div>
                     );
-                  })}
+                  }) : (
+                    <div className="px-4 py-4 text-center text-xs text-gray-400">
+                      {name.trim() ? `Will be added as: "${name}"` : 'Type to search...'}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

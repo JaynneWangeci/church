@@ -216,6 +216,28 @@ mpesaRouter.post("/callback", async (req, res) => {
   }
 });
 
+// ── Resend WhatsApp for completed donations that missed it ──
+mpesaRouter.post("/resend-whatsapp/:id", async (req, res) => {
+  try {
+    const db = requireService();
+    const { data } = await db
+      .from("donations")
+      .select("id, donor_name, amount, phone, receipt_number")
+      .eq("id", req.params.id)
+      .eq("status", "completed")
+      .single();
+
+    if (!data) return res.status(404).json({ error: "Completed donation not found" });
+    if (!data.phone) return res.status(400).json({ error: "No phone number on record" });
+
+    whatsAppConfirmation(data);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("resend wa error:", err);
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
 mpesaRouter.get("/status/:checkoutRequestId", async (req, res) => {
   try {
     const { checkoutRequestId } = req.params;
