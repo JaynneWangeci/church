@@ -26,6 +26,7 @@
     "react-countup": "^6.5.3",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.0.0",
+    "recharts": "^3.8.1",
     "serverless-http": "^3.2.0",
     "twilio": "^6.0.2"
   },

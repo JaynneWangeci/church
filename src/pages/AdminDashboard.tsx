@@ -2,8 +2,11 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   TrendingUp, Users, DollarSign, Clock, AlertCircle,
-  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileText, Presentation, Search, ScanSearch,
+  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileText, Presentation, Search, ScanSearch, ArrowUpRight, ArrowDownRight, PieChart, Target,
 } from "lucide-react";
+import {
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePie, Pie, Cell, Legend,
+} from "recharts";
 import type { DashboardStats, AdminUser, ChurchMember } from "../types";
 
 interface AdminUserRecord {
@@ -50,6 +53,8 @@ export default function AdminDashboard() {
   const [deduping, setDeduping] = useState(false);
   const [dedupResult, setDedupResult] = useState("");
   const [analytics, setAnalytics] = useState<any>(null);
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [analyticsRange, setAnalyticsRange] = useState<"7d" | "30d" | "90d" | "1y" | "all">("30d");
   const [exporting, setExporting] = useState<string | null>(null);
   const exportRef = useRef<HTMLDivElement>(null);
 
@@ -107,6 +112,12 @@ export default function AdminDashboard() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) setAnalytics(await res.json());
+    } catch { /* silent */ }
+    try {
+      const res = await fetch("/api/analytics/dashboard", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setDashboardData(await res.json());
     } catch { /* silent */ }
   }, [token]);
 
@@ -925,177 +936,332 @@ export default function AdminDashboard() {
         {tab === "analytics" && (
           <div className="space-y-6">
             <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
+              {/* Header */}
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  <BarChart3 size={16} className="text-nobuk" />
-                  <h2 className="text-sm font-bold text-ink">Contribution Analytics</h2>
+                  <BarChart3 size={18} className="text-nobuk" />
+                  <h2 className="text-base font-bold text-ink">Analytics Dashboard</h2>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={async () => {
-                      setExporting("pdf");
-                      try {
-                        const res = await fetch("/api/contributions/export/pdf", {
-                          headers: { Authorization: `Bearer ${token}` },
-                        });
-                        if (!res.ok) return;
-                        const blob = await res.blob();
-                        const a = document.createElement("a");
-                        a.href = URL.createObjectURL(blob);
-                        a.download = `harambee-report-${new Date().toISOString().slice(0, 10)}.pdf`;
-                        a.click();
-                        URL.revokeObjectURL(a.href);
-                      } catch {}
-                      setExporting(null);
-                    }}
-                    disabled={exporting === "pdf"}
-                    className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-muted hover:bg-cream disabled:opacity-40"
-                  >
-                    <FileText size={14} /> {exporting === "pdf" ? "Generating..." : "PDF"}
+                  {/* Time range filter */}
+                  <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+                    {(["7d", "30d", "90d", "1y", "all"] as const).map(r => (
+                      <button key={r} onClick={() => setAnalyticsRange(r)}
+                        className={`px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                          analyticsRange === r ? "bg-nobuk text-white" : "text-muted hover:bg-cream"
+                        }`}>
+                        {r === "all" ? "All" : r}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={async () => {
+                    setExporting("pdf");
+                    try {
+                      const res = await fetch("/api/contributions/export/pdf", { headers: { Authorization: `Bearer ${token}` } });
+                      if (!res.ok) return;
+                      const blob = await res.blob();
+                      const a = document.createElement("a");
+                      a.href = URL.createObjectURL(blob);
+                      a.download = `harambee-report-${new Date().toISOString().slice(0, 10)}.pdf`;
+                      a.click();
+                      URL.revokeObjectURL(a.href);
+                    } catch {}
+                    setExporting(null);
+                  }} disabled={exporting === "pdf"}
+                    className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-muted hover:bg-cream disabled:opacity-40">
+                    <FileText size={14} /> {exporting === "pdf" ? "..." : "PDF"}
                   </button>
-                  <button
-                    onClick={async () => {
-                      setExporting("ppt");
-                      try {
-                        const res = await fetch("/api/contributions/export/ppt", {
-                          headers: { Authorization: `Bearer ${token}` },
-                        });
-                        if (!res.ok) return;
-                        const blob = await res.blob();
-                        const a = document.createElement("a");
-                        a.href = URL.createObjectURL(blob);
-                        a.download = `harambee-report-${new Date().toISOString().slice(0, 10)}.pptx`;
-                        a.click();
-                        URL.revokeObjectURL(a.href);
-                      } catch {}
-                      setExporting(null);
-                    }}
-                    disabled={exporting === "ppt"}
-                    className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-muted hover:bg-cream disabled:opacity-40"
-                  >
-                    <Presentation size={14} /> {exporting === "ppt" ? "Generating..." : "PPT"}
+                  <button onClick={async () => {
+                    setExporting("ppt");
+                    try {
+                      const res = await fetch("/api/contributions/export/ppt", { headers: { Authorization: `Bearer ${token}` } });
+                      if (!res.ok) return;
+                      const blob = await res.blob();
+                      const a = document.createElement("a");
+                      a.href = URL.createObjectURL(blob);
+                      a.download = `harambee-report-${new Date().toISOString().slice(0, 10)}.pptx`;
+                      a.click();
+                      URL.revokeObjectURL(a.href);
+                    } catch {}
+                    setExporting(null);
+                  }} disabled={exporting === "ppt"}
+                    className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-muted hover:bg-cream disabled:opacity-40">
+                    <Presentation size={14} /> {exporting === "ppt" ? "..." : "PPT"}
                   </button>
                 </div>
               </div>
 
-              {analytics ? (
+              {dashboardData ? (
                 <>
-                  <div className="mb-6 grid gap-4 sm:grid-cols-3">
-                    <div className="rounded-lg bg-nobuk p-4 text-white">
-                      <p className="text-xs font-medium uppercase tracking-wider opacity-80">Total Raised</p>
-                      <p className="mt-1 text-2xl font-bold">KES {analytics.overall_total?.toLocaleString("en-KE") || "0"}</p>
-                    </div>
-                    <div className="rounded-lg bg-nobuk-light p-4 text-white">
-                      <p className="text-xs font-medium uppercase tracking-wider opacity-80">Total Donations</p>
-                      <p className="mt-1 text-2xl font-bold">{analytics.overall_count || 0}</p>
-                    </div>
-                    <div className="rounded-lg border border-gray-200 bg-cream p-4">
-                      <p className="text-xs font-medium uppercase tracking-wider text-muted">Honoured Members</p>
-                      <p className="mt-1 text-2xl font-bold text-nobuk">{analytics.member_ranking?.length || 0}</p>
-                    </div>
-                  </div>
-
-                  <div className="mb-6">
-                    <h3 className="mb-3 text-sm font-bold text-ink">Daily Contributions (30 days)</h3>
-                    <div className="flex items-end gap-1 overflow-x-auto pb-2" style={{ minHeight: 120 }}>
-                      {analytics.daily?.map((d: any) => {
-                        const max = Math.max(...analytics.daily.map((x: any) => x.total), 1);
-                        const h = Math.max((d.total / max) * 80, 2);
-                        return (
-                          <div key={d.date} className="flex flex-col items-center shrink-0" style={{ width: 28 }}>
-                            <span className="text-[9px] font-bold text-nobuk tabular-nums">{(d.total / 1000).toFixed(0)}k</span>
-                            <div
-                              className="mt-1 w-full rounded-t"
-                              style={{ height: h, background: "linear-gradient(180deg, #C4964A, #1E6F9F)", minHeight: 2 }}
-                              title={`${d.date}: KES ${d.total.toLocaleString("en-KE")}`}
-                            />
-                            <span className="mt-1 text-[8px] text-muted">{d.date.slice(5)}</span>
+                  {/* ── KPI Cards ── */}
+                  <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {[
+                      { label: "Total Raised", value: `KES ${dashboardData.kpis.total_raised.toLocaleString("en-KE")}`, change: dashboardData.kpis.period_change, icon: TrendingUp, color: "bg-blue-600" },
+                      { label: "Total Donations", value: dashboardData.kpis.total_donations.toLocaleString(), change: dashboardData.kpis.count_change, icon: DollarSign, color: "bg-emerald-600" },
+                      { label: "Average Gift", value: `KES ${dashboardData.kpis.avg_gift.toLocaleString("en-KE")}`, icon: Users, color: "bg-violet-600" },
+                      { label: "Pledge Fulfillment", value: `${dashboardData.pledges.fulfillment_rate}%`, subtitle: `${dashboardData.pledges.fulfilled}/${dashboardData.pledges.active + dashboardData.pledges.fulfilled} fulfilled`, icon: Target, color: "bg-amber-600" },
+                    ].map((k) => {
+                      const Icon = k.icon;
+                      return (
+                        <div key={k.label} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                          <div className="flex items-start justify-between">
+                            <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${k.color} bg-opacity-15`}>
+                              <Icon size={17} className="text-white" />
+                            </div>
+                            {(k.change !== undefined) && (
+                              <span className={`flex items-center gap-0.5 text-xs font-bold tabular-nums ${
+                                k.change >= 0 ? "text-emerald-600" : "text-red-500"
+                              }`}>
+                                {k.change >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+                                {Math.abs(k.change)}%
+                              </span>
+                            )}
                           </div>
-                        );
-                      })}
-                      {(!analytics.daily || analytics.daily.length === 0) && (
-                        <p className="text-sm text-muted">No donation data in the last 30 days.</p>
-                      )}
+                          <p className="mt-3 text-xs font-medium uppercase tracking-wider text-muted">{k.label}</p>
+                          <p className="mt-0.5 text-lg font-bold text-ink">{k.value}</p>
+                          {k.subtitle && <p className="text-[10px] text-muted">{k.subtitle}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* ── Revenue Chart (daily) ── */}
+                  <div className="mb-6 rounded-lg border border-gray-100 bg-white p-4">
+                    <div className="mb-4 flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-ink">Revenue Trend</h3>
+                      <div className="flex gap-3 text-[10px] text-muted">
+                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-500" /> Daily</span>
+                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-400" /> Weekly avg</span>
+                      </div>
+                    </div>
+                    <ResponsiveContainer width="100%" height={240}>
+                      <AreaChart data={dashboardData.trends.daily.slice(-(analyticsRange === "7d" ? 7 : analyticsRange === "30d" ? 30 : analyticsRange === "90d" ? 90 : analyticsRange === "1y" ? 365 : undefined))}>
+                        <defs>
+                          <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#2563EB" stopOpacity={0.3} />
+                            <stop offset="100%" stopColor="#2563EB" stopOpacity={0.02} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={v => v.slice(5)} stroke="#9CA3AF" />
+                        <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} stroke="#9CA3AF" />
+                        <Tooltip
+                          contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 12 }}
+                          formatter={(value: number) => [`KES ${value.toLocaleString("en-KE")}`, "Revenue"]}
+                          labelFormatter={label => new Date(label).toLocaleDateString("en-KE", { weekday: "short", month: "short", day: "numeric" })}
+                        />
+                        <Area type="monotone" dataKey="total" stroke="#2563EB" strokeWidth={2} fill="url(#revenueGrad)" dot={false} activeDot={{ r: 4 }} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* ── Charts grid ── */}
+                  <div className="mb-6 grid gap-6 lg:grid-cols-2">
+
+                    {/* Council Breakdown */}
+                    <div className="rounded-lg border border-gray-100 bg-white p-4">
+                      <h3 className="mb-3 text-sm font-bold text-ink">Council Breakdown</h3>
+                      <ResponsiveContainer width="100%" height={dashboardData.breakdowns.council.length * 48 + 20}>
+                        <BarChart data={dashboardData.breakdowns.council} layout="vertical" margin={{ left: 20, right: 20 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+                          <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} stroke="#9CA3AF" />
+                          <YAxis type="category" dataKey="council" tick={{ fontSize: 11 }} tickFormatter={v => v.replace(/_/g, " ")} stroke="#9CA3AF" width={120} />
+                          <Tooltip
+                            contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 12 }}
+                            formatter={(value: number) => [`KES ${value.toLocaleString("en-KE")}`, "Total"]}
+                          />
+                          <Bar dataKey="total" radius={[0, 4, 4, 0]}>
+                            {dashboardData.breakdowns.council.map((_: any, i: number) => (
+                              <Cell key={i} fill={["#2563EB", "#3B82F6", "#60A5FA", "#93C5FD", "#BFDBFE"][i % 5]} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Payment Methods */}
+                    <div className="rounded-lg border border-gray-100 bg-white p-4">
+                      <h3 className="mb-3 text-sm font-bold text-ink">Payment Methods</h3>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <RePie>
+                          <Pie
+                            data={dashboardData.breakdowns.method}
+                            dataKey="total"
+                            nameKey="method"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={55}
+                            outerRadius={85}
+                            paddingAngle={2}
+                          >
+                            {dashboardData.breakdowns.method.map((_: any, i: number) => (
+                              <Cell key={i} fill={["#2563EB", "#3B82F6", "#60A5FA", "#93C5FD"][i % 4]} />
+                            ))}
+                          </Pie>
+                          <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 12 }}
+                            formatter={(value: number) => [`KES ${value.toLocaleString("en-KE")}`, ""]} />
+                          <Legend
+                            formatter={(value: string) => <span className="text-xs text-muted capitalize">{value}</span>}
+                            wrapperStyle={{ fontSize: 11 }}
+                          />
+                        </RePie>
+                      </ResponsiveContainer>
                     </div>
                   </div>
 
+                  {/* ── Pledge Analytics ── */}
+                  <div className="mb-6 rounded-lg border border-gray-100 bg-white p-4">
+                    <div className="mb-3 flex items-center gap-2">
+                      <Target size={16} className="text-nobuk" />
+                      <h3 className="text-sm font-bold text-ink">Pledge Analytics</h3>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-4">
+                      <div className="rounded-lg bg-blue-50 p-3 text-center">
+                        <p className="text-xs font-medium text-blue-700">Total Pledged</p>
+                        <p className="mt-1 text-lg font-bold text-blue-900">KES {dashboardData.pledges.total.toLocaleString("en-KE")}</p>
+                      </div>
+                      <div className="rounded-lg bg-emerald-50 p-3 text-center">
+                        <p className="text-xs font-medium text-emerald-700">Paid</p>
+                        <p className="mt-1 text-lg font-bold text-emerald-900">KES {dashboardData.pledges.paid.toLocaleString("en-KE")}</p>
+                      </div>
+                      <div className="rounded-lg bg-amber-50 p-3 text-center">
+                        <p className="text-xs font-medium text-amber-700">Outstanding</p>
+                        <p className="mt-1 text-lg font-bold text-amber-900">KES {dashboardData.pledges.remaining.toLocaleString("en-KE")}</p>
+                      </div>
+                      <div className="rounded-lg bg-violet-50 p-3 text-center">
+                        <p className="text-xs font-medium text-violet-700">Rate</p>
+                        <p className="mt-1 text-lg font-bold text-violet-900">{dashboardData.pledges.fulfillment_rate}%</p>
+                      </div>
+                    </div>
+                    {dashboardData.pledges.total > 0 && (
+                      <div className="mt-3">
+                        <div className="flex items-center justify-between text-xs text-muted mb-1">
+                          <span>Fulfillment progress</span>
+                          <span>{dashboardData.pledges.fulfilled} fulfilled · {dashboardData.pledges.active} active</span>
+                        </div>
+                        <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
+                          <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all" style={{ width: `${Math.min(dashboardData.pledges.fulfillment_rate, 100)}%` }} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── Top Donors + Member Honour ── */}
                   <div className="grid gap-6 lg:grid-cols-2">
-                    <div className="rounded-lg border border-gray-100 bg-cream p-4">
-                      <h3 className="mb-3 text-sm font-bold text-ink">Council Breakdown</h3>
-                      {analytics.council_breakdown?.length ? (
-                        <div className="space-y-2">
-                          {analytics.council_breakdown.map((c: any) => {
-                            const maxCouncil = Math.max(...analytics.council_breakdown.map((x: any) => x.total), 1);
-                            const pct = Math.round((c.total / maxCouncil) * 100);
+
+                    {/* Top Donors */}
+                    <div className="rounded-lg border border-gray-100 bg-white p-4">
+                      <h3 className="mb-3 text-sm font-bold text-ink">Top Donors</h3>
+                      {dashboardData.breakdowns.top_donors?.length ? (
+                        <div className="space-y-0.5">
+                          {dashboardData.breakdowns.top_donors.slice(0, 10).map((d: any, i: number) => {
+                            const max = dashboardData.breakdowns.top_donors[0].amount;
+                            const pct = (d.amount / max) * 100;
                             return (
-                              <div key={c.council}>
-                                <div className="flex items-center justify-between text-xs">
-                                  <span className="font-semibold text-ink">{c.council.replace(/_/g, " ")}</span>
-                                  <span className="font-bold text-nobuk">KES {c.total.toLocaleString("en-KE")}</span>
-                                </div>
-                                <div className="mt-1 h-3 w-full overflow-hidden rounded-full bg-white">
-                                  <div className="h-full rounded-full bg-nobuk" style={{ width: `${pct}%` }} />
+                              <div key={i} className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-cream transition-colors">
+                                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-nobuk-muted text-[9px] font-bold text-nobuk">
+                                  {i + 1}
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs font-medium text-ink truncate">{d.name}</span>
+                                    <span className="text-xs font-bold text-nobuk tabular-nums shrink-0 ml-2">KES {d.amount.toLocaleString("en-KE")}</span>
+                                  </div>
+                                  <div className="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+                                    <div className="h-full rounded-full bg-gradient-to-r from-blue-400 to-blue-600" style={{ width: `${pct}%` }} />
+                                  </div>
                                 </div>
                               </div>
                             );
                           })}
                         </div>
                       ) : (
-                        <p className="text-sm text-muted">No council data yet.</p>
+                        <p className="text-sm text-muted">No donor data yet.</p>
                       )}
                     </div>
 
-                    <div className="rounded-lg border border-gray-100 bg-cream p-4">
-                      <h3 className="mb-3 text-sm font-bold text-ink">Top Donors</h3>
-                      {analytics.top_donors?.length ? (
-                        <div className="space-y-1">
-                          {analytics.top_donors.slice(0, 10).map((d: any, i: number) => (
-                            <div key={i} className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-                              <div className="flex items-center gap-2">
-                                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-nobuk-muted text-[10px] font-bold text-nobuk">
+                    {/* Member Honour Ranking */}
+                    <div className="rounded-lg border border-gray-100 bg-white p-4">
+                      <div className="mb-3 flex items-center gap-2">
+                        <Medal size={16} className="text-nobuk" />
+                        <h3 className="text-sm font-bold text-ink">Member Honour Ranking</h3>
+                      </div>
+                      {dashboardData.members.ranking?.length ? (
+                        <div className="space-y-0.5 max-h-[320px] overflow-y-auto">
+                          {dashboardData.members.ranking.slice(0, 20).map((m: any, i: number) => (
+                            <div key={m.id} className="flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-cream transition-colors">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold ${
+                                  i === 0 ? "bg-amber text-white" : i === 1 ? "bg-gray-300 text-gray-700" : i === 2 ? "bg-amber-light text-amber-dark" : "bg-nobuk-muted text-nobuk"
+                                }`}>
                                   {i + 1}
                                 </span>
-                                <span className="text-sm font-medium text-ink">{d.name}</span>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-medium text-ink truncate">{m.name}</p>
+                                  <p className="text-[9px] text-muted">{m.council.replace(/_/g, " ")} &middot; {m.count} donations</p>
+                                </div>
                               </div>
-                              <span className="text-sm font-bold text-nobuk tabular-nums">KES {d.amount.toLocaleString("en-KE")}</span>
+                              <span className="text-xs font-bold text-nobuk tabular-nums shrink-0 ml-2">KES {m.total.toLocaleString("en-KE")}</span>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <p className="text-sm text-muted">No donor data yet.</p>
+                        <p className="text-sm text-muted">No member honour data yet.</p>
                       )}
                     </div>
                   </div>
 
-                  <div className="mt-6 rounded-lg border border-gray-100 bg-cream p-4">
-                    <h3 className="mb-3 text-sm font-bold text-ink">Member Honour Ranking</h3>
-                    {analytics.member_ranking?.length ? (
-                      <div className="space-y-1">
-                        {analytics.member_ranking.slice(0, 20).map((m: any, i: number) => (
-                          <div key={m.id} className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-                            <div className="flex items-center gap-2">
-                              <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${
-                                i === 0 ? "bg-amber text-white" : i === 1 ? "bg-gray-300 text-gray-700" : i === 2 ? "bg-amber-light text-amber-dark" : "bg-nobuk-muted text-nobuk"
-                              }`}>
-                                {i + 1}
-                              </span>
-                              <div>
-                                <p className="text-sm font-medium text-ink">{m.name}</p>
-                                <p className="text-[10px] text-muted">{m.council.replace(/_/g, " ")} &middot; {m.count} donations</p>
-                              </div>
-                            </div>
-                            <span className="text-sm font-bold text-nobuk tabular-nums">KES {m.total.toLocaleString("en-KE")}</span>
-                          </div>
-                        ))}
+                  {/* ── Member + Campaign Stats ── */}
+                  <div className="mt-6 grid gap-6 lg:grid-cols-2">
+                    <div className="rounded-lg border border-gray-100 bg-cream p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Users size={16} className="text-nobuk" />
+                        <h3 className="text-sm font-bold text-ink">Church Members</h3>
                       </div>
-                    ) : (
-                      <p className="text-sm text-muted">No member honour data yet.</p>
-                    )}
+                      <div className="grid grid-cols-3 gap-3 text-center">
+                        <div>
+                          <p className="text-2xl font-bold text-nobuk">{dashboardData.members.total}</p>
+                          <p className="text-[10px] text-muted">Total members</p>
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold text-emerald-600">{dashboardData.members.new_30d}</p>
+                          <p className="text-[10px] text-muted">New (30d)</p>
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold text-amber-600">{dashboardData.pledges.active}</p>
+                          <p className="text-[10px] text-muted">Active pledges</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-gray-100 bg-cream p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <TrendingUp size={16} className="text-nobuk" />
+                        <h3 className="text-sm font-bold text-ink">Period Comparison</h3>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-center">
+                        <div>
+                          <p className={`text-lg font-bold ${dashboardData.kpis.period_change >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                            {dashboardData.kpis.period_change >= 0 ? "+" : ""}{dashboardData.kpis.period_change}%
+                          </p>
+                          <p className="text-[10px] text-muted">Revenue vs prev 30d</p>
+                        </div>
+                        <div>
+                          <p className={`text-lg font-bold ${dashboardData.kpis.count_change >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                            {dashboardData.kpis.count_change >= 0 ? "+" : ""}{dashboardData.kpis.count_change}%
+                          </p>
+                          <p className="text-[10px] text-muted">Donations vs prev 30d</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </>
               ) : (
-                <div className="flex items-center justify-center py-12">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-nobuk border-t-transparent" />
+                <div className="flex items-center justify-center py-16">
+                  <div className="text-center">
+                    <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-nobuk border-t-transparent" />
+                    <p className="text-sm text-muted">Loading analytics...</p>
+                  </div>
                 </div>
               )}
             </div>
