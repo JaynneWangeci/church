@@ -6,6 +6,7 @@ import { getRedis, cacheGet, cacheSet, cacheKey } from "./lib/redis.js";
 import { authRouter } from "./routes/auth.js";
 import { campaignsRouter } from "./routes/campaigns.js";
 import { committeeRouter } from "./routes/committee.js";
+import { councilsRouter } from "./routes/councils.js";
 import { donationsRouter } from "./routes/donations.js";
 import { adminRouter } from "./routes/admin.js";
 import { mpesaRouter } from "./routes/mpesa.js";
@@ -46,6 +47,7 @@ app.use((req, _res, next) => {
 app.use("/api/auth", authRouter);
 app.use("/api/campaigns", campaignsRouter);
 app.use("/api/committee", committeeRouter);
+app.use("/api/councils", councilsRouter);
 app.use("/api/donations", donationsRouter);
 app.use("/api/admin", rateLimit, adminRouter);
 app.use("/api/mpesa", mpesaRouter);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Church, Medal, Heart, Users } from "lucide-react";
 import { useInView } from "../hooks/useInView";
+import { fetchCouncils, getCouncilLabel } from "../lib/councils";
 
 interface Member {
   id: string;
@@ -27,12 +28,14 @@ const seedMembers: Member[] = [
   { id: "14", name: "Maria goretti Njenga", role: "Development Treasurer", council: "development", photo_url: null },
 ];
 
-const councilLabels: Record<string, { label: string; icon: typeof Church; color: string }> = {
+const defaultCouncilLabels: Record<string, { label: string; icon: typeof Church; color: string }> = {
   parish_board: { label: "Parish Board", icon: Church, color: "bg-nobuk-muted text-nobuk" },
   women_council: { label: "Women's Council", icon: Users, color: "bg-amber/20 text-amber-dark" },
   men_council: { label: "Men's Council", icon: Users, color: "bg-gray-200 text-muted" },
   development: { label: "Development Committee", icon: Medal, color: "bg-amber-light text-amber-dark" },
 };
+
+const colorCycle = [Church, Users, Medal, Church, Users, Medal, Church, Users];
 
 function initials(name: string): string {
   return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
@@ -40,9 +43,11 @@ function initials(name: string): string {
 
 export default function LeadershipSection() {
   const [members, setMembers] = useState<Member[]>(seedMembers);
+  const [councils, setCouncils] = useState<{ slug: string; name: string }[]>([]);
   const { ref, inView } = useInView();
 
   useEffect(() => {
+    fetchCouncils().then((data) => { if (data.length) setCouncils(data); });
     fetch("/api/committee")
       .then((r) => r.ok && r.json())
       .then((data) => {
@@ -79,7 +84,10 @@ export default function LeadershipSection() {
 
         <div ref={ref} className="space-y-12">
           {Object.entries(grouped).map(([council, councilMembers], gi) => {
-            const config = councilLabels[council] || { label: council, icon: Church, color: "bg-amber text-nobuk" };
+            const label = getCouncilLabel(council, councils);
+            const def = defaultCouncilLabels[council] || { label: council, icon: colorCycle[gi % colorCycle.length], color: "bg-amber text-nobuk" };
+            const config = def;
+            config.label = label;
             const Icon = config.icon;
 
             return (

@@ -7,7 +7,8 @@ import {
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePie, Pie, Cell, Legend,
 } from "recharts";
-import type { DashboardStats, AdminUser, ChurchMember, CommitteeMember } from "../types";
+import type { DashboardStats, AdminUser, ChurchMember, CommitteeMember, Council } from "../types";
+import { fetchCouncils, getCouncilLabel, clearCouncilCache } from "../lib/councils";
 import * as pdfjs from "pdfjs-dist";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs`;
@@ -64,6 +65,13 @@ export default function AdminDashboard() {
   const [newComCouncil, setNewComCouncil] = useState("parish_board");
   const [newComOrder, setNewComOrder] = useState("0");
   const [comError, setComError] = useState("");
+  const [councils, setCouncils] = useState<Council[]>([]);
+  const [editingCouncil, setEditingCouncil] = useState<Council | null>(null);
+  const [editCouncilName, setEditCouncilName] = useState("");
+  const [newCouncilSlug, setNewCouncilSlug] = useState("");
+  const [newCouncilName, setNewCouncilName] = useState("");
+  const [councilMgmtError, setCouncilMgmtError] = useState("");
+  const [councilMgmtMsg, setCouncilMgmtMsg] = useState("");
   const [editingCom, setEditingCom] = useState<CommitteeMember | null>(null);
   const [editComName, setEditComName] = useState("");
   const [editComRole, setEditComRole] = useState("");
@@ -155,6 +163,11 @@ export default function AdminDashboard() {
     } catch { /* silent */ }
   }, []);
 
+  const loadCouncils = useCallback(async () => {
+    const data = await fetchCouncils();
+    if (data.length) setCouncils(data);
+  }, []);
+
   useEffect(() => { checkAuth(); }, [checkAuth]);
   useEffect(() => {
     if (!admin) return;
@@ -165,7 +178,8 @@ export default function AdminDashboard() {
     fetchAdmins();
     fetchAnalytics();
     fetchCommittee();
-  }, [admin, fetchStats, fetchLogs, fetchMembers, fetchAdmins, fetchAnalytics, fetchCommittee]);
+    loadCouncils();
+  }, [admin, fetchStats, fetchLogs, fetchMembers, fetchAdmins, fetchAnalytics, fetchCommittee, loadCouncils]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -340,22 +354,26 @@ export default function AdminDashboard() {
     return acc;
   }, {} as Record<string, ChurchMember[]>);
 
-  const councilLabels: Record<string, string> = {
-    parish_board: "Parish Board",
-    women_council: "Women's Council",
-    men_council: "Men's Council",
-    development: "Development Committee",
-  };
+  const councilLabels: Record<string, string> = {};
+  for (const c of councils) councilLabels[c.slug] = c.name;
+  if (!councils.length) {
+    councilLabels.parish_board = "Parish Board";
+    councilLabels.women_council = "Women's Council";
+    councilLabels.men_council = "Men's Council";
+    councilLabels.development = "Development Committee";
+  }
 
-  const labelToCouncil: Record<string, string> = {
-    'parish board': 'parish_board',
-    'women\'s council': 'women_council',
-    'women council': 'women_council',
-    'men\'s council': 'men_council',
-    'men council': 'men_council',
-    'development committee': 'development',
-    development: 'development',
-  };
+  const labelToCouncil: Record<string, string> = {};
+  for (const c of councils) labelToCouncil[c.name.toLowerCase()] = c.slug;
+  if (!councils.length) {
+    labelToCouncil['parish board'] = 'parish_board';
+    labelToCouncil['women\'s council'] = 'women_council';
+    labelToCouncil['women council'] = 'women_council';
+    labelToCouncil['men\'s council'] = 'men_council';
+    labelToCouncil['men council'] = 'men_council';
+    labelToCouncil['development committee'] = 'development';
+    labelToCouncil['development'] = 'development';
+  }
 
   function parseLine(line: string): { name: string; council: string } | null {
     const trimmed = line.trim();
@@ -381,7 +399,7 @@ export default function AdminDashboard() {
             <p className="text-xs text-muted">{admin.name} &middot; {admin.role.replace("_", " ")}</p>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => { fetchStats(); fetchLogs(); fetchMembers(); fetchAdmins(); fetchAnalytics(); fetchCommittee(); }} className="rounded-lg p-2 text-muted transition hover:bg-cream" title="Refresh">
+            <button onClick={() => { fetchStats(); fetchLogs(); fetchMembers(); fetchAdmins(); fetchAnalytics(); fetchCommittee(); loadCouncils(); }} className="rounded-lg p-2 text-muted transition hover:bg-cream" title="Refresh">
               <RefreshCw size={16} />
             </button>
             <a href="/" className="text-sm text-muted underline underline-offset-2 hover:text-nobuk">View Site</a>
@@ -588,10 +606,9 @@ export default function AdminDashboard() {
                   <label className="mb-1 block text-xs font-bold text-muted">Council</label>
                   <select value={newCouncil} onChange={(e) => setNewCouncil(e.target.value)}
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk">
-                    <option value="parish_board">Parish Board</option>
-                    <option value="women_council">Women's Council</option>
-                    <option value="men_council">Men's Council</option>
-                    <option value="development">Development Committee</option>
+                    {(councils.length ? councils : []).map(c => (
+                      <option key={c.slug} value={c.slug}>{c.name}</option>
+                    ))}
                   </select>
                 </div>
                 <button type="submit"
@@ -652,10 +669,9 @@ export default function AdminDashboard() {
                   <label className="mb-1 block text-xs font-bold text-muted">Council for all</label>
                   <select value={bulkCouncil} onChange={(e) => setBulkCouncil(e.target.value)}
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk">
-                    <option value="parish_board">Parish Board</option>
-                    <option value="women_council">Women's Council</option>
-                    <option value="men_council">Men's Council</option>
-                    <option value="development">Development Committee</option>
+                    {(councils.length ? councils : []).map(c => (
+                      <option key={c.slug} value={c.slug}>{c.name}</option>
+                    ))}
                   </select>
                 </div>
                 {bulkError && (
@@ -983,6 +999,145 @@ export default function AdminDashboard() {
         )}
 
         {tab === "council" && (
+          <>
+          {/* Manage Councils section */}
+          <div className="mb-8 rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Settings size={16} className="text-nobuk" />
+                <h2 className="text-sm font-bold text-ink">Manage Councils</h2>
+              </div>
+              <span className="text-xs text-muted">Rename, add, or delete councils</span>
+            </div>
+            {councilMgmtMsg && (
+              <div className="mb-3 rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-xs text-green-700">{councilMgmtMsg}</div>
+            )}
+            {councilMgmtError && (
+              <div className="mb-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">{councilMgmtError}</div>
+            )}
+            {/* Current councils list */}
+            <div className="mb-4 space-y-2">
+              {(councils.length ? councils : []).map((c) => (
+                <div key={c.slug} className="rounded-lg border border-gray-100 bg-cream px-4 py-3">
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-ink">{c.name}</p>
+                      <p className="text-xs text-muted">Slug: {c.slug}</p>
+                    </div>
+                    <div className="flex items-center gap-2 ml-2 shrink-0">
+                      <button
+                        onClick={() => {
+                          setEditingCouncil(editingCouncil?.slug === c.slug ? null : c);
+                          setEditCouncilName(c.name);
+                        }}
+                        className="rounded-lg px-2 py-1 text-xs text-muted hover:bg-white hover:text-nobuk"
+                      >
+                        Rename
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!confirm(`Delete "${c.name}"? Members using this council must be reassigned first.`)) return;
+                          setCouncilMgmtError(""); setCouncilMgmtMsg("");
+                          try {
+                            const res = await fetch(`/api/councils/${c.slug}`, {
+                              method: "DELETE",
+                              headers: { Authorization: `Bearer ${token}` },
+                            });
+                            const data = await res.json();
+                            if (!res.ok) { setCouncilMgmtError(data.error || "Failed to delete"); return; }
+                            setCouncilMgmtMsg(`"${c.name}" deleted.`);
+                            clearCouncilCache();
+                            loadCouncils();
+                            fetchCommittee();
+                            fetchMembers();
+                          } catch { setCouncilMgmtError("Connection issue"); }
+                        }}
+                        className="rounded-lg px-2 py-1 text-xs text-red-500 hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                  {editingCouncil?.slug === c.slug && (
+                    <div className="mt-3 border-t border-gray-200 pt-3 flex items-end gap-3">
+                      <div className="flex-1">
+                        <label className="mb-1 block text-xs font-bold text-muted">New Name</label>
+                        <input type="text" value={editCouncilName} onChange={(e) => setEditCouncilName(e.target.value)}
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                      </div>
+                      <button
+                        onClick={async () => {
+                          if (!editCouncilName.trim()) return;
+                          setCouncilMgmtError(""); setCouncilMgmtMsg("");
+                          try {
+                            const res = await fetch(`/api/councils/${c.slug}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                              body: JSON.stringify({ name: editCouncilName.trim() }),
+                            });
+                            const data = await res.json();
+                            if (!res.ok) { setCouncilMgmtError(data.error || "Failed to rename"); return; }
+                            setCouncilMgmtMsg(`Renamed to "${data.council.name}".`);
+                            setEditingCouncil(null);
+                            clearCouncilCache();
+                            loadCouncils();
+                          } catch { setCouncilMgmtError("Connection issue"); }
+                        }}
+                        className="rounded-lg bg-nobuk px-3 py-2 text-xs font-semibold text-white hover:bg-nobuk-light"
+                      >
+                        Save
+                      </button>
+                      <button onClick={() => setEditingCouncil(null)}
+                        className="rounded-lg border border-gray-200 px-3 py-2 text-xs text-muted hover:bg-white">
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {/* Add new council */}
+            <div className="border-t border-gray-200 pt-4">
+              <h3 className="mb-3 text-xs font-bold text-ink uppercase tracking-wider">Add New Council</h3>
+              <div className="flex items-end gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-muted">Slug (auto-generated)</label>
+                  <input type="text" value={newCouncilSlug} onChange={(e) => setNewCouncilSlug(e.target.value.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z_]/g, ""))}
+                    placeholder="e.g. galileo"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-muted">Display Name</label>
+                  <input type="text" value={newCouncilName} onChange={(e) => setNewCouncilName(e.target.value)}
+                    placeholder="e.g. Galileo"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!newCouncilSlug.trim() || !newCouncilName.trim()) { setCouncilMgmtError("Slug and name are required"); return; }
+                    setCouncilMgmtError(""); setCouncilMgmtMsg("");
+                    try {
+                      const res = await fetch("/api/councils", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ slug: newCouncilSlug.trim(), name: newCouncilName.trim() }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) { setCouncilMgmtError(data.error || "Failed to add"); return; }
+                      setNewCouncilSlug(""); setNewCouncilName("");
+                      setCouncilMgmtMsg(`Council "${data.council.name}" added.`);
+                      clearCouncilCache();
+                      loadCouncils();
+                    } catch { setCouncilMgmtError("Connection issue"); }
+                  }}
+                  className="rounded-lg bg-nobuk px-4 py-2 text-xs font-semibold text-white hover:bg-nobuk-light"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div className="grid gap-8 lg:grid-cols-3">
             {/* Add committee member form */}
             <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm lg:col-span-1">
@@ -1010,10 +1165,9 @@ export default function AdminDashboard() {
                   <label className="mb-1 block text-xs font-bold text-muted">Council</label>
                   <select value={newComCouncil} onChange={(e) => setNewComCouncil(e.target.value)}
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk">
-                    <option value="parish_board">Parish Board</option>
-                    <option value="women_council">Women's Council</option>
-                    <option value="men_council">Men's Council</option>
-                    <option value="development">Development Committee</option>
+                    {(councils.length ? councils : []).map(c => (
+                      <option key={c.slug} value={c.slug}>{c.name}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -1172,6 +1326,7 @@ export default function AdminDashboard() {
               )}
             </div>
           </div>
+          </>
         )}
 
         {tab === "analytics" && (

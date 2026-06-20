@@ -37,11 +37,18 @@ export interface Pledge {
   created_at: string;
 }
 
+export interface Council {
+  slug: string;
+  name: string;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface CommitteeMember {
   id: string;
   name: string;
   role: string;
-  council: "parish_board" | "women_council" | "men_council" | "development";
+  council: string;
   photo_url: string | null;
   order: number;
 }
@@ -49,7 +56,7 @@ export interface CommitteeMember {
 export interface ChurchMember {
   id: string;
   name: string;
-  council: "parish_board" | "women_council" | "men_council" | "development";
+  council: string;
   is_active: boolean;
   created_at: string;
 }
@@ -95,6 +102,7 @@ export type AuditAction =
   | "create_committee" | "update_committee" | "delete_committee"
   | "view_church_members" | "create_church_member" | "update_church_member" | "delete_church_member"
   | "view_audit_logs"
+  | "create_council" | "update_council" | "delete_council"
   | "create_admin" | "update_admin";
 
 export interface AuditLog {
@@ -115,3 +123,10 @@ export const COUNCIL_LABELS: Record<string, string> = {
   men_council: "Men's Council",
   development: "Development Committee",
 };
+
+export const DEFAULT_COUNCILS: Council[] = [
+  { slug: "parish_board", name: "Parish Board", is_active: true, created_at: "" },
+  { slug: "women_council", name: "Women's Council", is_active: true, created_at: "" },
+  { slug: "men_council", name: "Men's Council", is_active: true, created_at: "" },
+  { slug: "development", name: "Development Committee", is_active: true, created_at: "" },
+];

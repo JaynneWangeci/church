@@ -7,7 +7,19 @@ function sanitizeName(name: string): string {
   return name.replace(/<[^>]*>/g, "").trim().slice(0, 100);
 }
 
-const validCouncils = ["parish_board", "women_council", "men_council", "development"];
+let validCouncils: string[] = [];
+async function refreshCouncils(): Promise<string[]> {
+  try {
+    const db = requireService();
+    const { data } = await db.from("councils").select("slug").eq("is_active", true);
+    validCouncils = (data || []).map(c => c.slug);
+    return validCouncils;
+  } catch {
+    return validCouncils;
+  }
+}
+refreshCouncils();
+setInterval(refreshCouncils, 60000);
 
 export const membersRouter = Router();
 
