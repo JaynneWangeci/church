@@ -67,7 +67,15 @@ export default function ContributeSection() {
   }, []);
 
   const filtered = inputValue
-    ? members.filter(m => m.name.toLowerCase().includes(inputValue.toLowerCase()))
+    ? members
+        .map(m => ({
+          ...m,
+          _score: m.name.toLowerCase() === inputValue.toLowerCase() ? 3
+            : m.name.toLowerCase().startsWith(inputValue.toLowerCase()) ? 2
+            : m.name.toLowerCase().includes(inputValue.toLowerCase()) ? 1 : 0,
+        }))
+        .filter(m => m._score > 0)
+        .sort((a, b) => b._score - a._score || a.name.localeCompare(b.name))
     : members;
 
   const grouped = filtered.reduce((acc, m) => {
