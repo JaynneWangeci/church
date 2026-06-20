@@ -104,7 +104,7 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
       } catch {}
       attempts++;
       if (attempts < maxAttempts) {
-        const delay = Math.min(3000 * Math.pow(1.08, attempts), 10000);
+        const delay = Math.min(1000 * Math.pow(1.05, attempts), 3000);
         setTimeout(poll, delay);
       } else {
         setError('M-Pesa is taking longer than usual. Your donation may still process — check your M-Pesa messages and refresh.');
