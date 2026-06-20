@@ -51,6 +51,7 @@ vercell.txt
 pat.txt
 supabasepat.txt
 *.jpg
+*.jpeg
 *.png
 supabase/.temp/
 

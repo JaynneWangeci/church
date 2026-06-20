@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 const IMAGES = [
+  '/images/fasad_processed.jpeg',
   '/images/frame_01.jpg',
   '/images/frame_04.jpg',
   '/images/frame_23.jpg',
