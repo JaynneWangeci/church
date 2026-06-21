@@ -49,7 +49,7 @@ membersRouter.get("/template", async (_req, res) => {
     doc.fontSize(11).font("Helvetica-Bold").text("Sample Names (replace these):");
     doc.moveDown(0.3);
     doc.fontSize(10).font("Helvetica");
-    ["John Kamau - Maranatha Fellowship", "Mary Wambui - Bethlehem Fellowship", "Peter Njoroge - Jerusalem Fellowship", "Grace Akinyi - Aefeso Fellowship", "", "--- Replace above with your names ---"].forEach(t => doc.text(t, 50, doc.y, { indent: 20 }));
+    ["John Kamau, Maranatha Fellowship", "Mary Wambui, Bethlehem Fellowship", "Peter Njoroge, Jerusalem Fellowship", "Grace Akinyi, Aefeso Fellowship", "", "--- Replace with your own names (comma or dash separated) ---"].forEach(t => doc.text(t, 50, doc.y, { indent: 20 }));
     doc.end();
   } catch (err) {
     console.error("template error:", err);

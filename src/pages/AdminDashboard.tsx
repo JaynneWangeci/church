@@ -700,25 +700,36 @@ export default function AdminDashboard() {
                         setBulkError("");
                         const buffer = await file.arrayBuffer();
                         const pdf = await pdfjs.getDocument(buffer).promise;
-                        let fullText = "";
+                        const lines: string[] = [];
                         for (let i = 1; i <= pdf.numPages; i++) {
                           const page = await pdf.getPage(i);
                           const content = await page.getTextContent();
-                          fullText += content.items.map((item: any) => item.str).join(" ") + "\n";
+                          let lastY = 0;
+                          let line = "";
+                          for (const item of content.items) {
+                            const ty = (item as any).transform?.[5] ?? 0;
+                            if (lastY && Math.abs(ty - lastY) > 5) {
+                              if (line.trim()) lines.push(line.trim());
+                              line = item.str;
+                            } else {
+                              line += (line ? " " : "") + item.str;
+                            }
+                            lastY = ty;
+                          }
+                          if (line.trim()) lines.push(line.trim());
                         }
-                        const rawLines = fullText.split("\n").map(l => l.trim()).filter(Boolean);
                         const seen = new Set<string>();
-                        const lines: string[] = [];
-                        for (const line of rawLines) {
+                        const deduped: string[] = [];
+                        for (const line of lines) {
                           const sep = line.match(/^([^,|\-]+?)\s*[,|\-]\s*(.+)$/);
                           const name = sep ? sep[1].trim() : line;
                           const nameKey = name.toLowerCase();
                           if (nameKey && !seen.has(nameKey)) {
                             seen.add(nameKey);
-                            lines.push(line);
+                            deduped.push(line);
                           }
                         }
-                        setBulkNames(lines.join("\n"));
+                        setBulkNames(deduped.join("\n"));
                       } catch (err: any) {
                         setBulkError("Failed to read PDF: " + (err?.message || "Invalid file"));
                       }
