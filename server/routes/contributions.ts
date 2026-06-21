@@ -636,10 +636,10 @@ contributionsRouter.get("/export/xlsx", requireAdmin, async (req, res) => {
     s4.getRow(3).values = ["#", "Honoured Member", "Fellowship", "Total Received (KES)", "Times Honoured", "Avg Honour (KES)", "Last Honour Date"];
     styleHeader(s4, s4.getRow(3));
 
-    // Aggregate honour donations by honoured member
+    // Aggregate honour donations by honoured member (completed only)
     const honourByMember: Record<string, { name: string; council: string; total: number; count: number; lastDate: string }> = {};
     for (const d of allDonationsList) {
-      if (d.honored_member_id) {
+      if (d.honored_member_id && d.status === "completed") {
         const honoured = (d as any).honoured;
         const key = d.honored_member_id;
         if (!honourByMember[key]) {
