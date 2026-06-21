@@ -324,6 +324,51 @@ export default function PledgeBoard() {
               <HandHeart size={18} />
               {t('Make a Pledge', 'Weka Ahadi')}
             </button>
+
+            {/* Pledge progress lookup */}
+            {pledges.length > 0 && (
+              <div className="mx-auto mt-8 max-w-md border-t border-gray-100 pt-6">
+                <p className="mb-3 text-xs font-bold text-gray-500 uppercase tracking-wider">{t('My Pledge Progress', 'Maendeleo ya Ahadi Yangu')}</p>
+                <div className="relative">
+                  <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input type="text" value={search} onChange={e => { setSearch(e.target.value); setTrackOpen(true); }}
+                    onFocus={() => setTrackOpen(true)}
+                    placeholder={t('Type your name to see progress...', 'Andika jina lako kuona maendeleo...')}
+                    className="w-full rounded-full border border-gray-200 bg-white py-3 pl-11 pr-4 text-sm text-gray-900 outline-none focus:border-blue-500" />
+                  {renderDropdown(trackOpen, trackFiltered, trackGrouped, trackAllCouncils, search, (name) => { setSearch(name); setTrackOpen(false); handleSearch(); })}
+                </div>
+
+                {result && result.pledges.length > 0 && (
+                  <div className="mt-4 space-y-3">
+                    {result.pledges.map((p: any) => {
+                      const pct = p.amount > 0 ? Math.min(100, Math.round((p.paid / p.amount) * 100)) : 0;
+                      return (
+                        <div key={p.id} className="rounded-lg bg-blue-50 p-3 text-left">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-bold text-gray-900">{p.donor_name}</p>
+                            {p.status === 'fulfilled'
+                              ? <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-700">{t('Fulfilled ✓', 'Imekamilika ✓')}</span>
+                              : <span className="text-sm font-bold text-blue-700">{pct}%</span>
+                            }
+                          </div>
+                          <div className="mt-1 flex gap-3 text-xs text-gray-600">
+                            <span>{t('Pledged:', 'Ameahidi:')} KES {p.amount.toLocaleString()}</span>
+                            <span>{t('Paid:', 'Amelipa:')} KES {p.paid.toLocaleString()}</span>
+                            <span className="font-bold text-blue-600">{t('Remaining:', 'Inabaki:')} KES {p.remaining.toLocaleString()}</span>
+                          </div>
+                          <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-gray-200">
+                            <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {result && !result.pledges.length && (
+                  <p className="mt-3 text-xs text-gray-400">{t('No pledges yet. Make one above!', 'Hakuna ahadi bado. Weka moja hapo juu!')}</p>
+                )}
+              </div>
+            )}
           </div>
         )}
 
