@@ -91,23 +91,6 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
     return n.split(' ').map(x => x[0]).join('').toUpperCase().slice(0, 2);
   }
 
-  async function autoSaveName(n: string) {
-    const exists = memberList.some(m => m.name.toLowerCase() === n.toLowerCase().trim());
-    if (!exists && n.trim().length >= 2) {
-      try {
-        await fetch('/api/members/auto-add', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: n.trim(), council: 'general_member' }),
-        });
-        fetch('/api/members')
-          .then(r => r.ok && r.json())
-          .then(d => { if (d?.members?.length) setMemberList(d.members); })
-          .catch(() => {});
-      } catch {}
-    }
-  }
-
   const pollStatus = useCallback((checkoutId: string) => {
     let attempts = 0;
     const maxAttempts = 100;
@@ -150,7 +133,28 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
     setFinalAmount(amt);
     setFinalDonorName(name);
 
-    await autoSaveName(name);
+    // Auto-save name and get member ID for fellowship assignment
+    let donorMemberId = isGeneral ? null : member.id;
+    const existingMember = memberList.find(m => m.name.toLowerCase() === name.trim().toLowerCase());
+    if (existingMember) {
+      donorMemberId = existingMember.id;
+    } else if (name.trim().length >= 2) {
+      try {
+        const res = await fetch('/api/members/auto-add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name.trim(), council: 'general_member' }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          donorMemberId = data.member?.id;
+        }
+        fetch('/api/members')
+          .then(r => r.ok && r.json())
+          .then(d => { if (d?.members?.length) setMemberList(d.members); })
+          .catch(() => {});
+      } catch {}
+    }
 
     try {
       const campRes = await fetch('/api/campaigns/development-fund');
@@ -171,8 +175,8 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
           amount: amt,
           phone: cleanPhone,
           message: message || null,
-          honored_member_id: null,
-          church_member_id: isGeneral ? null : member.id,
+          honored_member_id: isGeneral ? null : member.id,
+          church_member_id: donorMemberId,
         }),
       });
       const donData = await donRes.json();

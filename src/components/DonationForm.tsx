@@ -270,16 +270,22 @@ export default function DonationForm() {
     const donorName = genMemberSearch.trim();
     const amount = genAmount === "custom" ? Number(genCustom) || 0 : genAmount || 0;
 
-    // Auto-save typed name if not in DB
-    if (donorName) {
-      const exists = members.some(m => m.name.toLowerCase() === donorName.toLowerCase());
-      if (!exists && donorName.length >= 2) {
+    let donorMemberId = genSelectedMember || undefined;
+    if (donorName && !donorMemberId) {
+      const exists = members.find(m => m.name.toLowerCase() === donorName.toLowerCase());
+      if (exists) {
+        donorMemberId = exists.id;
+      } else if (donorName.length >= 2) {
         try {
-          await fetch('/api/members/auto-add', {
+          const res = await fetch('/api/members/auto-add', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: donorName, council: 'general_member' }),
           });
+          if (res.ok) {
+            const data = await res.json();
+            donorMemberId = data.member?.id;
+          }
           fetch('/api/members')
             .then(r => r.ok && r.json())
             .then(d => { if (d?.members?.length) setMembers(d.members); })
@@ -288,7 +294,7 @@ export default function DonationForm() {
       }
     }
 
-    processDonation({ amount, donorName, phone: genPhone, message: genMessage, churchMemberId: genSelectedMember || undefined });
+    processDonation({ amount, donorName, phone: genPhone, message: genMessage, churchMemberId: donorMemberId });
   }
 
   async function handleHonourSubmit(e: React.FormEvent) {
@@ -296,15 +302,22 @@ export default function DonationForm() {
     if (!honoredMember) { setError("Kindly select a church member to honour"); return; }
     if (!honName.trim()) { setError("Kindly select your name"); return; }
 
-    // Auto-save typed name if not in DB
-    const exists = members.some(m => m.name.toLowerCase() === honName.trim().toLowerCase());
-    if (!exists && honName.trim().length >= 2) {
+    // Auto-save donor name (the person giving) and get their member ID
+    let donorMemberId: string | undefined;
+    const existingDonor = members.find(m => m.name.toLowerCase() === honName.trim().toLowerCase());
+    if (existingDonor) {
+      donorMemberId = existingDonor.id;
+    } else if (honName.trim().length >= 2) {
       try {
-        await fetch('/api/members/auto-add', {
+        const res = await fetch('/api/members/auto-add', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: honName.trim(), council: 'general_member' }),
         });
+        if (res.ok) {
+          const data = await res.json();
+          donorMemberId = data.member?.id;
+        }
         fetch('/api/members')
           .then(r => r.ok && r.json())
           .then(d => { if (d?.members?.length) setMembers(d.members); })
@@ -313,7 +326,7 @@ export default function DonationForm() {
     }
 
     const amount = honAmount === "custom" ? Number(honCustom) || 0 : honAmount || 0;
-    processDonation({ amount, donorName: honName, phone: honPhone, message: honMessage, honoredMemberId: honoredMember, churchMemberId: honoredMember });
+    processDonation({ amount, donorName: honName, phone: honPhone, message: honMessage, honoredMemberId: honoredMember, churchMemberId: donorMemberId });
   }
 
   function reset() {
