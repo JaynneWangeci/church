@@ -4,6 +4,18 @@ import { requireAdmin, logAudit, maskSensitiveData } from "../lib/admin.js";
 
 export const donationsRouter = Router();
 
+// Resolve donor_name to a church_member_id via case-insensitive name match.
+// Returns null if no match found.
+async function resolveMemberId(db: any, name: string | null): Promise<string | null> {
+  if (!name || name.trim().length < 2) return null;
+  const { data } = await db
+    .from("church_members")
+    .select("id")
+    .eq("is_active", true)
+    .ilike("name", name.trim());
+  return data?.[0]?.id || null;
+}
+
 donationsRouter.get("/", async (req, res) => {
   try {
     const db = requireService();
@@ -56,6 +68,12 @@ donationsRouter.post("/", async (req, res) => {
 
     const normalizedPhone = phone.replace(/^0+/, "254").replace(/^\+/, "");
 
+    // Auto-resolve church_member_id if not provided
+    let resolvedMemberId = church_member_id || null;
+    if (!resolvedMemberId) {
+      resolvedMemberId = await resolveMemberId(db, donor_name);
+    }
+
     const { data, error } = await db
       .from("donations")
       .insert({
@@ -66,7 +84,7 @@ donationsRouter.post("/", async (req, res) => {
         status: "pending",
         phone: normalizedPhone,
         honored_member_id: honored_member_id || null,
-        church_member_id: church_member_id || null,
+        church_member_id: resolvedMemberId,
         message: message || null,
       })
       .select()

@@ -234,6 +234,14 @@ pledgesRouter.post("/:id/pay-with-mpesa", async (req, res) => {
       .eq("slug", "development-fund")
       .single();
 
+    // Auto-resolve church_member_id from donor name
+    const { data: member } = await db
+      .from("church_members")
+      .select("id")
+      .eq("is_active", true)
+      .ilike("name", pledge.donor_name);
+    const churchMemberId = member?.[0]?.id || null;
+
     // Create a donation record linked to this pledge
     const { data: donation, error: donErr } = await db
       .from("donations")
@@ -244,6 +252,7 @@ pledgesRouter.post("/:id/pay-with-mpesa", async (req, res) => {
         status: "pending",
         method: "mpesa",
         campaign_id: campaign?.id,
+        church_member_id: churchMemberId,
         account_reference: `PLD:${req.params.id}`,
         transaction_desc: "Pledge Payment",
       })
