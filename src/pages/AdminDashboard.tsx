@@ -734,6 +734,12 @@ export default function AdminDashboard() {
                   </button>
                 </div>
                 <div>
+                  <label className="mb-1 block text-xs font-bold text-muted">Or paste names</label>
+                  <textarea value={bulkNames} onChange={(e) => setBulkNames(e.target.value)} rows={5} placeholder={"John Kamau - Maranatha Fellowship\nMary Wambui - Bethlehem Fellowship\nPeter Njoroge\n\nOne per line — optionally add \" - FellowshipName\" or \", FellowshipName\""}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk resize-vertical placeholder:text-muted/50" />
+                  <p className="mt-1 text-[10px] text-muted">{bulkNames.trim() ? (bulkNames.trim().split('\n').filter(n => n.trim()).length + " names") : "Paste names above"}</p>
+                </div>
+                <div>
                   <label className="mb-1 block text-xs font-bold text-muted">Fellowship for all</label>
                   <select value={bulkCouncil} onChange={(e) => setBulkCouncil(e.target.value)}
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk">
