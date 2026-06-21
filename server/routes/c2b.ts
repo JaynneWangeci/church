@@ -88,18 +88,23 @@ c2bRouter.post("/confirmation", async (req, res) => {
       }
     }
 
-    // Auto-register payer as church member
+    // Auto-register payer as church member (if not matched by name exactly)
+    let memberId: string | null = null;
     if (payerName !== "Anonymous" && payerName.length >= 2) {
-      const { data: existing } = await db
+      const { data: exact } = await db
         .from("church_members")
         .select("id")
         .eq("is_active", true)
-        .ilike("name", `%${payerName}%`);
-      if (!existing?.length) {
-        await db.from("church_members").insert({
-          name: payerName,
-          council: "general_member",
-        });
+        .ilike("name", payerName);
+      if (exact?.length) {
+        memberId = exact[0].id;
+      } else {
+        const { data: newMember } = await db
+          .from("church_members")
+          .insert({ name: payerName, council: "general_member" })
+          .select()
+          .single();
+        if (newMember) memberId = newMember.id;
       }
     }
 
@@ -115,7 +120,7 @@ c2bRouter.post("/confirmation", async (req, res) => {
       donor_phone: phone || null,
       phone: phone || null,
       honored_member_id: honoredMemberId,
-      church_member_id: null,
+      church_member_id: memberId,
     });
 
     console.log(`[c2b] recorded: ${payerName} KES ${TransAmount} ${TransID}`);

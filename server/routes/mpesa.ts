@@ -336,102 +336,61 @@ mpesaRouter.get("/status/:checkoutRequestId", async (req, res) => {
   }
 });
 
-// ── C2B (Paybill direct) – Validation: accept all transactions ──
-mpesaRouter.post("/c2b/validation", async (_req, res) => {
-  res.json({ ResultCode: 0, ResultDesc: "Accepted" });
-});
-
-// ── C2B (Paybill direct) – Confirmation: record donation ──
-mpesaRouter.post("/c2b/confirmation", async (req, res) => {
+// ── C2B (Paybill direct) – Shared handler ──
+// NOTE: Safaricom rejects URLs containing "mpesa" substring, so /paybill/ paths are used
+async function handleC2BConfirmation(req: any, res: any) {
   try {
     const body = req.body;
-    // Always acknowledge first to prevent Safaricom timeouts
     res.status(200).json({ ResultCode: 0, ResultDesc: "Success" });
 
     const donorName = (body.BillRefNumber || "").trim();
     if (!donorName || donorName.length < 2) {
-      console.log("C2B skipped: no BillRefNumber (donor name)");
+      console.log("C2B skipped: no BillRefNumber");
       return;
     }
 
     const amount = Number(body.TransAmount) || 0;
-    if (amount < 10) {
-      console.log("C2B skipped: amount too small", amount);
-      return;
-    }
+    if (amount < 10) { console.log("C2B skipped: amount too small"); return; }
 
     const phone = String(body.MSISDN || "");
     const receiptNumber = String(body.TransID || "");
     const db = requireService();
 
-    // Resolve or auto-create member from BillRefNumber
     const { data: existing } = await db
-      .from("church_members")
-      .select("id, name, council")
-      .eq("is_active", true)
-      .ilike("name", donorName);
-
-    let memberId: string | null = existing?.[0]?.id || null;
+      .from("church_members").select("id").eq("is_active", true).ilike("name", donorName);
+    let memberId = existing?.[0]?.id || null;
     if (!memberId) {
-      const { data: newMember, error: createErr } = await db
-        .from("church_members")
-        .insert({ name: donorName, council: "general_member" })
-        .select()
-        .single();
-      if (!createErr && newMember) {
-        memberId = newMember.id;
-        console.log("C2B: created member", donorName, memberId);
-      }
+      const { data: newMember } = await db
+        .from("church_members").insert({ name: donorName, council: "general_member" }).select().single();
+      if (newMember) memberId = newMember.id;
     }
 
-    // Find campaign
     const { data: campaign } = await db
-      .from("campaigns")
-      .select("id")
-      .eq("slug", "development-fund")
-      .single();
+      .from("campaigns").select("id").eq("slug", "development-fund").single();
 
-    // Create donation
-    const { data: donation, error: donErr } = await db
-      .from("donations")
-      .insert({
-        donor_name: donorName,
-        amount,
-        phone,
-        status: "completed",
-        method: "mpesa",
-        receipt_number: receiptNumber,
-        church_member_id: memberId,
-        campaign_id: campaign?.id,
-        account_reference: "C2B:" + receiptNumber,
-        transaction_desc: "Paybill Direct",
-      })
-      .select()
-      .single();
+    const { data: donation } = await db.from("donations").insert({
+      donor_name: donorName, amount, phone, status: "completed", method: "mpesa",
+      receipt_number: receiptNumber, church_member_id: memberId,
+      campaign_id: campaign?.id, account_reference: "C2B:" + receiptNumber,
+      transaction_desc: "Paybill Direct",
+    }).select().single();
 
-    if (donErr) {
-      console.error("C2B: failed to create donation", donErr);
-      return;
+    if (donation && campaign?.id) {
+      await db.rpc("increment_campaign_raised", { campaign_id: campaign.id, amount }).catch(() => {});
     }
-
-    // Increment campaign total
-    if (campaign?.id) {
-      await db.rpc("increment_campaign_raised", {
-        campaign_id: campaign.id,
-        amount,
-      }).catch(() => {});
-    }
-
-    // WhatsApp confirmation
-    if (phone) {
+    if (donation && phone) {
       whatsAppConfirmation({ ...donation, receipt_number: receiptNumber });
     }
-
     console.log("C2B: recorded donation", donorName, amount, receiptNumber);
   } catch (err) {
     console.error("C2B confirmation error:", err);
   }
-});
+}
+
+mpesaRouter.post("/c2b/validation", async (_req, res) => { res.json({ ResultCode: 0, ResultDesc: "Accepted" }); });
+mpesaRouter.post("/paybill/validation", async (_req, res) => { res.json({ ResultCode: 0, ResultDesc: "Accepted" }); });
+mpesaRouter.post("/c2b/confirmation", handleC2BConfirmation);
+mpesaRouter.post("/paybill/confirmation", handleC2BConfirmation);
 
 // ── C2B URL registration with Safaricom (admin only) ──
 mpesaRouter.post("/c2b/register", requireAdmin, async (_req, res) => {
@@ -442,8 +401,8 @@ mpesaRouter.post("/c2b/register", requireAdmin, async (_req, res) => {
     const payload = {
       ShortCode: SHORTCODE,
       ResponseType: "Completed",
-      ConfirmationURL: `${baseUrl}/c2b/confirmation`,
-      ValidationURL: `${baseUrl}/c2b/validation`,
+      ConfirmationURL: `${baseUrl}/paybill/confirmation`,
+      ValidationURL: `${baseUrl}/paybill/validation`,
     };
 
     const regRes = await fetch(`${BASE_URL}/mpesa/c2b/v2/register`, {
