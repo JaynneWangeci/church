@@ -147,6 +147,17 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 20);
 
+    // ── Per-fellowship member counts ──
+    const { data: fellowshipMembers } = await db
+      .from("church_members")
+      .select("council, id")
+      .eq("is_active", true);
+    const memberCountMap: Record<string, number> = {};
+    for (const m of fellowshipMembers || []) {
+      const c = m.council || "unknown";
+      memberCountMap[c] = (memberCountMap[c] || 0) + 1;
+    }
+
     // ── Council breakdown (with counts) ──
     const councilMap: Record<string, { total: number; count: number }> = {};
     for (const d of councilData.data || []) {
@@ -157,7 +168,13 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
       councilMap[council].count += 1;
     }
     const councilBreakdown = Object.entries(councilMap)
-      .map(([council, { total, count }]) => ({ council, total, count }))
+      .map(([council, { total, count }]) => ({
+        council,
+        total,
+        count,
+        member_count: memberCountMap[council] || 0,
+        avg_per_member: memberCountMap[council] ? Math.round(total / memberCountMap[council]) : 0,
+      }))
       .sort((a, b) => b.total - a.total);
 
     // ── Member honour ranking ──

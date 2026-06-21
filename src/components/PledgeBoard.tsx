@@ -58,6 +58,7 @@ export default function PledgeBoard() {
   const [payAmount, setPayAmount] = useState('');
   const [payReceipt, setPayReceipt] = useState('');
   const [commitLoading, setCommitLoading] = useState(false);
+  const [payError, setPayError] = useState('');
 
   // Member dropdown shared state
   const [members, setMembers] = useState<Member[]>([]);
@@ -141,12 +142,19 @@ export default function PledgeBoard() {
   }
 
   async function handlePay(pledgeId: string) {
-    if (!payAmount) return;
-    await fetch(`/api/pledges/${pledgeId}/pay`, {
+    setPayError('');
+    const amt = Number(payAmount);
+    if (!payAmount || amt <= 0) { setPayError('Enter a valid payment amount'); return; }
+    const res = await fetch(`/api/pledges/${pledgeId}/pay`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount: Number(payAmount), receipt_number: payReceipt || null }),
+      body: JSON.stringify({ amount: amt, receipt_number: payReceipt || null }),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Payment failed' }));
+      setPayError(err.error || 'Payment failed');
+      return;
+    }
     setPayingId(null); setPayAmount(''); setPayReceipt('');
     handleCommitSearch();
   }
@@ -246,49 +254,6 @@ export default function PledgeBoard() {
               <HandHeart size={18} />
               {t('Make a Pledge', 'Weka Ahadi')}
             </button>
-
-            {/* Public pledge board */}
-            <div className="mt-8">
-              <h4 className="mb-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">{t('Pledge Board', 'Ubao wa Ahadi')}</h4>
-              <div className="max-h-96 overflow-y-auto rounded-xl border border-gray-50 bg-gray-50/50">
-                {pledges.map((p, i) => {
-                  const pct = Math.min(100, Math.round((p.paid / p.amount) * 100));
-                  const colors = ['#EF4444', '#F97316', '#EAB308', '#22C55E', '#3B82F6'];
-                  const barColor = colors[p.rating - 1] || '#3B82F6';
-                  return (
-                    <div key={p.id} className={`flex items-center gap-4 px-5 py-4 ${i < pledges.length - 1 ? 'border-b border-gray-100' : ''}`}>
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white" style={{ backgroundColor: barColor }}>
-                        {p.donor_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-bold text-gray-900">{p.donor_name}</p>
-                          {stars(p.rating)}
-                        </div>
-                        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
-                          <span>{t('Pledged', 'Ameahidi')}: KES {p.amount.toLocaleString()}</span>
-                          <span>{t('Paid', 'Amelipa')}: KES {p.paid.toLocaleString()}</span>
-                          <span className="font-bold text-blue-600">{t('Left', 'Inabaki')}: KES {p.remaining.toLocaleString()}</span>
-                        </div>
-                        <div className="mt-1.5 h-2 w-full max-w-xs overflow-hidden rounded-full bg-gray-100">
-                          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: barColor }} />
-                        </div>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <p className="text-lg font-bold" style={{ color: barColor }}>{pct}%</p>
-                        {p.status === 'fulfilled' && <span className="text-xs font-bold text-green-600">{t('Done ✓', 'Imekamilika ✓')}</span>}
-                      </div>
-                    </div>
-                  );
-                })}
-                {!pledges.length && (
-                  <div className="py-12 text-center">
-                    <Medal size={32} className="mx-auto mb-2 text-gray-300" />
-                    <p className="text-sm text-gray-400">{t('No pledges yet. Be the first!', 'Hakuna ahadi bado. Kuwa wa kwanza!')}</p>
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
         )}
 
@@ -348,7 +313,7 @@ export default function PledgeBoard() {
                       {p.status !== 'fulfilled' && (
                         <>
                           {payingId !== p.id ? (
-                            <button onClick={() => { setPayingId(p.id); setPayAmount(''); setPayReceipt(''); }}
+                            <button onClick={() => { setPayingId(p.id); setPayAmount(''); setPayReceipt(''); setPayError(''); }}
                               className="mt-3 flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-xs font-bold text-white hover:bg-green-700 transition-all">
                               <DollarSign size={14} /> {t('Redeem Now', 'Komboa Sasa')}
                             </button>
@@ -360,12 +325,13 @@ export default function PledgeBoard() {
                               <input type="text" value={payReceipt} onChange={e => setPayReceipt(e.target.value)}
                                 placeholder={t('M-Pesa code (optional)', 'Msimbo wa M-Pesa (si lazima)')}
                                 className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs outline-none focus:border-green-500" />
+                              {payError && <p className="text-xs text-red-600 font-medium">{payError}</p>}
                               <div className="flex gap-2">
                                 <button onClick={() => handlePay(p.id)}
                                   className="flex-1 rounded-lg bg-green-600 py-2 text-xs font-bold text-white hover:bg-green-700">
                                   <Check size={14} className="inline mr-1" /> {t('Record Payment', 'Rekodi Malipo')}
                                 </button>
-                                <button onClick={() => setPayingId(null)}
+                                <button onClick={() => { setPayingId(null); setPayError(''); }}
                                   className="rounded-lg border border-gray-200 px-4 py-2 text-xs text-gray-600 hover:bg-gray-100">
                                   <X size={14} className="inline" />
                                 </button>
@@ -500,7 +466,7 @@ export default function PledgeBoard() {
         <PledgeForm
           donorName=""
           onClose={() => setShowPledgeForm(false)}
-          onCreated={() => { fetch('/api/pledges').then(r => r.ok && r.json()).then(d => { if (d?.pledges) setPledges(d.pledges); }).catch(() => {}); }}
+          onCreated={() => {}}
         />
       )}
     </section>

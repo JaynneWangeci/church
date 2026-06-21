@@ -97,7 +97,7 @@ export default function PledgeForm({ onClose, onCreated, donorName: initialName 
         await fetch('/api/members/auto-add', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: name.trim(), council: 'aefeso_fellowship' }),
+          body: JSON.stringify({ name: name.trim(), council: 'general_member' }),
         });
       } catch {}
       setAutoAdding(false);

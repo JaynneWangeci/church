@@ -278,7 +278,7 @@ export default function DonationForm() {
           await fetch('/api/members/auto-add', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: donorName, council: 'aefeso_fellowship' }),
+            body: JSON.stringify({ name: donorName, council: 'general_member' }),
           });
           fetch('/api/members')
             .then(r => r.ok && r.json())
@@ -303,7 +303,7 @@ export default function DonationForm() {
         await fetch('/api/members/auto-add', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: honName.trim(), council: 'aefeso_fellowship' }),
+          body: JSON.stringify({ name: honName.trim(), council: 'general_member' }),
         });
         fetch('/api/members')
           .then(r => r.ok && r.json())

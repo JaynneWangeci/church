@@ -53,6 +53,49 @@ adminRouter.get("/stats", requireAdmin, async (req, res) => {
     const filtered = filterDonationsByRole(completedDonations || [], admin.role);
     const maskedDonations = filtered.slice(0, 20);
 
+    // ── Per-fellowship statistics ──
+    const { data: fellowshipMemberCounts } = await db
+      .from("church_members")
+      .select("council, id")
+      .eq("is_active", true);
+
+    const { data: fellowshipDonationStats } = await db
+      .from("donations")
+      .select("amount, church_members!church_member_id!inner(council)")
+      .eq("status", "completed")
+      .not("church_member_id", "is", null);
+
+    const memberCountMap: Record<string, number> = {};
+    for (const m of fellowshipMemberCounts || []) {
+      const c = m.council || "unknown";
+      memberCountMap[c] = (memberCountMap[c] || 0) + 1;
+    }
+
+    const donationAggMap: Record<string, { total: number; count: number }> = {};
+    for (const d of fellowshipDonationStats || []) {
+      const council = (d as any).church_members?.council || "unknown";
+      if (!donationAggMap[council]) donationAggMap[council] = { total: 0, count: 0 };
+      donationAggMap[council].total += Number(d.amount);
+      donationAggMap[council].count += 1;
+    }
+
+    const allCouncilSlugs = [...new Set([
+      ...Object.keys(memberCountMap),
+      ...Object.keys(donationAggMap),
+    ])];
+
+    const fellowshipStats = allCouncilSlugs.map(slug => ({
+      council: slug,
+      member_count: memberCountMap[slug] || 0,
+      donation_count: donationAggMap[slug]?.count || 0,
+      total_amount: donationAggMap[slug]?.total || 0,
+      avg_per_member: memberCountMap[slug] ? Math.round((donationAggMap[slug]?.total || 0) / memberCountMap[slug]) : 0,
+    })).sort((a, b) => b.total_amount - a.total_amount);
+
+    const { count: memberCount } = await db
+      .from("church_members")
+      .select("*", { count: "exact", head: true });
+
     const stats = {
       goal,
       raised: totalRaised,
@@ -61,15 +104,10 @@ adminRouter.get("/stats", requireAdmin, async (req, res) => {
       avg_gift: donors.size ? Math.round(totalRaised / donors.size) : 0,
       pending_count: (pendingDonations || []).length,
       failed_count: (failedDonations || []).length,
-      member_count: 0,
+      member_count: memberCount || 0,
       recent_donations: maskedDonations,
+      fellowship_stats: fellowshipStats,
     };
-
-    const { count: memberCount } = await db
-      .from("church_members")
-      .select("*", { count: "exact", head: true });
-
-    stats.member_count = memberCount || 0;
 
     res.json(stats);
   } catch (err) {

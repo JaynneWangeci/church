@@ -109,7 +109,7 @@ export default function ContributeSection() {
           await fetch('/api/members/auto-add', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: inputValue.trim(), council: 'aefeso_fellowship' }),
+            body: JSON.stringify({ name: inputValue.trim(), council: 'general_member' }),
           });
           fetch('/api/members')
             .then(r => r.ok && r.json())

@@ -98,7 +98,7 @@ c2bRouter.post("/confirmation", async (req, res) => {
       if (!existing?.length) {
         await db.from("church_members").insert({
           name: payerName,
-          council: "aefeso_fellowship",
+          council: "general_member",
         });
       }
     }

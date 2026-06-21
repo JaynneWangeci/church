@@ -83,6 +83,14 @@ export interface AuditLog {
   admin_name?: string;
 }
 
+export interface FellowshipStat {
+  council: string;
+  member_count: number;
+  donation_count: number;
+  total_amount: number;
+  avg_per_member: number;
+}
+
 export interface DashboardStats {
   goal: number;
   raised: number;
@@ -99,6 +107,7 @@ export interface DashboardStats {
     status: string;
     created_at: string;
   }[];
+  fellowship_stats: FellowshipStat[];
 }
 
 export const COUNCIL_LABELS: Record<string, string> = {
@@ -110,6 +119,7 @@ export const COUNCIL_LABELS: Record<string, string> = {
   bethel_fellowship: "Bethel Fellowship",
   berea_fellowship: "Berea Fellowship",
   judea_fellowship: "Judea Fellowship",
+  general_member: "General Member",
 };
 
 export const DEFAULT_COUNCILS: Council[] = [

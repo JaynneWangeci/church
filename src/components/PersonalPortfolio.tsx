@@ -28,6 +28,7 @@ export default function PersonalPortfolio({ name, onClose }: Props) {
   const [payingPledge, setPayingPledge] = useState<string | null>(null);
   const [payAmount, setPayAmount] = useState('');
   const [payReceipt, setPayReceipt] = useState('');
+  const [payError, setPayError] = useState('');
 
   function load() {
     setLoading(true);
@@ -50,12 +51,19 @@ export default function PersonalPortfolio({ name, onClose }: Props) {
   }
 
   async function handlePay(pledgeId: string) {
-    if (!payAmount) return;
-    await fetch(`/api/pledges/${pledgeId}/pay`, {
+    setPayError('');
+    const amt = Number(payAmount);
+    if (!payAmount || amt <= 0) { setPayError('Enter a valid payment amount'); return; }
+    const res = await fetch(`/api/pledges/${pledgeId}/pay`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount: Number(payAmount), receipt_number: payReceipt || null }),
+      body: JSON.stringify({ amount: amt, receipt_number: payReceipt || null }),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Payment failed' }));
+      setPayError(err.error || 'Payment failed');
+      return;
+    }
     setPayingPledge(null); setPayAmount(''); setPayReceipt('');
     load();
   }
@@ -127,7 +135,7 @@ export default function PersonalPortfolio({ name, onClose }: Props) {
                           {p.status !== 'fulfilled' && (
                             <>
                               <button onClick={() => { setEditingPledge(p.id); setEditAmount(''); setEditFreq(p.reminder_freq || ''); }} className="rounded p-1 text-blue-500 hover:bg-blue-50"><Edit3 size={14} /></button>
-                              <button onClick={() => { setPayingPledge(p.id); setPayAmount(''); setPayReceipt(''); }} className="rounded p-1 text-green-500 hover:bg-green-50"><DollarSign size={14} /></button>
+                              <button onClick={() => { setPayingPledge(p.id); setPayAmount(''); setPayReceipt(''); setPayError(''); }} className="rounded p-1 text-green-500 hover:bg-green-50"><DollarSign size={14} /></button>
                             </>
                           )}
                         </div>
@@ -165,9 +173,10 @@ export default function PersonalPortfolio({ name, onClose }: Props) {
                             placeholder="Amount to pay (KES)" className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs outline-none focus:border-green-500" />
                           <input type="text" value={payReceipt} onChange={e => setPayReceipt(e.target.value)}
                             placeholder="Receipt / M-Pesa code (optional)" className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs outline-none focus:border-green-500" />
+                          {payError && <p className="text-xs text-red-600 font-medium">{payError}</p>}
                           <div className="flex gap-2">
                             <button onClick={() => handlePay(p.id)} className="flex-1 rounded-lg bg-green-600 py-2 text-xs font-bold text-white hover:bg-green-700">Record Payment</button>
-                            <button onClick={() => setPayingPledge(null)} className="rounded-lg border border-gray-200 px-4 py-2 text-xs text-gray-600 hover:bg-gray-100">Cancel</button>
+                            <button onClick={() => { setPayingPledge(null); setPayError(''); }} className="rounded-lg border border-gray-200 px-4 py-2 text-xs text-gray-600 hover:bg-gray-100">Cancel</button>
                           </div>
                         </div>
                       )}

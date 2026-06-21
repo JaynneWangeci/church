@@ -44,7 +44,7 @@ export default function HomePage() {
             </p>
             <div className="mx-auto max-w-3xl overflow-hidden rounded-2xl border border-blue-400/20 shadow-lg shadow-blue-900/30">
               <iframe
-                src="https://www.google.com/maps?q=-1.28878,36.85744&z=16&output=embed"
+                src="https://www.google.com/maps?q=-1.29098,36.85438+(AIPCA+Bahati+Cathedral)&z=18&output=embed"
                 width="100%" height="400" style={{ border: 0 }} allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade"
                 title="AIPCA Bahati Cathedral Location"
               />

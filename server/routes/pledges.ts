@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
+import { requireAdmin } from "../lib/admin.js";
 import { sendWhatsApp } from "../lib/twilio.js";
 
 export const pledgesRouter = Router();
@@ -145,7 +146,7 @@ pledgesRouter.get("/search/name", async (req, res) => {
   }
 });
 
-pledgesRouter.patch("/:id", async (req, res) => {
+pledgesRouter.patch("/:id", requireAdmin, async (req, res) => {
   try {
     const db = requireService();
     const { amount, reminder_freq, whatsapp_number } = req.body;
@@ -154,7 +155,12 @@ pledgesRouter.patch("/:id", async (req, res) => {
     if (!pledge) return res.status(404).json({ error: "Pledge not found" });
 
     const updates: any = {};
-    if (amount) { updates.amount = Number(amount); updates.remaining = Math.max(0, Number(amount) - Number(pledge.paid)); }
+    if (amount !== undefined) {
+      const newAmount = Number(amount);
+      if (newAmount < Number(pledge.paid)) return res.status(400).json({ error: "Amount cannot be less than already paid" });
+      updates.amount = newAmount;
+      updates.remaining = Math.max(0, newAmount - Number(pledge.paid));
+    }
     if (reminder_freq) updates.reminder_freq = reminder_freq;
     if (whatsapp_number !== undefined) updates.whatsapp_number = whatsapp_number;
 
@@ -178,17 +184,21 @@ pledgesRouter.patch("/:id/pay", async (req, res) => {
     const db = requireService();
     const { amount, receipt_number } = req.body;
     if (!amount) return res.status(400).json({ error: "amount required" });
+    const payAmount = Number(amount);
+    if (payAmount <= 0) return res.status(400).json({ error: "amount must be greater than 0" });
 
     const { data: pledge } = await db.from("pledges").select("*").eq("id", req.params.id).single();
     if (!pledge) return res.status(404).json({ error: "Pledge not found" });
 
-    const newPaid = Number(pledge.paid) + Number(amount);
+    if (payAmount > Number(pledge.remaining)) return res.status(400).json({ error: `Amount exceeds remaining balance of KES ${Number(pledge.remaining).toLocaleString("en-KE")}` });
+
+    const newPaid = Number(pledge.paid) + payAmount;
     const newRemaining = Math.max(0, Number(pledge.amount) - newPaid);
-    const newStatus = newRemaining <= 0 ? "fulfilled" : pledge.status;
+    const newStatus = newRemaining <= 0 ? "fulfilled" : "pending";
 
     await db.from("pledge_payments").insert({
       pledge_id: req.params.id,
-      amount: Number(amount),
+      amount: payAmount,
       receipt_number,
     });
 
@@ -207,7 +217,7 @@ pledgesRouter.patch("/:id/pay", async (req, res) => {
   }
 });
 
-pledgesRouter.delete("/:id", async (req, res) => {
+pledgesRouter.delete("/:id", requireAdmin, async (req, res) => {
   try {
     const db = requireService();
     const { data: pledge } = await db.from("pledges").select("id").eq("id", req.params.id).single();

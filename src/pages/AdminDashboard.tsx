@@ -409,6 +409,7 @@ export default function AdminDashboard() {
     councilLabels.bethlehem_fellowship = "Bethlehem Fellowship";
     councilLabels.jerusalem_fellowship = "Jerusalem Fellowship";
     councilLabels.aefeso_fellowship = "Aefeso Fellowship";
+    councilLabels.general_member = "General Member";
   }
 
   const labelToCouncil: Record<string, string> = {};
@@ -418,6 +419,7 @@ export default function AdminDashboard() {
     labelToCouncil['bethlehem fellowship'] = 'bethlehem_fellowship';
     labelToCouncil['jerusalem fellowship'] = 'jerusalem_fellowship';
     labelToCouncil['aefeso fellowship'] = 'aefeso_fellowship';
+    labelToCouncil['general member'] = 'general_member';
   }
 
   function parseLine(line: string): { name: string; council: string } | null {
@@ -555,6 +557,37 @@ export default function AdminDashboard() {
                   </div>
                 );
               })}
+            </div>
+
+            <div className="mb-8 rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-sm font-bold text-ink">Fellowship Statistics</h2>
+                <span className="text-xs text-muted">{stats?.fellowship_stats?.length || 0} fellowships</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      <th className="pb-2 font-bold text-muted">Fellowship</th>
+                      <th className="pb-2 font-bold text-muted text-right">Members</th>
+                      <th className="pb-2 font-bold text-muted text-right">Donations</th>
+                      <th className="pb-2 font-bold text-muted text-right">Total Amount</th>
+                      <th className="pb-2 font-bold text-muted text-right">Avg / Member</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats?.fellowship_stats?.map((f, i) => (
+                      <tr key={f.council} className={i < (stats?.fellowship_stats?.length || 0) - 1 ? "border-b border-gray-50" : ""}>
+                        <td className="py-2.5 font-medium text-ink capitalize">{f.council.replace(/_/g, " ")}</td>
+                        <td className="py-2.5 text-right tabular-nums text-ink">{f.member_count}</td>
+                        <td className="py-2.5 text-right tabular-nums text-ink">{f.donation_count}</td>
+                        <td className="py-2.5 text-right tabular-nums font-bold text-nobuk">KES {f.total_amount.toLocaleString("en-KE")}</td>
+                        <td className="py-2.5 text-right tabular-nums text-muted">KES {f.avg_per_member.toLocaleString("en-KE")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             <div className="grid gap-8 lg:grid-cols-2">
@@ -1384,7 +1417,7 @@ export default function AdminDashboard() {
               </div>
               {committeeMembers.length ? (
                 <div className="space-y-4">
-                  {(["maranatha_fellowship", "bethlehem_fellowship", "jerusalem_fellowship", "aefeso_fellowship"] as const).map((council) => {
+                  {(["maranatha_fellowship", "bethlehem_fellowship", "jerusalem_fellowship", "aefeso_fellowship", "general_member"] as const).map((council) => {
                     const filtered = committeeMembers.filter(m => m.council === council).sort((a, b) => a.order - b.order);
                     if (filtered.length === 0) return null;
                     return (
@@ -1460,6 +1493,7 @@ export default function AdminDashboard() {
                                         <option value="bethlehem_fellowship">Bethlehem Fellowship</option>
                                         <option value="jerusalem_fellowship">Jerusalem Fellowship</option>
                                         <option value="aefeso_fellowship">Aefeso Fellowship</option>
+                                        <option value="general_member">General Member</option>
                                       </select>
                                     </div>
                                     <div>
@@ -1512,112 +1546,201 @@ export default function AdminDashboard() {
           <div className="space-y-6">
             <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-sm font-bold text-ink">All Pledges ({pledges.length})</h2>
+                <h2 className="text-sm font-bold text-ink">Pledges by Fellowship ({pledges.length} total)</h2>
                 <button onClick={() => { setPledges([]); fetchPledges(); }}
                   className="flex items-center gap-1 text-xs font-semibold text-nobuk hover:underline">
                   <RefreshCw size={12} /> Refresh
                 </button>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-100 text-xs text-muted">
-                      <th className="pb-2 font-semibold">Donor</th>
-                      <th className="pb-2 font-semibold">Amount</th>
-                      <th className="pb-2 font-semibold">Paid</th>
-                      <th className="pb-2 font-semibold">Remaining</th>
-                      <th className="pb-2 font-semibold">Status</th>
-                      <th className="pb-2 font-semibold">Date</th>
-                      <th className="pb-2 font-semibold">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {pledges.map((p) => (
-                      <tr key={p.id} className="hover:bg-gray-50/50">
-                        <td className="py-2.5 pr-3 font-medium text-nobuk">{p.donor_name}</td>
-                        <td className="py-2.5 pr-3">
-                          {editingPledge === p.id ? (
-                            <input type="number" value={editPledgeAmount} onChange={e => setEditPledgeAmount(e.target.value)}
-                              className="w-24 rounded border border-gray-200 px-2 py-1 text-sm outline-none focus:border-nobuk" />
-                          ) : (
-                            <span className="font-mono">KES {Number(p.amount).toLocaleString()}</span>
-                          )}
-                        </td>
-                        <td className="py-2.5 pr-3 font-mono text-green-700">KES {Number(p.paid).toLocaleString()}</td>
-                        <td className="py-2.5 pr-3 font-mono text-amber-dark">KES {Number(p.remaining).toLocaleString()}</td>
-                        <td className="py-2.5 pr-3">
-                          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                            p.status === "fulfilled" ? "bg-green-100 text-green-800" :
-                            p.status === "active" ? "bg-blue-100 text-blue-800" :
-                            "bg-gray-100 text-gray-600"
-                          }`}>{p.status}</span>
-                        </td>
-                        <td className="py-2.5 pr-3 text-xs text-muted">{new Date(p.created_at).toLocaleDateString()}</td>
-                        <td className="py-2.5">
-                          <div className="flex items-center gap-1">
-                            {editingPledge === p.id ? (
-                              <>
-                                <button onClick={async () => {
-                                  try {
-                                    const token = localStorage.getItem("token");
-                                    const res = await fetch(`/api/pledges/${p.id}`, {
-                                      method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                                      body: JSON.stringify({ amount: Number(editPledgeAmount) }),
-                                    });
-                                    if (res.ok) { setEditingPledge(null); fetchPledges(); }
-                                  } catch {}
-                                }} className="rounded bg-nobuk px-2 py-1 text-[10px] font-bold text-white hover:bg-nobuk-light">Save</button>
-                                <button onClick={() => setEditingPledge(null)}
-                                  className="rounded bg-gray-100 px-2 py-1 text-[10px] font-bold text-muted hover:bg-gray-200">Cancel</button>
-                              </>
-                            ) : payingPledge === p.id ? (
-                              <>
-                                <input type="number" placeholder="Amount" value={payAmount} onChange={e => setPayAmount(e.target.value)}
-                                  className="w-20 rounded border border-gray-200 px-1.5 py-1 text-xs outline-none focus:border-nobuk" />
-                                <input type="text" placeholder="Receipt" value={payReceipt} onChange={e => setPayReceipt(e.target.value)}
-                                  className="w-20 rounded border border-gray-200 px-1.5 py-1 text-xs outline-none focus:border-nobuk" />
-                                <button onClick={async () => {
-                                  try {
-                                    const token = localStorage.getItem("token");
-                                    const res = await fetch(`/api/pledges/${p.id}/pay`, {
-                                      method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                                      body: JSON.stringify({ amount: Number(payAmount), receipt_number: payReceipt }),
-                                    });
-                                    if (res.ok) { setPayingPledge(null); setPayAmount(""); setPayReceipt(""); fetchPledges(); }
-                                  } catch {}
-                                }} disabled={!payAmount} className="rounded bg-green-700 px-2 py-1 text-[10px] font-bold text-white hover:bg-green-800 disabled:opacity-40">Pay</button>
-                                <button onClick={() => { setPayingPledge(null); setPayAmount(""); setPayReceipt(""); }}
-                                  className="rounded bg-gray-100 px-2 py-1 text-[10px] font-bold text-muted hover:bg-gray-200">Cancel</button>
-                              </>
-                            ) : (
-                              <>
-                                <button onClick={() => { setEditingPledge(p.id); setEditPledgeAmount(String(p.amount)); }}
-                                  className="rounded bg-blue-100 px-2 py-1 text-[10px] font-bold text-blue-700 hover:bg-blue-200">Edit</button>
-                                {p.status !== "fulfilled" && (
-                                  <button onClick={() => setPayingPledge(p.id)}
-                                    className="rounded bg-green-100 px-2 py-1 text-[10px] font-bold text-green-700 hover:bg-green-200">Pay</button>
-                                )}
-                                <button onClick={async () => {
-                                  if (!confirm("Delete this pledge?")) return;
-                                  try {
-                                    const token = localStorage.getItem("token");
-                                    const res = await fetch(`/api/pledges/${p.id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-                                    if (res.ok) fetchPledges();
-                                  } catch {}
-                                }} className="rounded bg-red-100 px-2 py-1 text-[10px] font-bold text-red-700 hover:bg-red-200">Delete</button>
-                              </>
-                            )}
+
+              {(() => {
+                const memberLookup = new Map<string, string>();
+                for (const m of churchMembers) memberLookup.set(m.name.toLowerCase().trim(), m.council);
+
+                const grouped: Record<string, typeof pledges> = {};
+                const uncategorized: typeof pledges = [];
+                for (const p of pledges) {
+                  const council = memberLookup.get(p.donor_name.toLowerCase().trim());
+                  if (council) {
+                    if (!grouped[council]) grouped[council] = [];
+                    grouped[council].push(p);
+                  } else {
+                    uncategorized.push(p);
+                  }
+                }
+
+                const councilOrder = [...new Set([...(councils.map(c => c.slug)), ...Object.keys(grouped)])].filter(c => grouped[c]?.length);
+
+                return (<>
+                  {councilOrder.map(council => {
+                    const councilPledges = grouped[council];
+                    const totalAmount = councilPledges.reduce((s, p) => s + Number(p.amount), 0);
+                    const totalPaid = councilPledges.reduce((s, p) => s + Number(p.paid), 0);
+                    const totalRemaining = councilPledges.reduce((s, p) => s + Number(p.remaining), 0);
+                    const fulfilled = councilPledges.filter(p => p.status === "fulfilled").length;
+                    return (
+                      <details key={council} className="group" open>
+                        <summary className="flex cursor-pointer items-center gap-3 rounded-lg bg-cream px-4 py-3 transition hover:bg-nobuk-muted">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-bold text-ink capitalize">{council.replace(/_/g, " ")}</span>
+                            <span className="ml-2 text-xs text-muted">{councilPledges.length} pledges</span>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {pledges.length === 0 && (
-                      <tr><td colSpan={7} className="py-8 text-center text-sm text-muted">No pledges found</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                          <div className="flex items-center gap-4 text-xs tabular-nums">
+                            <span className="text-muted">KES {totalAmount.toLocaleString("en-KE")}</span>
+                            <span className="text-green-700 font-medium">KES {totalPaid.toLocaleString("en-KE")}</span>
+                            <span className="text-amber-dark font-medium">KES {totalRemaining.toLocaleString("en-KE")}</span>
+                            <span className="text-green-600">{fulfilled}/{councilPledges.length} done</span>
+                          </div>
+                        </summary>
+                        <div className="overflow-x-auto mt-2">
+                          <table className="w-full text-left text-sm">
+                            <thead>
+                              <tr className="border-b border-gray-100 text-xs text-muted">
+                                <th className="pb-2 pr-3 font-semibold">Donor</th>
+                                <th className="pb-2 pr-3 font-semibold">Amount</th>
+                                <th className="pb-2 pr-3 font-semibold">Paid</th>
+                                <th className="pb-2 pr-3 font-semibold">Remaining</th>
+                                <th className="pb-2 pr-3 font-semibold">Status</th>
+                                <th className="pb-2 pr-3 font-semibold">Date</th>
+                                <th className="pb-2 font-semibold">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                              {councilPledges.map((p) => (
+                                <tr key={p.id} className="hover:bg-gray-50/50">
+                                  <td className="py-2 pr-3 font-medium text-nobuk">{p.donor_name}</td>
+                                  <td className="py-2 pr-3">
+                                    {editingPledge === p.id ? (
+                                      <input type="number" value={editPledgeAmount} onChange={e => setEditPledgeAmount(e.target.value)}
+                                        className="w-24 rounded border border-gray-200 px-2 py-1 text-sm outline-none focus:border-nobuk" />
+                                    ) : (
+                                      <span className="font-mono">KES {Number(p.amount).toLocaleString()}</span>
+                                    )}
+                                  </td>
+                                  <td className="py-2 pr-3 font-mono text-green-700">KES {Number(p.paid).toLocaleString()}</td>
+                                  <td className="py-2 pr-3 font-mono text-amber-dark">KES {Number(p.remaining).toLocaleString()}</td>
+                                  <td className="py-2 pr-3">
+                                    <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                      p.status === "fulfilled" ? "bg-green-100 text-green-800" :
+                                      p.status === "active" ? "bg-blue-100 text-blue-800" :
+                                      "bg-gray-100 text-gray-600"
+                                    }`}>{p.status}</span>
+                                  </td>
+                                  <td className="py-2 pr-3 text-xs text-muted">{new Date(p.created_at).toLocaleDateString()}</td>
+                                  <td className="py-2">
+                                    <div className="flex items-center gap-1">
+                                      {editingPledge === p.id ? (
+                                        <>
+                                          <button onClick={async () => {
+                                            try {
+                                              const token = localStorage.getItem("token");
+                                              const res = await fetch(`/api/pledges/${p.id}`, {
+                                                method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                                                body: JSON.stringify({ amount: Number(editPledgeAmount) }),
+                                              });
+                                              if (res.ok) { setEditingPledge(null); fetchPledges(); }
+                                            } catch {}
+                                          }} className="rounded bg-nobuk px-2 py-1 text-[10px] font-bold text-white hover:bg-nobuk-light">Save</button>
+                                          <button onClick={() => setEditingPledge(null)}
+                                            className="rounded bg-gray-100 px-2 py-1 text-[10px] font-bold text-muted hover:bg-gray-200">Cancel</button>
+                                        </>
+                                      ) : payingPledge === p.id ? (
+                                        <>
+                                          <input type="number" placeholder="Amount" value={payAmount} onChange={e => setPayAmount(e.target.value)}
+                                            className="w-20 rounded border border-gray-200 px-1.5 py-1 text-xs outline-none focus:border-nobuk" />
+                                          <input type="text" placeholder="Receipt" value={payReceipt} onChange={e => setPayReceipt(e.target.value)}
+                                            className="w-20 rounded border border-gray-200 px-1.5 py-1 text-xs outline-none focus:border-nobuk" />
+                                          <button onClick={async () => {
+                                            try {
+                                              const token = localStorage.getItem("token");
+                                              const res = await fetch(`/api/pledges/${p.id}/pay`, {
+                                                method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                                                body: JSON.stringify({ amount: Number(payAmount), receipt_number: payReceipt }),
+                                              });
+                                              if (res.ok) { setPayingPledge(null); setPayAmount(""); setPayReceipt(""); fetchPledges(); }
+                                            } catch {}
+                                          }} disabled={!payAmount} className="rounded bg-green-700 px-2 py-1 text-[10px] font-bold text-white hover:bg-green-800 disabled:opacity-40">Pay</button>
+                                          <button onClick={() => { setPayingPledge(null); setPayAmount(""); setPayReceipt(""); }}
+                                            className="rounded bg-gray-100 px-2 py-1 text-[10px] font-bold text-muted hover:bg-gray-200">Cancel</button>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <button onClick={() => { setEditingPledge(p.id); setEditPledgeAmount(String(p.amount)); }}
+                                            className="rounded bg-blue-100 px-2 py-1 text-[10px] font-bold text-blue-700 hover:bg-blue-200">Edit</button>
+                                          {p.status !== "fulfilled" && (
+                                            <button onClick={() => setPayingPledge(p.id)}
+                                              className="rounded bg-green-100 px-2 py-1 text-[10px] font-bold text-green-700 hover:bg-green-200">Pay</button>
+                                          )}
+                                          <button onClick={async () => {
+                                            if (!confirm("Delete this pledge?")) return;
+                                            try {
+                                              const token = localStorage.getItem("token");
+                                              const res = await fetch(`/api/pledges/${p.id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+                                              if (res.ok) fetchPledges();
+                                            } catch {}
+                                          }} className="rounded bg-red-100 px-2 py-1 text-[10px] font-bold text-red-700 hover:bg-red-200">Delete</button>
+                                        </>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </details>
+                    );
+                  })}
+
+                  {uncategorized.length > 0 && (
+                    <details className="group" open>
+                      <summary className="flex cursor-pointer items-center gap-3 rounded-lg bg-gray-50 px-4 py-3 transition hover:bg-gray-100">
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-bold text-gray-600">Uncategorized</span>
+                          <span className="ml-2 text-xs text-muted">{uncategorized.length} pledges</span>
+                        </div>
+                      </summary>
+                      <div className="overflow-x-auto mt-2">
+                        <table className="w-full text-left text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-100 text-xs text-muted">
+                              <th className="pb-2 pr-3 font-semibold">Donor</th>
+                              <th className="pb-2 pr-3 font-semibold">Amount</th>
+                              <th className="pb-2 pr-3 font-semibold">Paid</th>
+                              <th className="pb-2 pr-3 font-semibold">Remaining</th>
+                              <th className="pb-2 pr-3 font-semibold">Status</th>
+                              <th className="pb-2 pr-3 font-semibold">Date</th>
+                              <th className="pb-2 font-semibold">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-50">
+                            {uncategorized.map((p) => (
+                              <tr key={p.id} className="hover:bg-gray-50/50">
+                                <td className="py-2 pr-3 font-medium text-nobuk">{p.donor_name}</td>
+                                <td className="py-2 pr-3 font-mono">{Number(p.amount).toLocaleString()}</td>
+                                <td className="py-2 pr-3 font-mono text-green-700">{Number(p.paid).toLocaleString()}</td>
+                                <td className="py-2 pr-3 font-mono text-amber-dark">{Number(p.remaining).toLocaleString()}</td>
+                                <td className="py-2 pr-3"><span className="text-xs text-muted">{p.status}</span></td>
+                                <td className="py-2 pr-3 text-xs text-muted">{new Date(p.created_at).toLocaleDateString()}</td>
+                                <td className="py-2">
+                                  <button onClick={async () => {
+                                    if (!confirm("Delete this pledge?")) return;
+                                    try {
+                                      const token = localStorage.getItem("token");
+                                      const res = await fetch(`/api/pledges/${p.id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+                                      if (res.ok) fetchPledges();
+                                    } catch {}
+                                  }} className="rounded bg-red-100 px-2 py-1 text-[10px] font-bold text-red-700 hover:bg-red-200">Delete</button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </details>
+                  )}
+                </>);
+              })()}
           </div>
         )}
 
@@ -1749,6 +1872,35 @@ export default function AdminDashboard() {
                           </Bar>
                         </BarChart>
                       </ResponsiveContainer>
+                    </div>
+
+                    {/* Fellowship Stats Table */}
+                    <div className="rounded-lg border border-gray-100 bg-white p-4">
+                      <h3 className="mb-3 text-sm font-bold text-ink">Fellowship Details</h3>
+                      <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="border-b border-gray-100">
+                              <th className="pb-2 pr-2 font-bold text-muted">Fellowship</th>
+                              <th className="pb-2 pr-2 font-bold text-muted text-right">Members</th>
+                              <th className="pb-2 pr-2 font-bold text-muted text-right">Donations</th>
+                              <th className="pb-2 pr-2 font-bold text-muted text-right">Total</th>
+                              <th className="pb-2 font-bold text-muted text-right">Avg</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {dashboardData.breakdowns.council.map((f: any, i: number) => (
+                              <tr key={f.council} className={i < dashboardData.breakdowns.council.length - 1 ? "border-b border-gray-50" : ""}>
+                                <td className="py-2 pr-2 font-medium text-ink capitalize whitespace-nowrap">{f.council.replace(/_/g, " ")}</td>
+                                <td className="py-2 pr-2 text-right tabular-nums text-ink">{f.member_count}</td>
+                                <td className="py-2 pr-2 text-right tabular-nums text-ink">{f.count}</td>
+                                <td className="py-2 pr-2 text-right tabular-nums font-bold text-nobuk">KES {f.total.toLocaleString("en-KE")}</td>
+                                <td className="py-2 text-right tabular-nums text-muted">KES {f.avg_per_member.toLocaleString("en-KE")}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
 
                     {/* Payment Methods */}
