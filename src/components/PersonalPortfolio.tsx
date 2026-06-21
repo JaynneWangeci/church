@@ -169,10 +169,12 @@ export default function PersonalPortfolio({ name, onClose }: Props) {
 
                       {payingPledge === p.id && (
                         <div className="mt-3 rounded-lg border border-green-100 bg-green-50 p-3 space-y-2">
+                          <label className="text-xs font-semibold text-green-800">Amount (KES)</label>
                           <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)}
-                            placeholder="Amount to pay (KES)" className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs outline-none focus:border-green-500" />
+                            placeholder="Enter amount" className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs outline-none focus:border-green-500" />
+                          <label className="text-xs font-semibold text-green-800">M-Pesa Code</label>
                           <input type="text" value={payReceipt} onChange={e => setPayReceipt(e.target.value)}
-                            placeholder="Receipt / M-Pesa code (optional)" className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs outline-none focus:border-green-500" />
+                            placeholder="Optional" className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs outline-none focus:border-green-500" />
                           {payError && <p className="text-xs text-red-600 font-medium">{payError}</p>}
                           <div className="flex gap-2">
                             <button onClick={() => handlePay(p.id)} className="flex-1 rounded-lg bg-green-600 py-2 text-xs font-bold text-white hover:bg-green-700">Record Payment</button>

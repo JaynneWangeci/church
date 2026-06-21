@@ -319,11 +319,13 @@ export default function PledgeBoard() {
                             </button>
                           ) : (
                             <div className="mt-3 rounded-lg border border-green-200 bg-green-50 p-3 space-y-2">
+                              <label className="text-xs font-semibold text-green-800">{t('Amount (KES)', 'Kiasi (KES)')}</label>
                               <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)}
-                                placeholder={t('Amount to pay (KES)', 'Kiasi cha kulipa (KES)')}
+                                placeholder={t('Enter amount', 'Weka kiasi')}
                                 className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs outline-none focus:border-green-500" />
+                              <label className="text-xs font-semibold text-green-800">{t('M-Pesa Code', 'Msimbo wa M-Pesa')}</label>
                               <input type="text" value={payReceipt} onChange={e => setPayReceipt(e.target.value)}
-                                placeholder={t('M-Pesa code (optional)', 'Msimbo wa M-Pesa (si lazima)')}
+                                placeholder={t('Optional', 'Si lazima')}
                                 className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs outline-none focus:border-green-500" />
                               {payError && <p className="text-xs text-red-600 font-medium">{payError}</p>}
                               <div className="flex gap-2">
