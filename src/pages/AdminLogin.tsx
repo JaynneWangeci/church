@@ -8,12 +8,10 @@ export default function AdminLogin() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [needsSetup, setNeedsSetup] = useState(false);
-
   useEffect(() => {
     fetch("/api/auth/check-setup")
       .then(r => r.json())
-      .then(d => { if (d.can_setup) setNeedsSetup(true); })
+      .then(d => { if (d.can_setup) window.location.href = "/admin/setup"; })
       .catch(() => {});
   }, []);
 
@@ -110,22 +108,7 @@ export default function AdminLogin() {
             </p>
           </form>
 
-          {needsSetup && (
-            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-center">
-              <p className="text-sm font-medium text-amber-800">No admin account found</p>
-              <a
-                href="/admin/setup"
-                className="mt-1 inline-block text-sm font-semibold text-nobuk underline underline-offset-2 hover:text-nobuk-light"
-              >
-                Create the first admin account &rarr;
-              </a>
-            </div>
-          )}
           <p className="mt-4 text-center text-xs text-muted">
-            <a href="/admin/setup" className="underline underline-offset-2 hover:text-nobuk">
-              Create an account
-            </a>
-            <span className="mx-2 text-muted">|</span>
             <a href="/" className="underline underline-offset-2 hover:text-nobuk">
               &larr; Back to Harambee
             </a>
