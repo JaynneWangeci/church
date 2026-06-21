@@ -81,10 +81,10 @@ membersRouter.post("/auto-add", rateLimit, async (req, res) => {
     const db = requireService();
     let { name, council } = req.body;
     name = sanitizeName(name || "");
-    council = (council || "development").toLowerCase();
+    council = (council || "aefeso_fellowship").toLowerCase();
 
     if (!name || name.length < 2) return res.status(400).json({ error: "Name must be at least 2 characters" });
-    if (!validCouncils.includes(council)) council = "development";
+    if (!validCouncils.includes(council)) council = "aefeso_fellowship";
 
     const { data: existing } = await db
       .from("church_members")
