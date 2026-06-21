@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
 import { requireAdmin } from "../lib/admin.js";
-import { sendWhatsApp } from "../lib/twilio.js";
 
 export const pledgesRouter = Router();
 
@@ -171,6 +170,70 @@ pledgesRouter.post("/:id/verify-phone", async (req, res) => {
     res.json({ verified, donor_name: pledge.donor_name });
   } catch (err) {
     console.error("verify phone error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+pledgesRouter.post("/:id/pay-with-mpesa", async (req, res) => {
+  try {
+    const db = requireService();
+    const { phone, amount } = req.body;
+    if (!phone || !amount) return res.status(400).json({ error: "phone and amount required" });
+
+    const { data: pledge } = await db.from("pledges").select("*").eq("id", req.params.id).single();
+    if (!pledge) return res.status(404).json({ error: "Pledge not found" });
+
+    // Try to find campaign
+    const { data: campaign } = await db
+      .from("campaigns")
+      .select("id")
+      .eq("slug", "development-fund")
+      .single();
+
+    // Create a donation record linked to this pledge
+    const { data: donation, error: donErr } = await db
+      .from("donations")
+      .insert({
+        donor_name: pledge.donor_name,
+        amount: Number(amount),
+        phone,
+        status: "pending",
+        method: "mpesa",
+        campaign_id: campaign?.id,
+        account_reference: `PLD:${req.params.id}`,
+        transaction_desc: "Pledge Payment",
+      })
+      .select()
+      .single();
+
+    if (donErr || !donation) return res.status(500).json({ error: "Failed to create payment record" });
+
+    // Call STK Push via internal request
+    const protocol = req.headers["x-forwarded-proto"] || "http";
+    const host = req.headers.host || "localhost:3000";
+    const mpesaRes = await fetch(`${protocol}://${host}/api/mpesa/stkpush`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phone,
+        amount: Number(amount),
+        donation_id: donation.id,
+        account_reference: `PLD:${req.params.id}`,
+        transaction_desc: "Pledge Payment",
+      }),
+    });
+
+    const mpesaData = await mpesaRes.json();
+
+    if (!mpesaData.CheckoutRequestID) {
+      // STK Push failed, delete the donation
+      await db.from("donations").delete().eq("id", donation.id).limit(1);
+      return res.status(400).json({ error: mpesaData.errorMessage || "M-Pesa request failed" });
+    }
+
+    res.json({ CheckoutRequestID: mpesaData.CheckoutRequestID, donation_id: donation.id });
+  } catch (err) {
+    console.error("pledge pay-with-mpesa error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

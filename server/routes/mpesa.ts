@@ -205,6 +205,24 @@ mpesaRouter.post("/callback", async (req, res) => {
         amount: Number(donation.amount),
       });
 
+      // If this donation is linked to a pledge, update the pledge
+      if (donation.account_reference && String(donation.account_reference).startsWith("PLD:")) {
+        const pledgeId = String(donation.account_reference).replace("PLD:", "");
+        const { data: pledge } = await db.from("pledges").select("*").eq("id", pledgeId).single();
+        if (pledge) {
+          const payAmount = Number(donation.amount);
+          const newPaid = Number(pledge.paid) + payAmount;
+          const newRemaining = Math.max(0, Number(pledge.amount) - newPaid);
+          const newStatus = newRemaining <= 0 ? "fulfilled" : "pending";
+          await db.from("pledges").update({ paid: newPaid, remaining: newRemaining, status: newStatus }).eq("id", pledgeId);
+          await db.from("pledge_payments").insert({
+            pledge_id: pledgeId,
+            amount: payAmount,
+            receipt_number: receiptNumber || `MPESA-${Date.now()}`,
+          });
+        }
+      }
+
       whatsAppConfirmation({ ...donation, receipt_number: receiptNumber });
     } else {
       await db

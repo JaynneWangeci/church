@@ -27,8 +27,9 @@ export default function PersonalPortfolio({ name, onClose }: Props) {
   const [editFreq, setEditFreq] = useState('');
   const [payingPledge, setPayingPledge] = useState<string | null>(null);
   const [payAmount, setPayAmount] = useState('');
-  const [payReceipt, setPayReceipt] = useState('');
+  const [payPhone, setPayPhone] = useState('');
   const [payError, setPayError] = useState('');
+  const [payProcessing, setPayProcessing] = useState(false);
 
   function load() {
     setLoading(true);
@@ -54,18 +55,38 @@ export default function PersonalPortfolio({ name, onClose }: Props) {
     setPayError('');
     const amt = Number(payAmount);
     if (!payAmount || amt <= 0) { setPayError('Enter a valid payment amount'); return; }
-    const res = await fetch(`/api/pledges/${pledgeId}/pay`, {
-      method: 'PATCH',
+    const cleanPhone = payPhone.replace(/[\s\-\(\)]/g, '');
+    if (!cleanPhone) { setPayError('Enter your M-Pesa phone number'); return; }
+
+    setPayProcessing(true);
+    const res = await fetch(`/api/pledges/${pledgeId}/pay-with-mpesa`, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount: amt, receipt_number: payReceipt || null }),
+      body: JSON.stringify({ phone: cleanPhone, amount: amt }),
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: 'Payment failed' }));
-      setPayError(err.error || 'Payment failed');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.CheckoutRequestID) {
+      setPayError(data.error || 'M-Pesa request failed. Please try again.');
+      setPayProcessing(false);
       return;
     }
-    setPayingPledge(null); setPayAmount(''); setPayReceipt('');
-    load();
+
+    setPayError('Check your phone and enter your M-Pesa PIN to complete...');
+
+    const pollId = setInterval(async () => {
+      const statusRes = await fetch(`/api/mpesa/status/${data.CheckoutRequestID}`);
+      const statusData = await statusRes.json().catch(() => ({}));
+      if (statusData.status === "completed") {
+        clearInterval(pollId);
+        setPayProcessing(false);
+        setPayingPledge(null); setPayAmount(''); setPayPhone('');
+        load();
+      } else if (statusData.status === "failed") {
+        clearInterval(pollId);
+        setPayProcessing(false);
+        setPayError('Payment failed or was cancelled.');
+      }
+    }, 3000);
   }
 
   if (loading) return (
@@ -172,13 +193,16 @@ export default function PersonalPortfolio({ name, onClose }: Props) {
                           <label className="text-xs font-semibold text-green-800">Amount (KES)</label>
                           <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)}
                             placeholder="Enter amount" className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs outline-none focus:border-green-500" />
-                          <label className="text-xs font-semibold text-green-800">M-Pesa Code</label>
-                          <input type="text" value={payReceipt} onChange={e => setPayReceipt(e.target.value)}
-                            placeholder="Optional" className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs outline-none focus:border-green-500" />
-                          {payError && <p className="text-xs text-red-600 font-medium">{payError}</p>}
+                          <label className="text-xs font-semibold text-green-800">M-Pesa Number</label>
+                          <input type="tel" value={payPhone} onChange={e => setPayPhone(e.target.value)}
+                            placeholder="07XX XXX XXX" className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs outline-none focus:border-green-500" />
+                          {payError && <p className={`text-xs font-medium ${payProcessing ? 'text-blue-600' : 'text-red-600'}`}>{payError}</p>}
                           <div className="flex gap-2">
-                            <button onClick={() => handlePay(p.id)} className="flex-1 rounded-lg bg-green-600 py-2 text-xs font-bold text-white hover:bg-green-700">Record Payment</button>
-                            <button onClick={() => { setPayingPledge(null); setPayError(''); }} className="rounded-lg border border-gray-200 px-4 py-2 text-xs text-gray-600 hover:bg-gray-100">Cancel</button>
+                            <button onClick={() => handlePay(p.id)} disabled={payProcessing}
+                              className="flex-1 rounded-lg bg-green-600 py-2 text-xs font-bold text-white hover:bg-green-700 disabled:opacity-50">
+                              {payProcessing ? 'Sending PIN...' : 'Pay with M-Pesa'}
+                            </button>
+                            <button onClick={() => { setPayingPledge(null); setPayError(''); setPayProcessing(false); }} className="rounded-lg border border-gray-200 px-4 py-2 text-xs text-gray-600 hover:bg-gray-100">Cancel</button>
                           </div>
                         </div>
                       )}
