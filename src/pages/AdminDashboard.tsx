@@ -323,6 +323,24 @@ export default function AdminDashboard() {
     });
   }
 
+  function toggleSelectAll() {
+    const visible = churchMembers.filter(m => {
+      if (memberCouncilFilter && m.council !== memberCouncilFilter) return false;
+      if (memberSearch && !m.name.toLowerCase().includes(memberSearch.toLowerCase())) return false;
+      return true;
+    });
+    const allSelected = visible.every(m => selectedMembers.has(m.id));
+    setSelectedMembers(prev => {
+      const next = new Set(prev);
+      if (allSelected) {
+        visible.forEach(m => next.delete(m.id));
+      } else {
+        visible.forEach(m => next.add(m.id));
+      }
+      return next;
+    });
+  }
+
   async function deleteMember(id: string) {
     try {
       await fetch(`/api/members/${id}`, {
@@ -797,6 +815,16 @@ export default function AdminDashboard() {
                     className="w-full rounded-lg border border-gray-200 bg-cream py-2.5 pl-9 pr-3 text-sm text-ink outline-none focus:border-nobuk"
                   />
                 </div>
+                <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer select-none">
+                  <input type="checkbox" checked={churchMembers.length > 0 && churchMembers.filter(m => {
+                    if (memberCouncilFilter && m.council !== memberCouncilFilter) return false;
+                    if (memberSearch && !m.name.toLowerCase().includes(memberSearch.toLowerCase())) return false;
+                    return true;
+                  }).every(m => selectedMembers.has(m.id))}
+                    onChange={toggleSelectAll}
+                    className="h-4 w-4 rounded border-gray-300 text-nobuk focus:ring-nobuk" />
+                  All
+                </label>
                 <select value={memberCouncilFilter} onChange={e => setMemberCouncilFilter(e.target.value)}
                   className="rounded-lg border border-gray-200 bg-cream px-3 py-2.5 text-sm text-ink outline-none focus:border-nobuk">
                   <option value="">All Fellowships</option>
