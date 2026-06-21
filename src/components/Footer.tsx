@@ -5,7 +5,7 @@ export default function Footer() {
   const { t } = useLang();
 
   return (
-    <footer className="bg-[#1B2838] backdrop-blur-sm px-4 py-16">
+    <footer className="bg-nobuk backdrop-blur-sm px-4 py-16">
       <div className="mx-auto max-w-6xl">
         <div className="flex flex-col items-center justify-between gap-8 md:flex-row">
           <div className="text-center md:text-left">

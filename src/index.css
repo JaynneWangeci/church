@@ -1,14 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --color-nobuk: #1B2838;
-  --color-nobuk-light: #2C4056;
-  --color-nobuk-muted: #E8EDF2;
+  --color-nobuk: #0f2847;
+  --color-nobuk-light: #1a3a5c;
+  --color-nobuk-muted: #dbeafe;
   --color-amber: #C4964A;
   --color-amber-light: #F5EDD6;
   --color-amber-dark: #9E7A3A;
-  --color-cream: #F0F7FF;
-  --color-cream-dark: #E0EEF8;
+  --color-cream: #EFF6FF;
+  --color-cream-dark: #DBEAFE;
   --color-ink: #1E293B;
   --color-muted: #64748B;
 
