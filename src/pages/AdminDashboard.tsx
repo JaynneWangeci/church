@@ -1554,22 +1554,30 @@ export default function AdminDashboard() {
               </div>
 
               {(() => {
-                const memberLookup = new Map<string, string>();
-                for (const m of churchMembers) memberLookup.set(m.name.toLowerCase().trim(), m.council);
+                const memberLookup = new Map<string, { council: string; name: string }>();
+                for (const m of churchMembers) memberLookup.set(m.name.toLowerCase().trim(), { council: m.council, name: m.name });
 
-                const grouped: Record<string, typeof pledges> = {};
-                const uncategorized: typeof pledges = [];
-                for (const p of pledges) {
-                  const council = memberLookup.get(p.donor_name.toLowerCase().trim());
-                  if (council) {
-                    if (!grouped[council]) grouped[council] = [];
-                    grouped[council].push(p);
-                  } else {
-                    uncategorized.push(p);
-                  }
+                const pledgesWithCouncil = pledges.map(p => {
+                  const key = p.donor_name.toLowerCase().trim();
+                  const match = memberLookup.get(key);
+                  return { ...p, council: match ? match.council : 'general_member' };
+                });
+
+                const grouped: Record<string, typeof pledgesWithCouncil> = {};
+                for (const p of pledgesWithCouncil) {
+                  if (!grouped[p.council]) grouped[p.council] = [];
+                  grouped[p.council].push(p);
                 }
 
                 const councilOrder = [...new Set([...(councils.map(c => c.slug)), ...Object.keys(grouped)])].filter(c => grouped[c]?.length);
+
+                const councilColors: Record<string, string> = {
+                  maranatha_fellowship: 'bg-blue-100 text-blue-700',
+                  bethlehem_fellowship: 'bg-pink-100 text-pink-700',
+                  jerusalem_fellowship: 'bg-indigo-100 text-indigo-700',
+                  aefeso_fellowship: 'bg-amber-100 text-amber-700',
+                  general_member: 'bg-gray-100 text-gray-600',
+                };
 
                 return (<>
                   {councilOrder.map(council => {
@@ -1578,11 +1586,12 @@ export default function AdminDashboard() {
                     const totalPaid = councilPledges.reduce((s, p) => s + Number(p.paid), 0);
                     const totalRemaining = councilPledges.reduce((s, p) => s + Number(p.remaining), 0);
                     const fulfilled = councilPledges.filter(p => p.status === "fulfilled").length;
+                    const label = council === 'general_member' ? 'General Member' : council.replace(/_/g, ' ');
                     return (
                       <details key={council} className="group" open>
                         <summary className="flex cursor-pointer items-center gap-3 rounded-lg bg-cream px-4 py-3 transition hover:bg-nobuk-muted">
                           <div className="flex-1 min-w-0">
-                            <span className="text-sm font-bold text-ink capitalize">{council.replace(/_/g, " ")}</span>
+                            <span className="text-sm font-bold text-ink capitalize">{label}</span>
                             <span className="ml-2 text-xs text-muted">{councilPledges.length} pledges</span>
                           </div>
                           <div className="flex items-center gap-4 text-xs tabular-nums">
@@ -1596,7 +1605,7 @@ export default function AdminDashboard() {
                           <table className="w-full text-left text-sm">
                             <thead>
                               <tr className="border-b border-gray-100 text-xs text-muted">
-                                <th className="pb-2 pr-3 font-semibold">Donor</th>
+                                <th className="pb-2 pr-3 font-semibold">Donor & Fellowship</th>
                                 <th className="pb-2 pr-3 font-semibold">Amount</th>
                                 <th className="pb-2 pr-3 font-semibold">Paid</th>
                                 <th className="pb-2 pr-3 font-semibold">Remaining</th>
@@ -1608,7 +1617,14 @@ export default function AdminDashboard() {
                             <tbody className="divide-y divide-gray-50">
                               {councilPledges.map((p) => (
                                 <tr key={p.id} className="hover:bg-gray-50/50">
-                                  <td className="py-2 pr-3 font-medium text-nobuk">{p.donor_name}</td>
+                                  <td className="py-2 pr-3">
+                                    <div className="flex flex-col gap-0.5">
+                                      <span className="font-medium text-nobuk">{p.donor_name}</span>
+                                      <span className={`inline-block w-fit rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${councilColors[p.council] || 'bg-gray-100 text-gray-600'}`}>
+                                        {p.council === 'general_member' ? 'General Member' : p.council.replace(/_/g, ' ')}
+                                      </span>
+                                    </div>
+                                  </td>
                                   <td className="py-2 pr-3">
                                     {editingPledge === p.id ? (
                                       <input type="number" value={editPledgeAmount} onChange={e => setEditPledgeAmount(e.target.value)}
@@ -1671,6 +1687,7 @@ export default function AdminDashboard() {
                                             <button onClick={() => setPayingPledge(p.id)}
                                               className="rounded bg-green-100 px-2 py-1 text-[10px] font-bold text-green-700 hover:bg-green-200">Pay</button>
                                           )}
+
                                           <button onClick={async () => {
                                             if (!confirm("Delete this pledge?")) return;
                                             try {
@@ -1691,54 +1708,6 @@ export default function AdminDashboard() {
                       </details>
                     );
                   })}
-
-                  {uncategorized.length > 0 && (
-                    <details className="group" open>
-                      <summary className="flex cursor-pointer items-center gap-3 rounded-lg bg-gray-50 px-4 py-3 transition hover:bg-gray-100">
-                        <div className="flex-1 min-w-0">
-                          <span className="text-sm font-bold text-gray-600">Uncategorized</span>
-                          <span className="ml-2 text-xs text-muted">{uncategorized.length} pledges</span>
-                        </div>
-                      </summary>
-                      <div className="overflow-x-auto mt-2">
-                        <table className="w-full text-left text-sm">
-                          <thead>
-                            <tr className="border-b border-gray-100 text-xs text-muted">
-                              <th className="pb-2 pr-3 font-semibold">Donor</th>
-                              <th className="pb-2 pr-3 font-semibold">Amount</th>
-                              <th className="pb-2 pr-3 font-semibold">Paid</th>
-                              <th className="pb-2 pr-3 font-semibold">Remaining</th>
-                              <th className="pb-2 pr-3 font-semibold">Status</th>
-                              <th className="pb-2 pr-3 font-semibold">Date</th>
-                              <th className="pb-2 font-semibold">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-50">
-                            {uncategorized.map((p) => (
-                              <tr key={p.id} className="hover:bg-gray-50/50">
-                                <td className="py-2 pr-3 font-medium text-nobuk">{p.donor_name}</td>
-                                <td className="py-2 pr-3 font-mono">{Number(p.amount).toLocaleString()}</td>
-                                <td className="py-2 pr-3 font-mono text-green-700">{Number(p.paid).toLocaleString()}</td>
-                                <td className="py-2 pr-3 font-mono text-amber-dark">{Number(p.remaining).toLocaleString()}</td>
-                                <td className="py-2 pr-3"><span className="text-xs text-muted">{p.status}</span></td>
-                                <td className="py-2 pr-3 text-xs text-muted">{new Date(p.created_at).toLocaleDateString()}</td>
-                                <td className="py-2">
-                                  <button onClick={async () => {
-                                    if (!confirm("Delete this pledge?")) return;
-                                    try {
-                                      const token = localStorage.getItem("token");
-                                      const res = await fetch(`/api/pledges/${p.id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-                                      if (res.ok) fetchPledges();
-                                    } catch {}
-                                  }} className="rounded bg-red-100 px-2 py-1 text-[10px] font-bold text-red-700 hover:bg-red-200">Delete</button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </details>
-                  )}
                 </>);
               })()}
             </div>
