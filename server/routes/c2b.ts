@@ -33,12 +33,25 @@ c2bRouter.post("/confirmation", async (req, res) => {
       TransID, TransAmount, BillRefNumber, MSISDN, FirstName, MiddleName, LastName,
     } = req.body;
 
-    const realName = [FirstName, MiddleName, LastName].filter(Boolean).join(" ").trim();
-    const payerName = realName || "Anonymous";
+    const safName = [FirstName, MiddleName, LastName].filter(Boolean).join(" ").trim();
     const phone = MSISDN?.toString().replace(/^\+/, "").replace(/^0+/, "254") || "";
     const accountRef = (BillRefNumber || "").trim();
 
     const db = requireService();
+
+    // If Safaricom didn't return a name, try looking up by phone
+    let payerName = safName || "";
+    if (!payerName && phone) {
+      const { data: prevDonation } = await db
+        .from("donations")
+        .select("donor_name")
+        .eq("phone", phone)
+        .not("donor_name", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (prevDonation?.[0]?.donor_name) payerName = prevDonation[0].donor_name;
+    }
+    payerName = payerName || "Anonymous";
 
     // Look up campaign
     const { data: campaign } = await db
@@ -49,28 +62,39 @@ c2bRouter.post("/confirmation", async (req, res) => {
       .single();
 
     if (!campaign) {
+      console.warn("[c2b] no active campaign");
       return res.json({ ResultCode: 0, ResultDesc: "Success" });
     }
 
-    // Look up honoured member by account reference (name typed by payer)
+    // Look up honoured member — try exact match, then prefix match
     let honoredMemberId: string | null = null;
     if (accountRef) {
-      const { data: matchedMember } = await db
+      const { data: exact } = await db
         .from("church_members")
         .select("id")
-        .ilike("name", accountRef)
+        .eq("name", accountRef)
         .eq("is_active", true)
         .maybeSingle();
-      if (matchedMember) honoredMemberId = matchedMember.id;
+      if (exact) {
+        honoredMemberId = exact.id;
+      } else {
+        const { data: fuzzy } = await db
+          .from("church_members")
+          .select("id")
+          .ilike("name", `%${accountRef}%`)
+          .eq("is_active", true)
+          .limit(1);
+        if (fuzzy?.length) honoredMemberId = fuzzy[0].id;
+      }
     }
 
-    // Auto-register payer as church member if not already known
+    // Auto-register payer as church member
     if (payerName !== "Anonymous" && payerName.length >= 2) {
       const { data: existing } = await db
         .from("church_members")
         .select("id")
         .eq("is_active", true)
-        .ilike("name", payerName);
+        .ilike("name", `%${payerName}%`);
       if (!existing?.length) {
         await db.from("church_members").insert({
           name: payerName,
@@ -94,8 +118,10 @@ c2bRouter.post("/confirmation", async (req, res) => {
       church_member_id: null,
     });
 
+    console.log(`[c2b] recorded: ${payerName} KES ${TransAmount} ${TransID}`);
     res.json({ ResultCode: 0, ResultDesc: "Success" });
-  } catch {
+  } catch (err) {
+    console.error("[c2b] confirmation error:", err);
     res.json({ ResultCode: 0, ResultDesc: "Success" });
   }
 });
