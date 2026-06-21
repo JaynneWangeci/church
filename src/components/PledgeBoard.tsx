@@ -24,10 +24,12 @@ const councilMeta: Record<string, { label: string; icon: typeof Church; color: s
   aefeso_fellowship: { label: 'Aefeso Fellowship', icon: Medal, color: 'bg-amber-100 text-amber-600' },
 };
 
-function stars(rating: number) {
+function stars(paid: number, amount: number) {
+  const pct = amount > 0 ? (paid / amount) * 100 : 0;
+  const rating = pct >= 100 ? 5 : pct >= 75 ? 4 : pct >= 50 ? 3 : pct >= 25 ? 2 : pct > 0 ? 1 : 0;
   const colors = ['#EF4444', '#F97316', '#EAB308', '#22C55E', '#3B82F6'];
   return (
-    <div className="flex gap-0.5">
+    <div className="flex gap-0.5" title={`${pct.toFixed(1)}% fulfilled`}>
       {[1, 2, 3, 4, 5].map(i => (
         <span key={i} style={{ color: i <= rating ? colors[rating - 1] : '#D1D5DB', fontSize: 10 }}>★</span>
       ))}
@@ -564,7 +566,7 @@ export default function PledgeBoard() {
                         <div key={p.id} className="mb-2 rounded-lg bg-blue-50 p-3">
                           <div className="flex items-center justify-between">
                             <p className="text-sm font-bold text-gray-900">{p.donor_name}</p>
-                            {stars(p.rating)}
+                            {stars(p.paid, p.amount)}
                           </div>
                           <div className="mt-1 flex gap-3 text-xs text-gray-600">
                             <span>{t('Pledged:', 'Ameahidi:')} KES {p.amount.toLocaleString()}</span>
