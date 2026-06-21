@@ -206,3 +206,18 @@ pledgesRouter.patch("/:id/pay", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
+pledgesRouter.delete("/:id", async (req, res) => {
+  try {
+    const db = requireService();
+    const { data: pledge } = await db.from("pledges").select("id").eq("id", req.params.id).single();
+    if (!pledge) return res.status(404).json({ error: "Pledge not found" });
+    await db.from("pledge_payments").delete().eq("pledge_id", req.params.id);
+    const { error } = await db.from("pledges").delete().eq("id", req.params.id);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("pledge delete error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});

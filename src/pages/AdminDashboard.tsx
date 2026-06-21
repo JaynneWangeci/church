@@ -1585,6 +1585,14 @@ export default function AdminDashboard() {
                                   <button onClick={() => setPayingPledge(p.id)}
                                     className="rounded bg-green-100 px-2 py-1 text-[10px] font-bold text-green-700 hover:bg-green-200">Pay</button>
                                 )}
+                                <button onClick={async () => {
+                                  if (!confirm("Delete this pledge?")) return;
+                                  try {
+                                    const token = localStorage.getItem("token");
+                                    const res = await fetch(`/api/pledges/${p.id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+                                    if (res.ok) fetchPledges();
+                                  } catch {}
+                                }} className="rounded bg-red-100 px-2 py-1 text-[10px] font-bold text-red-700 hover:bg-red-200">Delete</button>
                               </>
                             )}
                           </div>
