@@ -33,10 +33,14 @@ c2bRouter.post("/confirmation", async (req, res) => {
       TransID, TransAmount, BillRefNumber, MSISDN, FirstName, MiddleName, LastName,
     } = req.body;
 
-    const donorName = [FirstName, MiddleName, LastName].filter(Boolean).join(" ");
-    const phone = MSISDN?.toString().replace(/^\+/, "");
+    const realName = [FirstName, MiddleName, LastName].filter(Boolean).join(" ").trim();
+    const payerName = realName || "Anonymous";
+    const phone = MSISDN?.toString().replace(/^\+/, "").replace(/^0+/, "254") || "";
+    const accountRef = (BillRefNumber || "").trim();
 
     const db = requireService();
+
+    // Look up campaign
     const { data: campaign } = await db
       .from("campaigns")
       .select("id")
@@ -44,20 +48,51 @@ c2bRouter.post("/confirmation", async (req, res) => {
       .eq("is_active", true)
       .single();
 
-    if (campaign) {
-      await db.from("donations").insert({
-        campaign_id: campaign.id,
-        donor_name: BillRefNumber || donorName || "Anonymous",
-        amount: Number(TransAmount),
-        method: "mpesa",
-        status: "completed",
-        receipt_number: TransID,
-        account_reference: BillRefNumber || null,
-        transaction_id: TransID,
-        donor_phone: phone || null,
-        phone: phone || null,
-      });
+    if (!campaign) {
+      return res.json({ ResultCode: 0, ResultDesc: "Success" });
     }
+
+    // Look up honoured member by account reference (name typed by payer)
+    let honoredMemberId: string | null = null;
+    if (accountRef) {
+      const { data: matchedMember } = await db
+        .from("church_members")
+        .select("id")
+        .ilike("name", accountRef)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (matchedMember) honoredMemberId = matchedMember.id;
+    }
+
+    // Auto-register payer as church member if not already known
+    if (payerName !== "Anonymous" && payerName.length >= 2) {
+      const { data: existing } = await db
+        .from("church_members")
+        .select("id")
+        .eq("is_active", true)
+        .ilike("name", payerName);
+      if (!existing?.length) {
+        await db.from("church_members").insert({
+          name: payerName,
+          council: "aefeso_fellowship",
+        });
+      }
+    }
+
+    await db.from("donations").insert({
+      campaign_id: campaign.id,
+      donor_name: payerName,
+      amount: Number(TransAmount),
+      method: "mpesa",
+      status: "completed",
+      receipt_number: TransID,
+      account_reference: accountRef || null,
+      transaction_id: TransID,
+      donor_phone: phone || null,
+      phone: phone || null,
+      honored_member_id: honoredMemberId,
+      church_member_id: null,
+    });
 
     res.json({ ResultCode: 0, ResultDesc: "Success" });
   } catch {
