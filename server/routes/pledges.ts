@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
 import { requireAdmin } from "../lib/admin.js";
+import { sendWhatsApp } from "../lib/twilio.js";
 
 export const pledgesRouter = Router();
 
@@ -10,6 +11,50 @@ pledgesRouter.post("/", async (req, res) => {
     const { donor_name, amount, phone, whatsapp_number, reminder_freq, campaign_id } = req.body;
     if (!donor_name || !amount) return res.status(400).json({ error: "donor_name and amount required" });
 
+    const newAmount = Number(amount);
+    const name = donor_name.trim();
+
+    // Check if this person already has a pending pledge
+    const { data: existing } = await db
+      .from("pledges")
+      .select("*")
+      .ilike("donor_name", name)
+      .neq("status", "fulfilled")
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      // Add to existing pledge
+      const current = existing[0];
+      const updatedAmount = Number(current.amount) + newAmount;
+      const updatedRemaining = Math.max(0, updatedAmount - Number(current.paid));
+
+      const { data, error } = await db
+        .from("pledges")
+        .update({ amount: updatedAmount, remaining: updatedRemaining })
+        .eq("id", current.id)
+        .select()
+        .single();
+
+      if (error) return res.status(500).json({ error: error.message });
+
+      if (data?.whatsapp_number) {
+        const amt = Number(data.amount).toLocaleString("en-KE");
+        const added = newAmount.toLocaleString("en-KE");
+        const msg =
+          `🙏 *Pledge Updated* — AIPCA Bahati Cathedral\n\n` +
+          `Hi ${data.donor_name}! You added *KES ${added}* to your pledge. Your new total is *KES ${amt}*.\n\n` +
+          `"Each of you should give what you have decided in your heart to give, not reluctantly or under compulsion, for God loves a cheerful giver." — 2 Corinthians 9:7\n\n` +
+          `*EN* — Thank you for building His house. May the Lord bless you abundantly.\n` +
+          `*SW* — Asante kwa kujenga Nyumba Yake. Mungu akubariki sana, na tujenge pamoja!`;
+
+        sendWhatsApp(data.whatsapp_number, msg).catch(() => {});
+      }
+
+      return res.status(200).json({ pledge: data, updated: true });
+    }
+
+    // No existing pledge — create new
     const { data: campaign } = await db
       .from("campaigns")
       .select("id")
@@ -19,13 +64,13 @@ pledgesRouter.post("/", async (req, res) => {
     const { data, error } = await db
       .from("pledges")
       .insert({
-        donor_name: donor_name.trim(),
-        amount: Number(amount),
+        donor_name: name,
+        amount: newAmount,
         phone,
         whatsapp_number,
         reminder_freq: reminder_freq || "weekly",
         paid: 0,
-        remaining: Number(amount),
+        remaining: newAmount,
         campaign_id: campaign?.id,
       })
       .select()
@@ -33,7 +78,6 @@ pledgesRouter.post("/", async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
 
-    // Send WhatsApp confirmation
     if (data?.whatsapp_number) {
       const amt = Number(data.amount).toLocaleString("en-KE");
       const msg =
@@ -48,7 +92,7 @@ pledgesRouter.post("/", async (req, res) => {
       sendWhatsApp(data.whatsapp_number, msg).catch(() => {});
     }
 
-    res.status(201).json({ pledge: data });
+    res.status(201).json({ pledge: data, updated: false });
   } catch (err) {
     console.error("pledge create error:", err);
     res.status(500).json({ error: "Server error" });
