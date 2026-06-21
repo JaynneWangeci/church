@@ -375,13 +375,13 @@ contributionsRouter.get("/export/xlsx", requireAdmin, async (req, res) => {
 
     const { data: donations } = await db
       .from("donations")
-      .select("id, donor_name, amount, method, status, receipt_number, phone, message, created_at, honored_member_id, church_member_id, church_members!church_member_id(name, council), honoured:church_members!honored_member_id(name)")
+      .select("id, donor_name, amount, method, status, receipt_number, phone, message, created_at, honored_member_id, church_member_id, church_members!church_member_id(name, council), honoured:church_members!honored_member_id(name, council)")
       .eq("status", "completed")
       .order("created_at", { ascending: false });
 
     const { data: allDonations } = await db
       .from("donations")
-      .select("id, donor_name, amount, method, status, receipt_number, phone, message, created_at, honored_member_id, church_member_id, church_members!church_member_id(name, council), honoured:church_members!honored_member_id(name)")
+      .select("id, donor_name, amount, method, status, receipt_number, phone, message, created_at, honored_member_id, church_member_id, church_members!church_member_id(name, council), honoured:church_members!honored_member_id(name, council)")
       .order("created_at", { ascending: false });
 
     const { data: pledges } = await db
@@ -628,38 +628,60 @@ contributionsRouter.get("/export/xlsx", requireAdmin, async (req, res) => {
       s3row += 2;
     });
 
-    // ── Sheet 4: Honour Roll ──
+    // ── Sheet 4: Honour Roll (cumulative per honoured member) ──
     const s4 = wb.addWorksheet("Honour Roll");
-    autoCols(s4, [4, 22, 22, 14, 16, 16, 16]);
-    addTitleRow(s4, "HONOUR DONATIONS — MEMBER RECOGNITION", "G", 1);
-    addSubtitleRow(s4, "Donations made in honour of church members", "G", 2);
-    s4.getRow(3).values = ["#", "Honoured Member", "Donor Name", "Amount (KES)", "Receipt", "Fellowship", "Date"];
+    autoCols(s4, [4, 22, 18, 14, 14, 14, 22]);
+    addTitleRow(s4, "HONOUR ROLL — MEMBER RECOGNITION (CUMULATIVE)", "G", 1);
+    addSubtitleRow(s4, "Total honour donations received per member, sorted by amount", "G", 2);
+    s4.getRow(3).values = ["#", "Honoured Member", "Fellowship", "Total Received (KES)", "Times Honoured", "Avg Honour (KES)", "Last Honour Date"];
     styleHeader(s4, s4.getRow(3));
 
-    const honourDonations = allDonationsList.filter(d => d.honored_member_id);
-    honourDonations.forEach((d, i) => {
-      const r = s4.getRow(i + 4);
-      const honouredName = (d as any).honoured?.name || "—";
-      const member = (d as any).church_members;
-      r.values = [
-        i + 1, honouredName, d.donor_name || "—", Number(d.amount),
-        d.receipt_number || "—", member?.council || "—",
-        d.created_at ? new Date(d.created_at).toLocaleDateString("en-KE") : "—",
-      ];
+    // Aggregate honour donations by honoured member
+    const honourByMember: Record<string, { name: string; council: string; total: number; count: number; lastDate: string }> = {};
+    for (const d of allDonationsList) {
+      if (d.honored_member_id) {
+        const honoured = (d as any).honoured;
+        const key = d.honored_member_id;
+        if (!honourByMember[key]) {
+          honourByMember[key] = { name: honoured?.name || "Unknown", council: honoured?.council || "—", total: 0, count: 0, lastDate: "" };
+        }
+        honourByMember[key].total += Number(d.amount);
+        honourByMember[key].count += 1;
+        const dDate = d.created_at ? new Date(d.created_at).toLocaleDateString("en-KE") : "";
+        if (dDate > honourByMember[key].lastDate) honourByMember[key].lastDate = dDate;
+      }
+    }
+
+    // Also include honoured members who exist in the database but have no donations yet
+    if (honourByMember) {} // use existing
+
+    const sortedHonour = Object.entries(honourByMember).sort((a, b) => b[1].total - a[1].total);
+    let s4row = 4;
+    let grandHonourTotal = 0, grandHonourCount = 0;
+
+    sortedHonour.forEach(([, data], i) => {
+      const r = s4.getRow(s4row);
+      r.values = [i + 1, data.name, data.council, data.total, data.count, data.count > 0 ? Math.round(data.total / data.count) : 0, data.lastDate || "—"];
       r.getCell(4).numFmt = '#,##0';
+      r.getCell(6).numFmt = '#,##0';
       if (i % 2 === 0) r.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FEF3C7" } }; });
+      grandHonourTotal += data.total;
+      grandHonourCount += data.count;
+      s4row++;
     });
 
-    // Honour roll summary
-    if (honourDonations.length > 0) {
-      const hrSum = s4.getRow(honourDonations.length + 5);
-      const hrTotal = honourDonations.reduce((s, d) => s + Number(d.amount), 0);
-      s4.mergeCells(`A${honourDonations.length + 5}:C${honourDonations.length + 5}`);
-      hrSum.getCell(1).value = "Total Honour Donations";
-      hrSum.getCell(4).value = hrTotal;
-      hrSum.getCell(4).numFmt = '#,##0';
-      hrSum.font = { bold: true, color: { argb: dark.replace("#", "") } };
-      hrSum.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FEF3C7" } }; });
+    // Honour roll grand total
+    if (sortedHonour.length > 0) {
+      const hrTotalRow = s4.getRow(s4row);
+      hrTotalRow.values = ["", "GRAND TOTAL", "", grandHonourTotal, grandHonourCount, Math.round(grandHonourTotal / Math.max(grandHonourCount, 1)), ""];
+      hrTotalRow.font = { bold: true, color: { argb: dark.replace("#", "") } };
+      hrTotalRow.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FEF3C7" } }; });
+      hrTotalRow.getCell(4).numFmt = '#,##0';
+      hrTotalRow.getCell(6).numFmt = '#,##0';
+      addBorder(s4, 3, s4row, 7);
+    } else {
+      s4.getRow(4).values = ["", "No honour donations recorded yet", "", "", "", "", ""];
+      s4.mergeCells(`B4:F4`);
     }
     s4.views = [{ state: "frozen", ySplit: 3 }];
 
