@@ -18,6 +18,10 @@ const BASE_URL =
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
+// Pre-cache access token on startup for instant STK Push
+getAccessToken().catch(() => {});
+setInterval(() => getAccessToken().catch(() => {}), 55 * 60 * 1000);
+
 function timestamp(): string {
   const now = new Date();
   const y = now.getFullYear();
