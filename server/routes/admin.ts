@@ -59,11 +59,13 @@ adminRouter.get("/stats", requireAdmin, async (req, res) => {
       .select("council, id")
       .eq("is_active", true);
 
-    const { data: fellowshipDonationStats } = await db
+    let fellowQuery = db
       .from("donations")
       .select("amount, church_members!church_member_id!inner(council)")
       .eq("status", "completed")
       .not("church_member_id", "is", null);
+    if (campaignId) fellowQuery = fellowQuery.eq("campaign_id", campaignId);
+    const { data: fellowshipDonationStats } = await fellowQuery;
 
     const memberCountMap: Record<string, number> = {};
     for (const m of fellowshipMemberCounts || []) {
@@ -101,7 +103,7 @@ adminRouter.get("/stats", requireAdmin, async (req, res) => {
       raised: totalRaised,
       total_raised: totalRaised,
       total_donors: donors.size,
-      avg_gift: donors.size ? Math.round(totalRaised / donors.size) : 0,
+      avg_gift: (completedDonations || []).length ? Math.round(totalRaised / (completedDonations || []).length) : 0,
       pending_count: (pendingDonations || []).length,
       failed_count: (failedDonations || []).length,
       member_count: memberCount || 0,
@@ -312,6 +314,174 @@ adminRouter.put("/users/:id/password", requireAdmin, async (req, res) => {
 
     res.json({ ok: true });
   } catch {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+adminRouter.get("/fellowship-report", requireAdmin, async (req, res) => {
+  try {
+    const db = requireService();
+    const admin = (req as any).admin;
+
+    const { data: campaign } = await db
+      .from("campaigns")
+      .select("*")
+      .eq("slug", "development-fund")
+      .single();
+    const campaignId = campaign?.id;
+
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    // All active members grouped by council
+    const { data: allMembers } = await db
+      .from("church_members")
+      .select("id, name, council, created_at")
+      .eq("is_active", true)
+      .order("name");
+
+    const memberByCouncil: Record<string, { id: string; name: string; created_at: string }[]> = {};
+    const memberLookup = new Map<string, string>();
+    for (const m of allMembers || []) {
+      if (!memberByCouncil[m.council]) memberByCouncil[m.council] = [];
+      memberByCouncil[m.council].push(m);
+      memberLookup.set(m.name.toLowerCase().trim(), m.council);
+    }
+
+    // Campaign-scoped completed donations
+    let donationQuery = db
+      .from("donations")
+      .select("id, amount, donor_name, method, church_member_id, created_at")
+      .eq("status", "completed");
+    if (campaignId) donationQuery = donationQuery.eq("campaign_id", campaignId);
+    const { data: allDonations } = await donationQuery;
+
+    // All pledges
+    const { data: allPledges } = await db
+      .from("pledges")
+      .select("id, donor_name, amount, paid, remaining, status, created_at");
+
+    // Match pledges to councils via donor_name
+    const pledgeByCouncil: Record<string, typeof allPledges> = {};
+    for (const p of allPledges || []) {
+      const council = memberLookup.get(p.donor_name.toLowerCase().trim()) || "general_member";
+      if (!pledgeByCouncil[council]) pledgeByCouncil[council] = [];
+      pledgeByCouncil[council].push(p);
+    }
+
+    // Match donations to councils via donor_name fallback when church_member_id is null
+    const donationByCouncil: Record<string, typeof allDonations> = {};
+    const donationNoMember: typeof allDonations = [];
+    for (const d of allDonations || []) {
+      let council: string | null = null;
+      if (d.church_member_id) {
+        const member = (allMembers || []).find(m => m.id === d.church_member_id);
+        if (member) council = member.council;
+      }
+      if (!council) {
+        council = memberLookup.get((d.donor_name || "").toLowerCase().trim()) || null;
+      }
+      if (council) {
+        if (!donationByCouncil[council]) donationByCouncil[council] = [];
+        donationByCouncil[council].push(d);
+      } else {
+        donationNoMember.push(d);
+      }
+    }
+
+    // All council slugs
+    const allCouncilSlugs = [...new Set([
+      ...Object.keys(memberByCouncil),
+      ...Object.keys(pledgeByCouncil),
+      ...Object.keys(donationByCouncil),
+    ])].sort();
+
+    const report = [];
+    for (const council of allCouncilSlugs) {
+      const members = memberByCouncil[council] || [];
+      const pledges = pledgeByCouncil[council] || [];
+      const donations = donationByCouncil[council] || [];
+
+      // Pledge stats
+      const pledgeTotal = pledges.reduce((s, p) => s + Number(p.amount), 0);
+      const pledgePaid = pledges.reduce((s, p) => s + Number(p.paid), 0);
+      const pledgeRemaining = pledges.reduce((s, p) => s + Number(p.remaining), 0);
+      const pledgeFulfilled = pledges.filter(p => p.status === "fulfilled").length;
+      const pledgeActive = pledges.filter(p => p.status === "active").length;
+
+      // Donation stats
+      const donationTotal = donations.reduce((s, d) => s + Number(d.amount), 0);
+      const donationCount = donations.length;
+
+      // Recent 30d activity
+      const recentDonations = donations.filter(d => d.created_at >= thirtyDaysAgo);
+      const recentTotal = recentDonations.reduce((s, d) => s + Number(d.amount), 0);
+
+      // Top donors in this fellowship
+      const donorMap: Record<string, number> = {};
+      for (const d of donations) {
+        const name = d.donor_name || "Anonymous";
+        donorMap[name] = (donorMap[name] || 0) + Number(d.amount);
+      }
+      const topDonors = Object.entries(donorMap)
+        .map(([name, total]) => ({ name, total }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 10);
+
+      // Payment method breakdown
+      const methodMap: Record<string, number> = {};
+      for (const d of donations) {
+        const method = d.method || "unknown";
+        methodMap[method] = (methodMap[method] || 0) + Number(d.amount);
+      }
+      const methodBreakdown = Object.entries(methodMap)
+        .map(([method, total]) => ({ method, total }))
+        .sort((a, b) => b.total - a.total);
+
+      report.push({
+        council,
+        member_count: members.length,
+        members: members.map(m => ({ id: m.id, name: m.name })),
+        donation: {
+          total: donationTotal,
+          count: donationCount,
+          avg_gift: donationCount > 0 ? Math.round(donationTotal / donationCount) : 0,
+          recent_30d_total: recentTotal,
+          recent_30d_count: recentDonations.length,
+          method_breakdown: methodBreakdown,
+          top_donors: topDonors,
+        },
+        pledge: {
+          total: pledgeTotal,
+          paid: pledgePaid,
+          remaining: pledgeRemaining,
+          fulfilled: pledgeFulfilled,
+          active: pledgeActive,
+          count: pledges.length,
+          fulfillment_rate: pledgeTotal > 0 ? Math.round((pledgePaid / pledgeTotal) * 100 * 100) / 100 : 0,
+        },
+      });
+    }
+
+    // Unlinked donations (donor not matched to any member)
+    const unlinkedTotal = donationNoMember.reduce((s, d) => s + Number(d.amount), 0);
+
+    await logAudit({
+      adminId: admin.id,
+      action: "view_fellowship_report",
+      ipAddress: (req as any).adminIp,
+      userAgent: (req as any).userAgent,
+    });
+
+    res.json({
+      report,
+      unlinked: {
+        count: donationNoMember.length,
+        total: unlinkedTotal,
+      },
+    });
+  } catch (err) {
+    console.error("fellowship report error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

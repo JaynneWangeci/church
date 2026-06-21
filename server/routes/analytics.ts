@@ -24,6 +24,15 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
     const p30Start = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
     const p30End = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
+    const { data: campaign } = await db
+      .from("campaigns")
+      .select("id")
+      .eq("slug", "development-fund")
+      .single();
+    const campaignId = campaign?.id;
+
+    const campaignFilter = (q: any) => campaignId ? q.eq("campaign_id", campaignId) : q;
+
     const [
       dailyData,
       prevData,
@@ -36,43 +45,43 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
       newMembers,
     ] = await Promise.all([
       // Current 90d daily data
-      db.from("donations")
+      campaignFilter(db.from("donations")
         .select("amount, created_at")
         .eq("status", "completed")
         .gte("created_at", periods["90d"].toISOString())
-        .order("created_at", { ascending: true }),
+        .order("created_at", { ascending: true })),
 
       // Previous 30d for comparison
-      db.from("donations")
+      campaignFilter(db.from("donations")
         .select("amount")
         .eq("status", "completed")
         .gte("created_at", p30Start.toISOString())
-        .lt("created_at", p30End.toISOString()),
+        .lt("created_at", p30End.toISOString())),
 
       // Top donors
-      db.from("donations")
+      campaignFilter(db.from("donations")
         .select("donor_name, amount")
         .eq("status", "completed")
         .not("donor_name", "is", null)
         .order("amount", { ascending: false })
-        .limit(20),
+        .limit(20)),
 
       // Council breakdown
-      db.from("donations")
+      campaignFilter(db.from("donations")
         .select("amount, church_members!church_member_id!inner(council)")
         .eq("status", "completed")
-        .not("church_member_id", "is", null),
+        .not("church_member_id", "is", null)),
 
       // Member honour ranking
-      db.from("donations")
+      campaignFilter(db.from("donations")
         .select("amount, church_member_id, church_members!church_member_id!inner(name, council)")
         .eq("status", "completed")
-        .not("church_member_id", "is", null),
+        .not("church_member_id", "is", null)),
 
       // All totals
-      db.from("donations")
+      campaignFilter(db.from("donations")
         .select("amount", { count: "exact", head: false })
-        .eq("status", "completed"),
+        .eq("status", "completed")),
 
       // Pledge stats
       db.from("pledges")
@@ -127,14 +136,20 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
       .map(([month, { total, count }]) => ({ month, total, count }))
       .sort((a, b) => a.month.localeCompare(b.month));
 
-    // ── Period totals for KPI comparison ──
-    const currentTotal = (dailyData.data || []).reduce((s, d) => s + Number(d.amount), 0);
-    const previousTotal = (prevData.data || []).reduce((s, d) => s + Number(d.amount), 0);
-    const periodChange = previousTotal > 0 ? ((currentTotal - previousTotal) / previousTotal) * 100 : 0;
+    // ── Current 30d stats for KPI comparison ──
+    const cur30Total = dailyData.data
+      ?.filter((d: any) => new Date(d.created_at) >= periods["30d"])
+      .reduce((s, d) => s + Number(d.amount), 0) || 0;
+    const cur30Count = dailyData.data
+      ?.filter((d: any) => new Date(d.created_at) >= periods["30d"])
+      .length || 0;
 
-    const currentCount = (dailyData.data || []).length;
+    // Previous 30d window for same-period comparison
+    const previousTotal = (prevData.data || []).reduce((s, d) => s + Number(d.amount), 0);
+    const periodChange = previousTotal > 0 ? ((cur30Total - previousTotal) / previousTotal) * 100 : 0;
+
     const previousCount = (prevData.data || []).length;
-    const countChange = previousCount > 0 ? ((currentCount - previousCount) / previousCount) * 100 : 0;
+    const countChange = previousCount > 0 ? ((cur30Count - previousCount) / previousCount) * 100 : 0;
 
     // ── Top donors ──
     const donorMap: Record<string, number> = {};
@@ -207,20 +222,10 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
     const pledgeActive = pledges.filter(p => p.status === "active").length;
     const pledgeFulfillmentRate = pledgeTotal > 0 ? (pledgePaid / pledgeTotal) * 100 : 0;
 
-    // ── Current 30d stats for KPI cards ──
-    const cur30Total = dailyData.data
-      ?.filter((d: any) => new Date(d.created_at) >= periods["30d"])
-      .reduce((s, d) => s + Number(d.amount), 0) || 0;
-
-    const cur30Count = dailyData.data
-      ?.filter((d: any) => new Date(d.created_at) >= periods["30d"])
-      .length || 0;
-
     // ── Payment method breakdown ──
-    const { data: methodData } = await db
-      .from("donations")
-      .select("method, amount")
-      .eq("status", "completed");
+    let methodQuery = db.from("donations").select("method, amount").eq("status", "completed");
+    if (campaignId) methodQuery = methodQuery.eq("campaign_id", campaignId);
+    const { data: methodData } = await methodQuery;
 
     const methodMap: Record<string, number> = {};
     for (const d of methodData || []) {

@@ -28,7 +28,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [logs, setLogs] = useState<unknown[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"overview" | "members" | "admins" | "analytics" | "council" | "pledges">("overview");
+  const [tab, setTab] = useState<"overview" | "members" | "admins" | "analytics" | "council" | "pledges" | "fellowshipreports">("overview");
   const [churchMembers, setChurchMembers] = useState<ChurchMember[]>([]);
   const [newName, setNewName] = useState("");
   const [newCouncil, setNewCouncil] = useState("maranatha_fellowship");
@@ -60,7 +60,6 @@ export default function AdminDashboard() {
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
   const [deduping, setDeduping] = useState(false);
   const [dedupResult, setDedupResult] = useState("");
-  const [analytics, setAnalytics] = useState<any>(null);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [analyticsRange, setAnalyticsRange] = useState<"7d" | "30d" | "90d" | "1y" | "all">("30d");
   const [committeeMembers, setCommitteeMembers] = useState<CommitteeMember[]>([]);
@@ -87,6 +86,7 @@ export default function AdminDashboard() {
   const [editComOrder, setEditComOrder] = useState("0");
   const [exporting, setExporting] = useState<string | null>(null);
   const [pledges, setPledges] = useState<any[]>([]);
+  const [fellowshipReport, setFellowshipReport] = useState<any>(null);
   const [editingPledge, setEditingPledge] = useState<string | null>(null);
   const [editPledgeAmount, setEditPledgeAmount] = useState("");
   const [payingPledge, setPayingPledge] = useState<string | null>(null);
@@ -143,12 +143,6 @@ export default function AdminDashboard() {
 
   const fetchAnalytics = useCallback(async () => {
     try {
-      const res = await fetch("/api/contributions/analytics", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) setAnalytics(await res.json());
-    } catch { /* silent */ }
-    try {
       const res = await fetch("/api/analytics/dashboard", {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -186,6 +180,19 @@ export default function AdminDashboard() {
     } catch { /* silent */ }
   }, []);
 
+  const fetchFellowshipReport = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/admin/fellowship-report", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setFellowshipReport(data);
+      }
+    } catch { /* silent */ }
+  }, []);
+
   const loadCouncils = useCallback(async () => {
     const data = await fetchCouncils();
     if (data.length) setCouncils(data);
@@ -213,9 +220,10 @@ export default function AdminDashboard() {
     fetchAnalytics();
     fetchCommittee();
     fetchPledges();
+    fetchFellowshipReport();
     loadCouncils();
     loadHarambee();
-  }, [admin, fetchStats, fetchLogs, fetchMembers, fetchAdmins, fetchAnalytics, fetchCommittee, fetchPledges, loadCouncils, loadHarambee]);
+  }, [admin, fetchStats, fetchLogs, fetchMembers, fetchAdmins, fetchAnalytics, fetchCommittee, fetchPledges, fetchFellowshipReport, loadCouncils, loadHarambee]);
 
   // Live audit log polling
   useEffect(() => {
@@ -508,6 +516,17 @@ export default function AdminDashboard() {
             >
               <Target size={14} className="inline mr-1" />
               Pledges ({pledges.length})
+            </button>
+          )}
+          {(admin.role === "admin" || admin.role === "super_admin") && (
+            <button
+              onClick={() => { setTab("fellowshipreports"); fetchFellowshipReport(); }}
+              className={`pb-3 text-sm font-bold transition border-b-2 ${
+                tab === "fellowshipreports" ? "border-nobuk text-nobuk" : "border-transparent text-muted hover:text-nobuk"
+              }`}
+            >
+              <Users size={14} className="inline mr-1" />
+              Fellowship Reports
             </button>
           )}
           <button
@@ -1710,6 +1729,201 @@ export default function AdminDashboard() {
                   })}
                 </>);
               })()}
+            </div>
+          </div>
+        )}
+
+        {tab === "fellowshipreports" && (
+          <div className="space-y-6">
+            <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-sm font-bold text-ink">Fellowship Reports</h2>
+                <button onClick={() => fetchFellowshipReport()}
+                  className="flex items-center gap-1 text-xs font-semibold text-nobuk hover:underline">
+                  <RefreshCw size={12} /> Refresh
+                </button>
+              </div>
+
+              {!fellowshipReport && (
+                <div className="flex items-center justify-center py-10 text-sm text-muted">Loading fellowship data…</div>
+              )}
+
+              {fellowshipReport && (
+                <>
+                  {/* Summary cards */}
+                  <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+                    {(() => {
+                      const r = fellowshipReport.report || [];
+                      const totalMembers = r.reduce((s: number, f: any) => s + f.member_count, 0);
+                      const totalDonations = r.reduce((s: number, f: any) => s + f.donation.total, 0);
+                      const totalPledgePaid = r.reduce((s: number, f: any) => s + f.pledge.paid, 0);
+                      const totalPledgeTotal = r.reduce((s: number, f: any) => s + f.pledge.total, 0);
+                      return (
+                        <>
+                          <div className="rounded-lg border border-gray-100 bg-cream p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Fellowships</p>
+                            <p className="mt-1 text-xl font-bold text-ink tabular-nums">{r.length}</p>
+                          </div>
+                          <div className="rounded-lg border border-gray-100 bg-cream p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Members</p>
+                            <p className="mt-1 text-xl font-bold text-ink tabular-nums">{totalMembers}</p>
+                          </div>
+                          <div className="rounded-lg border border-gray-100 bg-cream p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Total Donations</p>
+                            <p className="mt-1 text-xl font-bold text-green-700 tabular-nums">KES {totalDonations.toLocaleString("en-KE")}</p>
+                          </div>
+                          <div className="rounded-lg border border-gray-100 bg-cream p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Pledge Fulfillment</p>
+                            <p className="mt-1 text-xl font-bold text-nobuk tabular-nums">
+                              KES {totalPledgePaid.toLocaleString("en-KE")}
+                              <span className="text-sm font-normal text-muted"> / KES {totalPledgeTotal.toLocaleString("en-KE")}</span>
+                            </p>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Per-fellowship detail cards */}
+                  <div className="space-y-4">
+                    {fellowshipReport.report?.map((f: any) => {
+                      const label = f.council === 'general_member' ? 'General Member' : f.council.replace(/_/g, ' ');
+                      const pledgePct = f.pledge.total > 0 ? (f.pledge.paid / f.pledge.total) * 100 : 0;
+                      return (
+                        <details key={f.council} className="group rounded-lg border border-gray-100 bg-white" open>
+                          <summary className="flex cursor-pointer items-center gap-3 rounded-lg bg-cream px-4 py-3 transition hover:bg-nobuk-muted">
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-bold text-ink capitalize">{label}</span>
+                              <span className="ml-2 text-xs text-muted">{f.member_count} members · {f.pledge.count} pledges</span>
+                            </div>
+                            <div className="flex items-center gap-4 text-xs tabular-nums">
+                              <span className="text-muted">Donations: KES {f.donation.total.toLocaleString("en-KE")}</span>
+                              <span className="text-green-700 font-medium">Pledged: KES {f.pledge.paid.toLocaleString("en-KE")}</span>
+                              <span className="text-amber-dark font-medium">Rate: {f.pledge.fulfillment_rate}%</span>
+                            </div>
+                          </summary>
+
+                          <div className="p-4">
+                            {/* Pledge progress bar */}
+                            {f.pledge.total > 0 && (
+                              <div className="mb-4">
+                                <div className="mb-1 flex items-center justify-between text-xs">
+                                  <span className="font-semibold text-ink">Pledge Fulfillment</span>
+                                  <span className="text-muted tabular-nums">{f.pledge.fulfilled}/{f.pledge.count} fulfilled · {pledgePct.toFixed(1)}%</span>
+                                </div>
+                                <div className="h-2.5 overflow-hidden rounded-full bg-gray-100">
+                                  <div className="h-full rounded-full bg-green-500 transition-all duration-500" style={{ width: `${Math.min(pledgePct, 100)}%` }} />
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Stats grid */}
+                            <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+                              <div className="rounded-lg border border-gray-50 bg-gray-50/50 p-2.5">
+                                <p className="text-[9px] font-bold uppercase tracking-wider text-muted">Donations</p>
+                                <p className="text-sm font-bold text-ink tabular-nums">KES {f.donation.total.toLocaleString("en-KE")}</p>
+                                <p className="text-[10px] text-muted tabular-nums">{f.donation.count} gifts · avg KES {f.donation.avg_gift.toLocaleString("en-KE")}</p>
+                              </div>
+                              <div className="rounded-lg border border-gray-50 bg-gray-50/50 p-2.5">
+                                <p className="text-[9px] font-bold uppercase tracking-wider text-muted">Recent 30d</p>
+                                <p className="text-sm font-bold text-ink tabular-nums">KES {f.donation.recent_30d_total.toLocaleString("en-KE")}</p>
+                                <p className="text-[10px] text-muted tabular-nums">{f.donation.recent_30d_count} donations</p>
+                              </div>
+                              <div className="rounded-lg border border-gray-50 bg-gray-50/50 p-2.5">
+                                <p className="text-[9px] font-bold uppercase tracking-wider text-muted">Pledges</p>
+                                <p className="text-sm font-bold text-ink tabular-nums">KES {f.pledge.total.toLocaleString("en-KE")}</p>
+                                <p className="text-[10px] text-muted tabular-nums">Outstanding: KES {f.pledge.remaining.toLocaleString("en-KE")}</p>
+                              </div>
+                              <div className="rounded-lg border border-gray-50 bg-gray-50/50 p-2.5">
+                                <p className="text-[9px] font-bold uppercase tracking-wider text-muted">Fulfillment Rate</p>
+                                <p className={`text-sm font-bold tabular-nums ${pledgePct >= 100 ? 'text-green-700' : pledgePct >= 50 ? 'text-amber-dark' : 'text-red-600'}`}>
+                                  {f.pledge.fulfillment_rate}%
+                                </p>
+                                <p className="text-[10px] text-muted tabular-nums">{f.pledge.active} active · {f.pledge.fulfilled} done</p>
+                              </div>
+                            </div>
+
+                            {/* Two-column layout for top donors + methods */}
+                            <div className="grid gap-4 md:grid-cols-2">
+                              {/* Top donors */}
+                              <div>
+                                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted">Top Donors</p>
+                                {f.donation.top_donors?.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {f.donation.top_donors.map((d: any, i: number) => {
+                                      const maxAmt = f.donation.top_donors[0]?.total || 1;
+                                      const barW = (d.total / maxAmt) * 100;
+                                      return (
+                                        <div key={d.name} className="flex items-center gap-2">
+                                          <span className="w-4 text-[10px] font-bold text-muted">{i + 1}.</span>
+                                          <span className="flex-1 truncate text-xs text-ink">{d.name}</span>
+                                          <span className="text-xs font-semibold text-ink tabular-nums">KES {d.total.toLocaleString("en-KE")}</span>
+                                          <div className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-100">
+                                            <div className="h-full rounded-full bg-nobuk" style={{ width: `${barW}%` }} />
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-muted italic">No donation data</p>
+                                )}
+                              </div>
+
+                              {/* Payment methods */}
+                              <div>
+                                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted">Payment Methods</p>
+                                {f.donation.method_breakdown?.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {f.donation.method_breakdown.map((m: any) => {
+                                      const maxM = f.donation.method_breakdown[0]?.total || 1;
+                                      const mbw = (m.total / maxM) * 100;
+                                      return (
+                                        <div key={m.method} className="flex items-center gap-2">
+                                          <span className="w-20 truncate text-xs font-medium text-ink">{m.method}</span>
+                                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+                                            <div className="h-full rounded-full bg-amber" style={{ width: `${mbw}%` }} />
+                                          </div>
+                                          <span className="text-xs font-semibold text-ink tabular-nums">KES {m.total.toLocaleString("en-KE")}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-muted italic">No data</p>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Members list */}
+                            {f.members?.length > 0 && (
+                              <div className="mt-4">
+                                <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted">Members ({f.members.length})</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {f.members.map((m: any) => (
+                                    <span key={m.id} className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-muted">{m.name}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </details>
+                      );
+                    })}
+                  </div>
+
+                  {/* Unlinked donations */}
+                  {fellowshipReport.unlinked?.count > 0 && (
+                    <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                      <p className="text-xs font-bold text-amber-800">Unlinked Donations</p>
+                      <p className="text-xs text-amber-700">
+                        {fellowshipReport.unlinked.count} donations totalling KES {fellowshipReport.unlinked.total.toLocaleString("en-KE")}
+                        {' '}could not be matched to any fellowship member.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         )}
