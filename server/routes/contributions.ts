@@ -418,9 +418,6 @@ contributionsRouter.get("/export/xlsx", requireAdmin, async (req, res) => {
       ws.columns = widths.map((w, i) => ({ key: i.toString(), width: w }));
     }
 
-    // ── Sheet 1: Summary ──
-    const sheet1 = wb.addWorksheet("Summary");
-
     const completed = donations || [];
     const totalRaised = completed.reduce((s, d) => s + Number(d.amount), 0);
     const donationCount = completed.length;
@@ -432,122 +429,281 @@ contributionsRouter.get("/export/xlsx", requireAdmin, async (req, res) => {
     const pendingCount = allDonationsList.filter(d => d.status === "pending").length;
     const failedCount = allDonationsList.filter(d => d.status === "failed").length;
 
-    sheet1.mergeCells("A1:F1");
-    const titleRow = sheet1.getRow(1);
-    titleRow.getCell(1).value = "AIPCA Bahati Cathedral — Harambee Development Fund";
-    titleRow.font = { bold: true, size: 16, color: { argb: dark.replace("#", "") } };
-    titleRow.alignment = { horizontal: "center" };
-    titleRow.height = 30;
-
-    sheet1.mergeCells("A2:F2");
-    const subRow = sheet1.getRow(2);
-    subRow.getCell(1).value = `Report Generated: ${new Date().toLocaleDateString("en-KE", { weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}`;
-    subRow.font = { italic: true, size: 10, color: { argb: "6B7280" } };
-    subRow.alignment = { horizontal: "center" };
-
-    const summaryData = [
-      ["Total Raised (Completed)", `KES ${totalRaised.toLocaleString("en-KE")}`, "Total Donations", donationCount.toString()],
-      ["Average Gift", `KES ${avgGift.toLocaleString("en-KE")}`, "Pending Transactions", pendingCount.toString()],
-      ["Total Pledged", `KES ${totalPledges.toLocaleString("en-KE")}`, "Pledge Fulfillment", `${totalPledges > 0 ? ((paidPledges / totalPledges) * 100).toFixed(1) : "0.0"}%`],
-      ["Total Church Members", memberCount.toString(), "Failed Transactions", failedCount.toString()],
-    ];
-
-    autoCols(sheet1, [28, 28, 28, 28, 28, 28]);
-    let sr = 4;
-    sheet1.getRow(sr).values = ["Metric", "Value", "Metric", "Value", "", ""];
-    styleHeader(sheet1, sheet1.getRow(sr));
-    sr++;
-
-    for (const row of summaryData) {
-      const r = sheet1.getRow(sr);
-      r.values = [...row, "", ""];
-      r.getCell(1).font = { bold: true };
-      r.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "EFF6FF" } };
-      r.getCell(3).font = { bold: true };
-      r.getCell(3).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF7ED" } };
-      sr++;
+    // ── Helper: styled header row ──
+    function addTitleRow(ws: ExcelJS.Worksheet, text: string, mergeTo: string, rowNum: number) {
+      ws.mergeCells(`A${rowNum}:${mergeTo}${rowNum}`);
+      const r = ws.getRow(rowNum);
+      r.getCell(1).value = text;
+      r.font = { bold: true, size: 14, color: { argb: dark.replace("#", "") } };
+      r.alignment = { horizontal: "center", vertical: "middle" };
+      r.height = 28;
     }
 
-    // ── Sheet 2: Donations ──
-    const sheet2 = wb.addWorksheet("Donations");
-    autoCols(sheet2, [4, 24, 14, 10, 10, 18, 16, 22, 16, 16, 16]);
-    sheet2.getRow(1).values = ["#", "Donor Name", "Amount (KES)", "Method", "Status", "Receipt Number", "Phone", "Message", "Church Member", "Fellowship", "Date"];
-    styleHeader(sheet2, sheet2.getRow(1));
+    function addSubtitleRow(ws: ExcelJS.Worksheet, text: string, mergeTo: string, rowNum: number) {
+      ws.mergeCells(`A${rowNum}:${mergeTo}${rowNum}`);
+      const r = ws.getRow(rowNum);
+      r.getCell(1).value = text;
+      r.font = { italic: true, size: 10, color: { argb: "6B7280" } };
+      r.alignment = { horizontal: "center" };
+    }
+
+    function addBorder(ws: ExcelJS.Worksheet, startRow: number, endRow: number, colCount: number) {
+      const thin = { style: "thin" as const, color: { argb: "D1D5DB" } };
+      for (let r = startRow; r <= endRow; r++) {
+        for (let c = 1; c <= colCount; c++) {
+          ws.getRow(r).getCell(c).border = { top: thin, bottom: thin, left: thin, right: thin };
+        }
+      }
+    }
+
+    // ── Sheet 1: Executive Summary ──
+    const s1 = wb.addWorksheet("Executive Summary");
+    autoCols(s1, [30, 30, 30, 30, 30, 30]);
+    addTitleRow(s1, "AIPCA BAHATI CATHEDRAL — HARAMBEE DEVELOPMENT FUND", "F", 1);
+    addSubtitleRow(s1, `Audit Report — Generated ${new Date().toLocaleDateString("en-KE", { weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}`, "F", 2);
+
+    // Key Metrics
+    const mRow = 4;
+    s1.getRow(mRow).values = ["", "KEY PERFORMANCE INDICATORS", "", "", "", ""];
+    s1.mergeCells(`B${mRow}:E${mRow}`);
+    s1.getRow(mRow).font = { bold: true, size: 11, color: { argb: dark.replace("#", "") } };
+
+    const metrics = [
+      ["Total Completed Donations", `KES ${totalRaised.toLocaleString("en-KE")}`, "Total Transactions", donationCount.toString()],
+      ["Average Gift Size", `KES ${avgGift.toLocaleString("en-KE")}`, "Pending Transactions", pendingCount.toString()],
+      ["Total Pledged Amount", `KES ${totalPledges.toLocaleString("en-KE")}`, "Pledge Fulfillment Rate", `${totalPledges > 0 ? ((paidPledges / totalPledges) * 100).toFixed(1) : "0.0"}%`],
+      ["Amount Paid on Pledges", `KES ${paidPledges.toLocaleString("en-KE")}`, "Outstanding Pledges", `KES ${(totalPledges - paidPledges).toLocaleString("en-KE")}`],
+      ["Registered Church Members", memberCount.toString(), "Failed Transactions", failedCount.toString()],
+      ["Active Fellowships", (councilData || []).length.toString(), "Report Coverage", `${donationCount} donations from ${memberCount} members`],
+    ];
+
+    let sr = 5;
+    s1.getRow(sr).values = ["#", "Metric", "Value", "Metric", "Value", ""];
+    styleHeader(s1, s1.getRow(sr));
+    const metricStart = sr + 1;
+    metrics.forEach((m, i) => {
+      const r = s1.getRow(sr + i + 1);
+      r.values = [i + 1, m[0], m[1], m[2], m[3], ""];
+      r.getCell(2).font = { bold: true };
+      r.getCell(4).font = { bold: true };
+      if (i % 2 === 0) {
+        r.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F0F7FF" } }; });
+      }
+    });
+    addBorder(s1, metricStart, metricStart + metrics.length - 1, 5);
+
+    // Fellowship summary table
+    const councilSummary: Record<string, { total: number; count: number; members: number; paid: number }> = {};
+    for (const d of completed) {
+      const m = (d as any).church_members;
+      const c = m?.council || "Unassigned";
+      if (!councilSummary[c]) councilSummary[c] = { total: 0, count: 0, members: 0, paid: 0 };
+      councilSummary[c].total += Number(d.amount);
+      councilSummary[c].count += 1;
+    }
+    for (const mem of memberData || []) {
+      const c = mem.council || "Unassigned";
+      if (!councilSummary[c]) councilSummary[c] = { total: 0, count: 0, members: 0, paid: 0 };
+      councilSummary[c].members += 1;
+    }
+
+    const fs = sr + metrics.length + 2;
+    addTitleRow(s1, "FELLOWSHIP CONTRIBUTION SUMMARY", "F", fs);
+    const fh = fs + 1;
+    s1.getRow(fh).values = ["#", "Fellowship", "Total Raised (KES)", "Donations", "Members", "Avg per Member (KES)"];
+    styleHeader(s1, s1.getRow(fh));
+
+    const sortedCouncils = Object.entries(councilSummary).sort((a, b) => b[1].total - a[1].total);
+    let grandTotal = 0, grandCount = 0, grandMembers = 0;
+    sortedCouncils.forEach(([name, data], i) => {
+      const r = s1.getRow(fh + 1 + i);
+      const avg = data.members > 0 ? Math.round(data.total / data.members) : 0;
+      r.values = [i + 1, name, data.total, data.count, data.members, avg];
+      r.getCell(3).numFmt = '#,##0';
+      r.getCell(6).numFmt = '#,##0';
+      if (i % 2 === 0) r.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F0F7FF" } }; });
+      grandTotal += data.total; grandCount += data.count; grandMembers += data.members;
+    });
+    const ft = fh + 1 + sortedCouncils.length;
+    const totalRow = s1.getRow(ft);
+    totalRow.values = ["", "TOTAL", grandTotal, grandCount, grandMembers, Math.round(grandTotal / Math.max(grandMembers, 1))];
+    totalRow.font = { bold: true, color: { argb: dark.replace("#", "") } };
+    totalRow.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E8EDF2" } }; });
+    totalRow.getCell(3).numFmt = '#,##0';
+    totalRow.getCell(6).numFmt = '#,##0';
+    addBorder(s1, fh, ft, 6);
+
+    // ── Sheet 2: Complete Donation Register ──
+    const s2 = wb.addWorksheet("Donation Register");
+    autoCols(s2, [4, 24, 14, 10, 10, 18, 16, 22, 16, 16, 16, 16]);
+    addTitleRow(s2, "COMPLETE DONATION REGISTER", "L", 1);
+    addSubtitleRow(s2, "All donations recorded — including pending and failed transactions", "L", 2);
+    s2.getRow(3).values = ["#", "Donor Name", "Amount (KES)", "Method", "Status", "Receipt Number", "Phone", "Message", "Church Member", "Fellowship", "Honoured Member", "Date"];
+    styleHeader(s2, s2.getRow(3));
 
     allDonationsList.forEach((d, i) => {
-      const r = sheet2.getRow(i + 2);
+      const r = s2.getRow(i + 4);
       const member = (d as any).church_members;
+      const honoured = (d as any).honoured;
       r.values = [
-        i + 1,
-        d.donor_name || "—",
-        Number(d.amount),
-        d.method || "—",
-        d.status || "—",
-        d.receipt_number || "—",
-        d.phone || "—",
-        d.message || "—",
-        member?.name || "—",
-        member?.council || "—",
+        i + 1, d.donor_name || "—", Number(d.amount), d.method || "—", d.status || "—",
+        d.receipt_number || "—", d.phone || "—", d.message || "—",
+        member?.name || "—", member?.council || d.church_member_id ? "—" : "Non-Member",
+        honoured?.name || "—",
         d.created_at ? new Date(d.created_at).toLocaleDateString("en-KE") : "—",
       ];
       r.getCell(3).numFmt = '#,##0';
-      if (d.status === "completed") r.getCell(4).font = { color: { argb: "059669" } };
-      else if (d.status === "failed") r.getCell(4).font = { color: { argb: "DC2626" } };
-      if (i % 2 === 0) r.eachCell(c => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F9FAFB" } }; });
+      if (d.status === "completed") r.getCell(5).font = { color: { argb: "059669" }, bold: true };
+      else if (d.status === "failed" || d.status === "cancelled") r.getCell(5).font = { color: { argb: "DC2626" }, bold: true };
+      else r.getCell(5).font = { color: { argb: "D97706" }, bold: true };
+      if (i % 2 === 0) r.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F9FAFB" } }; });
+    });
+    s2.views = [{ state: "frozen", ySplit: 3 }];
+
+    // ── Sheet 3: Per-Fellowship Detailed Breakdown ──
+    const s3 = wb.addWorksheet("Fellowship Details");
+    autoCols(s3, [4, 22, 22, 14, 16, 14, 16]);
+    addTitleRow(s3, "PER-FELLOWSHIP CONTRIBUTION DETAILS", "G", 1);
+    addSubtitleRow(s3, "Each fellowship's members and their individual contributions", "G", 2);
+
+    let s3row = 4;
+    const fellowshipGroups: Record<string, typeof memberData> = {};
+    for (const m of memberData || []) {
+      const c = m.council || "Unassigned";
+      if (!fellowshipGroups[c]) fellowshipGroups[c] = [];
+      fellowshipGroups[c].push(m);
+    }
+
+    const councilDonationMap2: Record<string, Record<string, { total: number; count: number }>> = {};
+    for (const d of completed) {
+      const dm = (d as any).church_members;
+      if (dm && dm.name && d.church_member_id) {
+        if (!councilDonationMap2[dm.council]) councilDonationMap2[dm.council] = {};
+        if (!councilDonationMap2[dm.council][dm.name]) councilDonationMap2[dm.council][dm.name] = { total: 0, count: 0 };
+        councilDonationMap2[dm.council][dm.name].total += Number(d.amount);
+        councilDonationMap2[dm.council][dm.name].count += 1;
+      }
+    }
+
+    Object.entries(fellowshipGroups).sort((a, b) => {
+      const aTotal = Object.values(councilDonationMap2[a[0]] || {}).reduce((s: number, v: any) => s + v.total, 0);
+      const bTotal = Object.values(councilDonationMap2[b[0]] || {}).reduce((s: number, v: any) => s + v.total, 0);
+      return bTotal - aTotal;
+    }).forEach(([council, members]) => {
+      const fTotal = Object.values(councilDonationMap2[council] || {}).reduce((s: number, v: any) => s + v.total, 0);
+      const fCount = Object.values(councilDonationMap2[council] || {}).reduce((s: number, v: any) => s + v.count, 0);
+
+      s3.mergeCells(`A${s3row}:G${s3row}`);
+      const hr = s3.getRow(s3row);
+      hr.getCell(1).value = `${council.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())} — Total: KES ${fTotal.toLocaleString("en-KE")} (${fCount} donations, ${members.length} members)`;
+      hr.font = { bold: true, size: 11, color: { argb: "FFFFFFFF" } };
+      hr.fill = { type: "pattern", pattern: "solid", fgColor: { argb: dark.replace("#", "") } };
+      hr.height = 22;
+      s3row++;
+
+      s3.getRow(s3row).values = ["#", "Member Name", "Total Donated (KES)", "Donations", "Top Donation (KES)", "Share of Fellowship", ""];
+      styleHeader(s3, s3.getRow(s3row));
+      s3row++;
+
+      const councilDonors = Object.entries(councilDonationMap2[council] || {}).sort((a, b) => b[1].total - a[1].total);
+      const topDonation = Math.max(...councilDonors.map(([, v]) => v.total), 0);
+
+      councilDonors.forEach(([name, data], i) => {
+        const r = s3.getRow(s3row);
+        const share = fTotal > 0 ? ((data.total / fTotal) * 100).toFixed(1) : "0.0";
+        r.values = [i + 1, name, data.total, data.count, data.total, `${share}%`, ""];
+        r.getCell(3).numFmt = '#,##0';
+        r.getCell(5).numFmt = '#,##0';
+        if (i % 2 === 0) r.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F0F7FF" } }; });
+        s3row++;
+      });
+
+      // Fellowship subtotal
+      const subR = s3.getRow(s3row);
+      subR.values = ["", "Fellowship Total", fTotal, fCount, "", "100.0%", ""];
+      subR.font = { bold: true };
+      subR.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E8EDF2" } }; });
+      subR.getCell(3).numFmt = '#,##0';
+      addBorder(s3, s3row - councilDonors.length - 1, s3row, 6);
+      s3row += 2;
     });
 
-    // ── Sheet 3: Honour Donations ──
-    const sheet3 = wb.addWorksheet("Honour Donations");
-    autoCols(sheet3, [4, 22, 22, 14, 16, 16]);
-    sheet3.getRow(1).values = ["#", "Honoured Member", "Donor Name", "Amount (KES)", "Receipt", "Date"];
-    styleHeader(sheet3, sheet3.getRow(1));
+    // ── Sheet 4: Honour Roll ──
+    const s4 = wb.addWorksheet("Honour Roll");
+    autoCols(s4, [4, 22, 22, 14, 16, 16, 16]);
+    addTitleRow(s4, "HONOUR DONATIONS — MEMBER RECOGNITION", "G", 1);
+    addSubtitleRow(s4, "Donations made in honour of church members", "G", 2);
+    s4.getRow(3).values = ["#", "Honoured Member", "Donor Name", "Amount (KES)", "Receipt", "Fellowship", "Date"];
+    styleHeader(s4, s4.getRow(3));
 
     const honourDonations = allDonationsList.filter(d => d.honored_member_id);
     honourDonations.forEach((d, i) => {
-      const r = sheet3.getRow(i + 2);
+      const r = s4.getRow(i + 4);
       const honouredName = (d as any).honoured?.name || "—";
+      const member = (d as any).church_members;
       r.values = [
-        i + 1,
-        honouredName,
-        d.donor_name || "—",
-        Number(d.amount),
-        d.receipt_number || "—",
+        i + 1, honouredName, d.donor_name || "—", Number(d.amount),
+        d.receipt_number || "—", member?.council || "—",
         d.created_at ? new Date(d.created_at).toLocaleDateString("en-KE") : "—",
       ];
       r.getCell(4).numFmt = '#,##0';
-      if (i % 2 === 0) r.eachCell(c => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FEF3C7" } }; });
+      if (i % 2 === 0) r.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FEF3C7" } }; });
     });
 
-    // ── Sheet 4: Pledges ──
-    const sheet4 = wb.addWorksheet("Pledges");
-    autoCols(sheet4, [4, 24, 14, 14, 14, 12, 14, 16]);
-    sheet4.getRow(1).values = ["#", "Donor Name", "Amount (KES)", "Paid (KES)", "Remaining (KES)", "Status", "Frequency", "Date"];
-    styleHeader(sheet4, sheet4.getRow(1));
+    // Honour roll summary
+    if (honourDonations.length > 0) {
+      const hrSum = s4.getRow(honourDonations.length + 5);
+      const hrTotal = honourDonations.reduce((s, d) => s + Number(d.amount), 0);
+      s4.mergeCells(`A${honourDonations.length + 5}:C${honourDonations.length + 5}`);
+      hrSum.getCell(1).value = "Total Honour Donations";
+      hrSum.getCell(4).value = hrTotal;
+      hrSum.getCell(4).numFmt = '#,##0';
+      hrSum.font = { bold: true, color: { argb: dark.replace("#", "") } };
+      hrSum.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FEF3C7" } }; });
+    }
+    s4.views = [{ state: "frozen", ySplit: 3 }];
+
+    // ── Sheet 5: Pledges & Fulfillment ──
+    const s5 = wb.addWorksheet("Pledges & Fulfillment");
+    autoCols(s5, [4, 24, 14, 14, 14, 12, 14, 16]);
+    addTitleRow(s5, "PLEDGES REGISTER & FULFILLMENT TRACKING", "H", 1);
+    addSubtitleRow(s5, "All pledges, payment progress, and fulfillment status", "H", 2);
+    s5.getRow(3).values = ["#", "Donor Name", "Amount (KES)", "Paid (KES)", "Remaining (KES)", "Status", "Frequency", "Date"];
+    styleHeader(s5, s5.getRow(3));
 
     (pledges || []).forEach((p, i) => {
-      const r = sheet4.getRow(i + 2);
+      const r = s5.getRow(i + 4);
       r.values = [
-        i + 1,
-        p.donor_name || "—",
-        Number(p.amount),
-        Number(p.paid),
-        Number(p.remaining),
-        p.status || "—",
-        p.reminder_freq || "—",
+        i + 1, p.donor_name || "—", Number(p.amount), Number(p.paid), Number(p.remaining),
+        p.status || "—", p.reminder_freq || "—",
         p.created_at ? new Date(p.created_at).toLocaleDateString("en-KE") : "—",
       ];
       r.getCell(3).numFmt = '#,##0';
       r.getCell(4).numFmt = '#,##0';
       r.getCell(5).numFmt = '#,##0';
       if (p.status === "fulfilled") r.getCell(6).font = { color: { argb: "059669" }, bold: true };
-      if (i % 2 === 0) r.eachCell(c => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F9FAFB" } }; });
+      else if (p.status === "active") r.getCell(6).font = { color: { argb: "2563EB" }, bold: true };
+      else r.getCell(6).font = { color: { argb: "D97706" }, bold: true };
+      if (i % 2 === 0) r.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F9FAFB" } }; });
     });
 
-    // ── Sheet 5: Members ──
-    const sheet5 = wb.addWorksheet("Members");
-    autoCols(sheet5, [4, 24, 16, 14, 14, 16]);
-    sheet5.getRow(1).values = ["#", "Name", "Fellowship", "Total Donated (KES)", "Donation Count", "Registered"];
-    styleHeader(sheet5, sheet5.getRow(1));
+    // Pledge summary
+    const pSumRow = (pledges?.length || 0) + 5;
+    s5.getRow(pSumRow).values = ["", "TOTAL", totalPledges, paidPledges, totalPledges - paidPledges, "", "", ""];
+    s5.getRow(pSumRow).font = { bold: true, color: { argb: dark.replace("#", "") } };
+    s5.getRow(pSumRow).eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E8EDF2" } }; });
+    s5.getRow(pSumRow).getCell(3).numFmt = '#,##0';
+    s5.getRow(pSumRow).getCell(4).numFmt = '#,##0';
+    s5.getRow(pSumRow).getCell(5).numFmt = '#,##0';
+    s5.views = [{ state: "frozen", ySplit: 3 }];
+
+    // ── Sheet 6: Member Directory ──
+    const s6 = wb.addWorksheet("Member Directory");
+    autoCols(s6, [4, 24, 20, 14, 14, 16]);
+    addTitleRow(s6, "CHURCH MEMBERSHIP DIRECTORY", "F", 1);
+    addSubtitleRow(s6, `All registered members across all fellowships (${memberCount} total)`, "F", 2);
+    s6.getRow(3).values = ["#", "Name", "Fellowship", "Total Donated (KES)", "Donation Count", "Registered"];
+    styleHeader(s6, s6.getRow(3));
 
     const memberDonationMap: Record<string, { total: number; count: number }> = {};
     for (const d of completed) {
@@ -561,51 +717,19 @@ contributionsRouter.get("/export/xlsx", requireAdmin, async (req, res) => {
     }
 
     const rankedMembers = (memberData || [])
-      .map(m => ({
-        ...m,
-        donated: memberDonationMap[m.id]?.total || 0,
-        donationCount: memberDonationMap[m.id]?.count || 0,
-      }))
+      .map(m => ({ ...m, donated: memberDonationMap[m.id]?.total || 0, donationCount: memberDonationMap[m.id]?.count || 0 }))
       .sort((a, b) => b.donated - a.donated);
 
     rankedMembers.forEach((m, i) => {
-      const r = sheet5.getRow(i + 2);
-      r.values = [i + 1, m.name, m.council || "—", m.donated, m.donationCount, m.created_at ? new Date(m.created_at).toLocaleDateString("en-KE") : "—"];
+      const r = s6.getRow(i + 4);
+      r.values = [i + 1, m.name, m.council ? m.council.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()) : "—", m.donated || 0, m.donationCount || 0, m.created_at ? new Date(m.created_at).toLocaleDateString("en-KE") : "—"];
       r.getCell(4).numFmt = '#,##0';
-      if (i % 2 === 0) r.eachCell(c => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F9FAFB" } }; });
+      if (i % 2 === 0) r.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F9FAFB" } }; });
     });
+    s6.views = [{ state: "frozen", ySplit: 3 }];
 
-    // ── Sheet 6: Fellowship Breakdown ──
-    const sheet6 = wb.addWorksheet("Fellowship Breakdown");
-    autoCols(sheet6, [4, 24, 16, 16, 16]);
-    sheet6.getRow(1).values = ["#", "Fellowship", "Total Raised (KES)", "Donation Count", "Members"];
-    styleHeader(sheet6, sheet6.getRow(1));
-
-    const councilDonationMap: Record<string, { total: number; count: number }> = {};
-    for (const d of completed) {
-      const member = (d as any).church_members;
-      const council = member?.council || "Unassigned";
-      if (!councilDonationMap[council]) councilDonationMap[council] = { total: 0, count: 0 };
-      councilDonationMap[council].total += Number(d.amount);
-      councilDonationMap[council].count += 1;
-    }
-
-    const councilMemberCount: Record<string, number> = {};
-    for (const m of memberData || []) {
-      const council = m.council || "Unassigned";
-      councilMemberCount[council] = (councilMemberCount[council] || 0) + 1;
-    }
-
-    const allCouncils = new Set([...Object.keys(councilDonationMap), ...Object.keys(councilMemberCount), ...(councilData || []).map(c => c.slug)]);
-    Array.from(allCouncils).sort().forEach((council, i) => {
-      const r = sheet6.getRow(i + 2);
-      r.values = [i + 1, council, councilDonationMap[council]?.total || 0, councilDonationMap[council]?.count || 0, councilMemberCount[council] || 0];
-      r.getCell(3).numFmt = '#,##0';
-      if (i % 2 === 0) r.eachCell(c => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F9FAFB" } }; });
-    });
-
-    // Freeze panes on data sheets
-    [sheet2, sheet3, sheet4, sheet5, sheet6].forEach(s => { s.views = [{ state: "frozen", ySplit: 1 }]; });
+    // Freeze panes (sheets without titles)
+    [s3].forEach(s => { s.views = [{ state: "frozen", ySplit: 2 }]; });
 
     const buf = await wb.xlsx.writeBuffer();
 

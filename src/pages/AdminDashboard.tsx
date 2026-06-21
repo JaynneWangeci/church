@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   TrendingUp, Users, DollarSign, Clock, AlertCircle,
-  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileText, Presentation, FileSpreadsheet, Search, ScanSearch, ArrowUpRight, ArrowDownRight, PieChart, Target,
+  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileSpreadsheet, Search, ScanSearch, ArrowUpRight, ArrowDownRight, PieChart, Target,
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePie, Pie, Cell, Legend,
@@ -28,7 +28,6 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [logs, setLogs] = useState<unknown[]>([]);
   const [loading, setLoading] = useState(true);
-  const [exportOpen, setExportOpen] = useState(false);
   const [tab, setTab] = useState<"overview" | "members" | "admins" | "analytics" | "council" | "pledges">("overview");
   const [churchMembers, setChurchMembers] = useState<ChurchMember[]>([]);
   const [newName, setNewName] = useState("");
@@ -87,7 +86,6 @@ export default function AdminDashboard() {
   const [editComCouncil, setEditComCouncil] = useState("");
   const [editComOrder, setEditComOrder] = useState("0");
   const [exporting, setExporting] = useState<string | null>(null);
-  const exportRef = useRef<HTMLDivElement>(null);
   const [pledges, setPledges] = useState<any[]>([]);
   const [editingPledge, setEditingPledge] = useState<string | null>(null);
   const [editPledgeAmount, setEditPledgeAmount] = useState("");
@@ -219,31 +217,13 @@ export default function AdminDashboard() {
     loadHarambee();
   }, [admin, fetchStats, fetchLogs, fetchMembers, fetchAdmins, fetchAnalytics, fetchCommittee, fetchPledges, loadCouncils, loadHarambee]);
 
+  // Live audit log polling
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
-        setExportOpen(false);
-      }
-    }
-    if (exportOpen) document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [exportOpen]);
-
-  async function downloadExport(format: string) {
-    const token = localStorage.getItem("token");
-    const url = format === "csv" ? "/api/ledger/export" : format === "pdf" ? "/api/contributions/export/pdf" : `/api/export/${format}`;
-    try {
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) return;
-      const blob = await res.blob();
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `harambee-report.${format}`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    } catch {}
-    setExportOpen(false);
-  }
+    if (admin?.role !== "super_admin") return;
+    fetchLogs();
+    const interval = setInterval(fetchLogs, 15000);
+    return () => clearInterval(interval);
+  }, [admin?.role, fetchLogs]);
 
   async function addMember(e: React.FormEvent) {
     e.preventDefault();
@@ -581,18 +561,22 @@ export default function AdminDashboard() {
               <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-sm font-bold text-ink">Recent Donations</h2>
-                  <div className="relative" ref={exportRef}>
-                    <button onClick={() => setExportOpen(!exportOpen)} className="flex items-center gap-1 text-xs text-muted hover:text-nobuk">
-                      <Download size={12} /> Export
-                    </button>
-                    {exportOpen && (
-                      <div className="absolute right-0 top-full z-50 mt-1 w-36 rounded-lg border border-gray-100 bg-white py-1 shadow-lg">
-                        <button onClick={() => downloadExport("csv")} className="flex w-full items-center gap-2 px-3 py-2 text-xs text-ink hover:bg-cream">
-                          <Download size={14} /> CSV
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  <button onClick={async () => {
+                    setExporting("xlsx");
+                    try {
+                      const res = await fetch("/api/contributions/export/xlsx", { headers: { Authorization: `Bearer ${token}` } });
+                      if (!res.ok) return;
+                      const blob = await res.blob();
+                      const a = document.createElement("a");
+                      a.href = URL.createObjectURL(blob);
+                      a.download = `harambee-report-${new Date().toISOString().slice(0, 10)}.xlsx`;
+                      a.click();
+                      URL.revokeObjectURL(a.href);
+                    } catch {}
+                    setExporting(null);
+                  }} disabled={exporting === "xlsx"} className="flex items-center gap-1 text-xs text-muted hover:text-nobuk disabled:opacity-40">
+                    <Download size={12} /> {exporting === "xlsx" ? "..." : "Export XLSX"}
+                  </button>
                 </div>
                 {stats?.recent_donations?.length ? (
                   <div className="space-y-2">
@@ -1659,40 +1643,6 @@ export default function AdminDashboard() {
                     ))}
                   </div>
                   <button onClick={async () => {
-                    setExporting("pdf");
-                    try {
-                      const res = await fetch("/api/contributions/export/pdf", { headers: { Authorization: `Bearer ${token}` } });
-                      if (!res.ok) return;
-                      const blob = await res.blob();
-                      const a = document.createElement("a");
-                      a.href = URL.createObjectURL(blob);
-                      a.download = `harambee-report-${new Date().toISOString().slice(0, 10)}.pdf`;
-                      a.click();
-                      URL.revokeObjectURL(a.href);
-                    } catch {}
-                    setExporting(null);
-                  }} disabled={exporting === "pdf"}
-                    className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-muted hover:bg-cream disabled:opacity-40">
-                    <FileText size={14} /> {exporting === "pdf" ? "..." : "PDF"}
-                  </button>
-                  <button onClick={async () => {
-                    setExporting("ppt");
-                    try {
-                      const res = await fetch("/api/contributions/export/ppt", { headers: { Authorization: `Bearer ${token}` } });
-                      if (!res.ok) return;
-                      const blob = await res.blob();
-                      const a = document.createElement("a");
-                      a.href = URL.createObjectURL(blob);
-                      a.download = `harambee-report-${new Date().toISOString().slice(0, 10)}.pptx`;
-                      a.click();
-                      URL.revokeObjectURL(a.href);
-                    } catch {}
-                    setExporting(null);
-                  }} disabled={exporting === "ppt"}
-                    className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-muted hover:bg-cream disabled:opacity-40">
-                    <Presentation size={14} /> {exporting === "ppt" ? "..." : "PPT"}
-                  </button>
-                  <button onClick={async () => {
                     setExporting("xlsx");
                     try {
                       const res = await fetch("/api/contributions/export/xlsx", { headers: { Authorization: `Bearer ${token}` } });
@@ -1707,7 +1657,7 @@ export default function AdminDashboard() {
                     setExporting(null);
                   }} disabled={exporting === "xlsx"}
                     className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-muted hover:bg-cream disabled:opacity-40">
-                    <FileSpreadsheet size={14} /> {exporting === "xlsx" ? "..." : "XLSX"}
+                    <FileSpreadsheet size={14} /> {exporting === "xlsx" ? "..." : "Excel Report"}
                   </button>
                 </div>
               </div>
