@@ -60,6 +60,14 @@ export default function PledgeBoard() {
   const [commitLoading, setCommitLoading] = useState(false);
   const [payError, setPayError] = useState('');
 
+  // Adjust pledge state
+  const [adjustingId, setAdjustingId] = useState<string | null>(null);
+  const [adjustPhone, setAdjustPhone] = useState('');
+  const [adjustPhoneVerified, setAdjustPhoneVerified] = useState(false);
+  const [adjustNewAmount, setAdjustNewAmount] = useState('');
+  const [adjustError, setAdjustError] = useState('');
+  const [adjustVerifying, setAdjustVerifying] = useState(false);
+
   // Member dropdown shared state
   const [members, setMembers] = useState<Member[]>([]);
   const trackDropdownRef = useRef<HTMLDivElement>(null);
@@ -156,6 +164,42 @@ export default function PledgeBoard() {
       return;
     }
     setPayingId(null); setPayAmount(''); setPayReceipt('');
+    handleCommitSearch();
+  }
+
+  async function handleVerifyPhone(pledgeId: string) {
+    setAdjustError('');
+    if (!adjustPhone.trim()) { setAdjustError('Enter your phone number'); return; }
+    setAdjustVerifying(true);
+    const res = await fetch(`/api/pledges/${pledgeId}/verify-phone`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: adjustPhone.trim() }),
+    });
+    const data = await res.json().catch(() => ({ verified: false }));
+    if (data.verified) {
+      setAdjustPhoneVerified(true);
+    } else {
+      setAdjustError('Phone number does not match. Use the number you entered when making this pledge.');
+    }
+    setAdjustVerifying(false);
+  }
+
+  async function handleAdjustPledge(pledgeId: string) {
+    setAdjustError('');
+    const amt = Number(adjustNewAmount);
+    if (!adjustNewAmount || amt < 10) { setAdjustError('Minimum pledge is KES 10'); return; }
+    const res = await fetch(`/api/pledges/${pledgeId}/adjust`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: adjustPhone.trim(), new_amount: amt }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Failed to adjust' }));
+      setAdjustError(err.error || 'Failed to adjust pledge');
+      return;
+    }
+    setAdjustingId(null); setAdjustPhone(''); setAdjustPhoneVerified(false); setAdjustNewAmount('');
     handleCommitSearch();
   }
 
@@ -342,6 +386,54 @@ export default function PledgeBoard() {
                           )}
                         </>
                       )}
+
+                      {/*
+                        ── Adjust Pledge ──
+                      */}
+                      <div className="mt-2 border-t border-gray-200 pt-2">
+                        {adjustingId !== p.id ? (
+                          <button onClick={() => { setAdjustingId(p.id); setAdjustPhone(''); setAdjustPhoneVerified(false); setAdjustNewAmount(''); setAdjustError(''); }}
+                            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold">
+                            {t('Adjust Pledge', 'Badilisha Ahadi')}
+                          </button>
+                        ) : (
+                          <div className="space-y-2">
+                            {!adjustPhoneVerified ? (
+                              <>
+                                <label className="text-xs font-semibold text-gray-700">{t('Verify your phone number', 'Thibitisha nambari yako')}</label>
+                                <div className="flex gap-2">
+                                  <input type="tel" value={adjustPhone} onChange={e => setAdjustPhone(e.target.value)}
+                                    placeholder={t('Phone used when pledging', 'Nambari uliyotumia kuweka ahadi')}
+                                    className="flex-1 rounded-lg border border-blue-200 px-3 py-2 text-xs outline-none focus:border-blue-500" />
+                                  <button onClick={() => handleVerifyPhone(p.id)} disabled={adjustVerifying}
+                                    className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">
+                                    {adjustVerifying ? '...' : t('Verify', 'Thibitisha')}
+                                  </button>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-xs text-green-700 font-semibold">✓ {t('Phone verified', 'Nambari imethibitishwa')}</p>
+                                <label className="text-xs font-semibold text-gray-700">{t('New Pledge Amount (KES)', 'Kiasi Kipya cha Ahadi (KES)')}</label>
+                                <input type="number" value={adjustNewAmount} onChange={e => setAdjustNewAmount(e.target.value)}
+                                  placeholder={String(p.amount)}
+                                  className="w-full rounded-lg border border-blue-200 px-3 py-2 text-xs outline-none focus:border-blue-500" />
+                                <div className="flex gap-2">
+                                  <button onClick={() => handleAdjustPledge(p.id)}
+                                    className="flex-1 rounded-lg bg-blue-600 py-2 text-xs font-bold text-white hover:bg-blue-700">
+                                    {t('Save Changes', 'Hifadhi Mabadiliko')}
+                                  </button>
+                                  <button onClick={() => { setAdjustingId(null); setAdjustPhoneVerified(false); }}
+                                    className="rounded-lg border border-gray-200 px-4 py-2 text-xs text-gray-600 hover:bg-gray-100">
+                                    <X size={14} className="inline" />
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                            {adjustError && <p className="text-xs text-red-600 font-medium">{adjustError}</p>}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 }) : (

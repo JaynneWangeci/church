@@ -146,6 +146,71 @@ pledgesRouter.get("/search/name", async (req, res) => {
   }
 });
 
+pledgesRouter.post("/:id/verify-phone", async (req, res) => {
+  try {
+    const db = requireService();
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ error: "phone required" });
+
+    const { data: pledge, error } = await db
+      .from("pledges")
+      .select("id, donor_name, whatsapp_number, phone")
+      .eq("id", req.params.id)
+      .single();
+
+    if (error || !pledge) return res.status(404).json({ error: "Pledge not found" });
+
+    const cleanStored = (pledge.whatsapp_number || pledge.phone || "").replace(/[^0-9]/g, "");
+    const cleanInput = phone.replace(/[^0-9]/g, "");
+
+    if (!cleanStored) {
+      return res.status(400).json({ verified: false, error: "No phone number on record. Contact admin to adjust." });
+    }
+
+    const verified = cleanStored === cleanInput;
+    res.json({ verified, donor_name: pledge.donor_name });
+  } catch (err) {
+    console.error("verify phone error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+pledgesRouter.post("/:id/adjust", async (req, res) => {
+  try {
+    const db = requireService();
+    const { phone, new_amount } = req.body;
+    if (!phone || !new_amount) return res.status(400).json({ error: "phone and new_amount required" });
+
+    const { data: pledge } = await db.from("pledges").select("*").eq("id", req.params.id).single();
+    if (!pledge) return res.status(404).json({ error: "Pledge not found" });
+
+    const cleanStored = (pledge.whatsapp_number || pledge.phone || "").replace(/[^0-9]/g, "");
+    const cleanInput = phone.replace(/[^0-9]/g, "");
+    if (!cleanStored) return res.status(400).json({ error: "No phone number on record. Contact admin to adjust." });
+    if (cleanStored !== cleanInput) return res.status(403).json({ error: "Phone verification failed" });
+
+    const newAmount = Number(new_amount);
+    if (newAmount < 10) return res.status(400).json({ error: "Minimum pledge is KES 10" });
+    if (newAmount < Number(pledge.paid)) return res.status(400).json({ error: "New amount cannot be less than already paid" });
+
+    const newRemaining = Math.max(0, newAmount - Number(pledge.paid));
+    const newStatus = newRemaining <= 0 ? "fulfilled" : "pending";
+
+    const { data, error } = await db
+      .from("pledges")
+      .update({ amount: newAmount, remaining: newRemaining, status: newStatus })
+      .eq("id", req.params.id)
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ pledge: data });
+  } catch (err) {
+    console.error("pledge adjust error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 pledgesRouter.patch("/:id", requireAdmin, async (req, res) => {
   try {
     const db = requireService();
