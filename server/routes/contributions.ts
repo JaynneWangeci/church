@@ -379,11 +379,6 @@ contributionsRouter.get("/export/xlsx", requireAdmin, async (req, res) => {
       .eq("status", "completed")
       .order("created_at", { ascending: false });
 
-    const { data: allDonations } = await db
-      .from("donations")
-      .select("id, donor_name, amount, method, status, receipt_number, phone, message, created_at, honored_member_id, church_member_id, church_members!church_member_id(name, council), honoured:church_members!honored_member_id(name, council)")
-      .order("created_at", { ascending: false });
-
     const { data: pledges } = await db
       .from("pledges")
       .select("*")
@@ -425,9 +420,6 @@ contributionsRouter.get("/export/xlsx", requireAdmin, async (req, res) => {
     const totalPledges = (pledges || []).reduce((s, p) => s + Number(p.amount), 0);
     const paidPledges = (pledges || []).reduce((s, p) => s + Number(p.paid), 0);
     const memberCount = (memberData || []).length;
-    const allDonationsList = allDonations || [];
-    const pendingCount = allDonationsList.filter(d => d.status === "pending").length;
-    const failedCount = allDonationsList.filter(d => d.status === "failed").length;
 
     // ── Helper: styled header row ──
     function addTitleRow(ws: ExcelJS.Worksheet, text: string, mergeTo: string, rowNum: number) {
@@ -469,12 +461,12 @@ contributionsRouter.get("/export/xlsx", requireAdmin, async (req, res) => {
     s1.getRow(mRow).font = { bold: true, size: 11, color: { argb: dark.replace("#", "") } };
 
     const metrics = [
-      ["Total Completed Donations", `KES ${totalRaised.toLocaleString("en-KE")}`, "Total Transactions", donationCount.toString()],
-      ["Average Gift Size", `KES ${avgGift.toLocaleString("en-KE")}`, "Pending Transactions", pendingCount.toString()],
-      ["Total Pledged Amount", `KES ${totalPledges.toLocaleString("en-KE")}`, "Pledge Fulfillment Rate", `${totalPledges > 0 ? ((paidPledges / totalPledges) * 100).toFixed(1) : "0.0"}%`],
-      ["Amount Paid on Pledges", `KES ${paidPledges.toLocaleString("en-KE")}`, "Outstanding Pledges", `KES ${(totalPledges - paidPledges).toLocaleString("en-KE")}`],
-      ["Registered Church Members", memberCount.toString(), "Failed Transactions", failedCount.toString()],
-      ["Active Fellowships", (councilData || []).length.toString(), "Report Coverage", `${donationCount} donations from ${memberCount} members`],
+      ["Total Raised", `KES ${totalRaised.toLocaleString("en-KE")}`, "Total Transactions", donationCount.toString()],
+      ["Average Gift", `KES ${avgGift.toLocaleString("en-KE")}`, "Unique Donors", new Set(completed.map(d => d.donor_name).filter(Boolean)).size.toString()],
+      ["Total Pledged", `KES ${totalPledges.toLocaleString("en-KE")}`, "Pledge Fulfillment", `${totalPledges > 0 ? ((paidPledges / totalPledges) * 100).toFixed(1) : "0.0"}%`],
+      ["Paid on Pledges", `KES ${paidPledges.toLocaleString("en-KE")}`, "Outstanding Pledges", `KES ${(totalPledges - paidPledges).toLocaleString("en-KE")}`],
+      ["Church Members", memberCount.toString(), "Active Fellowships", (councilData || []).length.toString()],
+      ["Donation Period", `${completed.length > 0 ? new Date(completed[completed.length-1].created_at).toLocaleDateString("en-KE") : "—"} – ${completed.length > 0 ? new Date(completed[0].created_at).toLocaleDateString("en-KE") : "—"}`, "Report Coverage", `${donationCount} donations`],
     ];
 
     let sr = 5;
@@ -533,29 +525,26 @@ contributionsRouter.get("/export/xlsx", requireAdmin, async (req, res) => {
     totalRow.getCell(6).numFmt = '#,##0';
     addBorder(s1, fh, ft, 6);
 
-    // ── Sheet 2: Complete Donation Register ──
+    // ── Sheet 2: Donation Register (completed only) ──
     const s2 = wb.addWorksheet("Donation Register");
-    autoCols(s2, [4, 24, 14, 10, 10, 18, 16, 22, 16, 16, 16, 16]);
-    addTitleRow(s2, "COMPLETE DONATION REGISTER", "L", 1);
-    addSubtitleRow(s2, "All donations recorded — including pending and failed transactions", "L", 2);
-    s2.getRow(3).values = ["#", "Donor Name", "Amount (KES)", "Method", "Status", "Receipt Number", "Phone", "Message", "Church Member", "Fellowship", "Honoured Member", "Date"];
+    autoCols(s2, [4, 24, 14, 10, 18, 18, 22, 16, 16, 16]);
+    addTitleRow(s2, "COMPLETED DONATION REGISTER", "J", 1);
+    addSubtitleRow(s2, `All ${donationCount} completed transactions`, "J", 2);
+    s2.getRow(3).values = ["#", "Donor Name", "Amount (KES)", "Method", "Receipt Number", "Phone", "Church Member", "Fellowship", "Honoured Member", "Date"];
     styleHeader(s2, s2.getRow(3));
 
-    allDonationsList.forEach((d, i) => {
+    completed.forEach((d, i) => {
       const r = s2.getRow(i + 4);
       const member = (d as any).church_members;
       const honoured = (d as any).honoured;
       r.values = [
-        i + 1, d.donor_name || "—", Number(d.amount), d.method || "—", d.status || "—",
-        d.receipt_number || "—", d.phone || "—", d.message || "—",
+        i + 1, d.donor_name || "—", Number(d.amount), d.method || "—",
+        d.receipt_number || "—", d.phone || "—",
         member?.name || "—", member?.council || d.church_member_id ? "—" : "Non-Member",
         honoured?.name || "—",
         d.created_at ? new Date(d.created_at).toLocaleDateString("en-KE") : "—",
       ];
       r.getCell(3).numFmt = '#,##0';
-      if (d.status === "completed") r.getCell(5).font = { color: { argb: "059669" }, bold: true };
-      else if (d.status === "failed" || d.status === "cancelled") r.getCell(5).font = { color: { argb: "DC2626" }, bold: true };
-      else r.getCell(5).font = { color: { argb: "D97706" }, bold: true };
       if (i % 2 === 0) r.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F9FAFB" } }; });
     });
     s2.views = [{ state: "frozen", ySplit: 3 }];
@@ -628,32 +617,30 @@ contributionsRouter.get("/export/xlsx", requireAdmin, async (req, res) => {
       s3row += 2;
     });
 
-    // ── Sheet 4: Honour Roll (cumulative per honoured member) ──
+    // ── Sheet 4: Honour Roll (cumulative per honoured member + donor names) ──
     const s4 = wb.addWorksheet("Honour Roll");
-    autoCols(s4, [4, 22, 18, 14, 14, 14, 22]);
-    addTitleRow(s4, "HONOUR ROLL — MEMBER RECOGNITION (CUMULATIVE)", "G", 1);
-    addSubtitleRow(s4, "Total honour donations received per member, sorted by amount", "G", 2);
-    s4.getRow(3).values = ["#", "Honoured Member", "Fellowship", "Total Received (KES)", "Times Honoured", "Avg Honour (KES)", "Last Honour Date"];
+    autoCols(s4, [4, 22, 18, 14, 14, 14, 28, 22]);
+    addTitleRow(s4, "HONOUR ROLL — MEMBER RECOGNITION", "H", 1);
+    addSubtitleRow(s4, "Total honour donations received per member, with donor names", "H", 2);
+    s4.getRow(3).values = ["#", "Honoured Member", "Fellowship", "Total Received (KES)", "Times Honoured", "Avg Honour (KES)", "Donors", "Last Honour Date"];
     styleHeader(s4, s4.getRow(3));
 
     // Aggregate honour donations by honoured member (completed only)
-    const honourByMember: Record<string, { name: string; council: string; total: number; count: number; lastDate: string }> = {};
-    for (const d of allDonationsList) {
-      if (d.honored_member_id && d.status === "completed") {
+    const honourByMember: Record<string, { name: string; council: string; total: number; count: number; donors: Set<string>; lastDate: string }> = {};
+    for (const d of completed) {
+      if (d.honored_member_id) {
         const honoured = (d as any).honoured;
         const key = d.honored_member_id;
         if (!honourByMember[key]) {
-          honourByMember[key] = { name: honoured?.name || "Unknown", council: honoured?.council || "—", total: 0, count: 0, lastDate: "" };
+          honourByMember[key] = { name: honoured?.name || "Unknown", council: honoured?.council || "—", total: 0, count: 0, donors: new Set(), lastDate: "" };
         }
         honourByMember[key].total += Number(d.amount);
         honourByMember[key].count += 1;
+        if (d.donor_name) honourByMember[key].donors.add(d.donor_name);
         const dDate = d.created_at ? new Date(d.created_at).toLocaleDateString("en-KE") : "";
         if (dDate > honourByMember[key].lastDate) honourByMember[key].lastDate = dDate;
       }
     }
-
-    // Also include honoured members who exist in the database but have no donations yet
-    if (honourByMember) {} // use existing
 
     const sortedHonour = Object.entries(honourByMember).sort((a, b) => b[1].total - a[1].total);
     let s4row = 4;
@@ -661,7 +648,8 @@ contributionsRouter.get("/export/xlsx", requireAdmin, async (req, res) => {
 
     sortedHonour.forEach(([, data], i) => {
       const r = s4.getRow(s4row);
-      r.values = [i + 1, data.name, data.council, data.total, data.count, data.count > 0 ? Math.round(data.total / data.count) : 0, data.lastDate || "—"];
+      const donorList = Array.from(data.donors).join(", ") || "—";
+      r.values = [i + 1, data.name, data.council, data.total, data.count, data.count > 0 ? Math.round(data.total / data.count) : 0, donorList, data.lastDate || "—"];
       r.getCell(4).numFmt = '#,##0';
       r.getCell(6).numFmt = '#,##0';
       if (i % 2 === 0) r.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FEF3C7" } }; });
@@ -670,18 +658,17 @@ contributionsRouter.get("/export/xlsx", requireAdmin, async (req, res) => {
       s4row++;
     });
 
-    // Honour roll grand total
     if (sortedHonour.length > 0) {
       const hrTotalRow = s4.getRow(s4row);
-      hrTotalRow.values = ["", "GRAND TOTAL", "", grandHonourTotal, grandHonourCount, Math.round(grandHonourTotal / Math.max(grandHonourCount, 1)), ""];
+      hrTotalRow.values = ["", "GRAND TOTAL", "", grandHonourTotal, grandHonourCount, Math.round(grandHonourTotal / Math.max(grandHonourCount, 1)), "", ""];
       hrTotalRow.font = { bold: true, color: { argb: dark.replace("#", "") } };
       hrTotalRow.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FEF3C7" } }; });
       hrTotalRow.getCell(4).numFmt = '#,##0';
       hrTotalRow.getCell(6).numFmt = '#,##0';
-      addBorder(s4, 3, s4row, 7);
+      addBorder(s4, 3, s4row, 8);
     } else {
-      s4.getRow(4).values = ["", "No honour donations recorded yet", "", "", "", "", ""];
-      s4.mergeCells(`B4:F4`);
+      s4.getRow(4).values = ["", "No honour donations recorded yet", "", "", "", "", "", ""];
+      s4.mergeCells(`B4:G4`);
     }
     s4.views = [{ state: "frozen", ySplit: 3 }];
 
