@@ -136,17 +136,26 @@ c2bRouter.post("/register", async (_req, res) => {
       ValidationURL: VALIDATION_URL,
     };
 
-    const regRes = await fetch(`${BASE_URL}/mpesa/c2b/v1/registerurl`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
+    // Try v2 first (modern Safaricom), fall back to v1
+    let lastErr: any;
+    for (const ver of ["v2", "v1"]) {
+      const regRes = await fetch(`${BASE_URL}/mpesa/c2b/${ver}/registerurl`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = await regRes.json();
+      if (String(data.ResponseCode) === "0" || String(data.errorCode) !== "401.003.01") {
+        return res.json(data);
+      }
+      lastErr = data;
+    }
 
-    const data = await regRes.json();
-    res.json(data);
+    console.error("c2b register failed on v2 and v1:", lastErr);
+    res.status(400).json(lastErr);
   } catch (err) {
     console.error("c2b register error:", err);
     res.status(500).json({ error: "C2B registration failed" });
