@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
 import { sendWhatsApp } from "../lib/twilio.js";
+import { requireAdmin } from "../lib/admin.js";
 
 export const mpesaRouter = Router();
 
@@ -332,5 +333,133 @@ mpesaRouter.get("/status/:checkoutRequestId", async (req, res) => {
   } catch (err) {
     console.error("mpesa status error:", err);
     res.status(500).json({ error: "Query failed" });
+  }
+});
+
+// ── C2B (Paybill direct) – Validation: accept all transactions ──
+mpesaRouter.post("/c2b/validation", async (_req, res) => {
+  res.json({ ResultCode: 0, ResultDesc: "Accepted" });
+});
+
+// ── C2B (Paybill direct) – Confirmation: record donation ──
+mpesaRouter.post("/c2b/confirmation", async (req, res) => {
+  try {
+    const body = req.body;
+    // Always acknowledge first to prevent Safaricom timeouts
+    res.status(200).json({ ResultCode: 0, ResultDesc: "Success" });
+
+    const donorName = (body.BillRefNumber || "").trim();
+    if (!donorName || donorName.length < 2) {
+      console.log("C2B skipped: no BillRefNumber (donor name)");
+      return;
+    }
+
+    const amount = Number(body.TransAmount) || 0;
+    if (amount < 10) {
+      console.log("C2B skipped: amount too small", amount);
+      return;
+    }
+
+    const phone = String(body.MSISDN || "");
+    const receiptNumber = String(body.TransID || "");
+    const db = requireService();
+
+    // Resolve or auto-create member from BillRefNumber
+    const { data: existing } = await db
+      .from("church_members")
+      .select("id, name, council")
+      .eq("is_active", true)
+      .ilike("name", donorName);
+
+    let memberId: string | null = existing?.[0]?.id || null;
+    if (!memberId) {
+      const { data: newMember, error: createErr } = await db
+        .from("church_members")
+        .insert({ name: donorName, council: "general_member" })
+        .select()
+        .single();
+      if (!createErr && newMember) {
+        memberId = newMember.id;
+        console.log("C2B: created member", donorName, memberId);
+      }
+    }
+
+    // Find campaign
+    const { data: campaign } = await db
+      .from("campaigns")
+      .select("id")
+      .eq("slug", "development-fund")
+      .single();
+
+    // Create donation
+    const { data: donation, error: donErr } = await db
+      .from("donations")
+      .insert({
+        donor_name: donorName,
+        amount,
+        phone,
+        status: "completed",
+        method: "mpesa",
+        receipt_number: receiptNumber,
+        church_member_id: memberId,
+        campaign_id: campaign?.id,
+        account_reference: "C2B:" + receiptNumber,
+        transaction_desc: "Paybill Direct",
+      })
+      .select()
+      .single();
+
+    if (donErr) {
+      console.error("C2B: failed to create donation", donErr);
+      return;
+    }
+
+    // Increment campaign total
+    if (campaign?.id) {
+      await db.rpc("increment_campaign_raised", {
+        campaign_id: campaign.id,
+        amount,
+      }).catch(() => {});
+    }
+
+    // WhatsApp confirmation
+    if (phone) {
+      whatsAppConfirmation({ ...donation, receipt_number: receiptNumber });
+    }
+
+    console.log("C2B: recorded donation", donorName, amount, receiptNumber);
+  } catch (err) {
+    console.error("C2B confirmation error:", err);
+  }
+});
+
+// ── C2B URL registration with Safaricom (admin only) ──
+mpesaRouter.post("/c2b/register", requireAdmin, async (_req, res) => {
+  try {
+    const accessToken = await getAccessToken();
+    const baseUrl = CALLBACK_URL.replace(/\/callback\/?$/, "").replace(/\/?$/, "");
+
+    const payload = {
+      ShortCode: SHORTCODE,
+      ResponseType: "Completed",
+      ConfirmationURL: `${baseUrl}/c2b/confirmation`,
+      ValidationURL: `${baseUrl}/c2b/validation`,
+    };
+
+    const regRes = await fetch(`${BASE_URL}/mpesa/c2b/v2/register`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await regRes.json();
+    console.log("C2B register response:", JSON.stringify(data));
+    res.json(data);
+  } catch (err: any) {
+    console.error("C2B register error:", err);
+    res.status(500).json({ error: err?.message || "C2B registration failed" });
   }
 });
