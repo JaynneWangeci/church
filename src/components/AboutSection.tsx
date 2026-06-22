@@ -32,7 +32,7 @@ export default function AboutSection() {
   const [typingDone, setTypingDone] = useState(false);
   const [cardPhase, setCardPhase] = useState<'enter' | 'typing' | 'read' | 'exit'>('enter');
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const TYPING_SPEED = 35;
+  const TYPING_SPEED = 20;
   const READ_DURATION = 55000;
 
   const cards = useMemo(() => [
