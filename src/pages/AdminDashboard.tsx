@@ -324,7 +324,9 @@ export default function AdminDashboard() {
     });
     const data = await res.json();
     if (res.ok) {
-      setBulkEditResult(`${data.updated} of ${data.total} members updated.`);
+      let msg = `${data.updated} of ${data.total} members updated.`;
+      if (data.missing?.length) msg += `\nNot found: ${data.missing.join(", ")}`;
+      setBulkEditResult(msg);
       setBulkEditNames("");
       const lower = new Set(names.map(n => n.trim().toLowerCase()));
       setChurchMembers(prev => prev.map(m => lower.has(m.name.trim().toLowerCase()) ? { ...m, council: bulkEditCouncil, gender: bulkEditGender || m.gender } : m));

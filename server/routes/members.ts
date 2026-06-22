@@ -209,20 +209,35 @@ membersRouter.post("/bulk-edit", requireAdmin, requireAdminOrAbove, async (req, 
     if (!Array.isArray(names) || !names.length) return res.status(400).json({ error: "Provide at least one name" });
     if (!council) council = "general_member";
 
-    names = names.map((n: string) => n.trim().toLowerCase()).filter(Boolean);
+    names = names.map((n: string) => n.trim()).filter(Boolean);
 
-    const { data: all } = await db.from("church_members").select("id, name").eq("is_active", true);
+    const { data: all, error: fetchErr } = await db.from("church_members").select("id, name").eq("is_active", true);
+    if (fetchErr) return res.status(500).json({ error: "Failed to fetch members: " + fetchErr.message });
+
     const nameToId = new Map<string, string>();
     if (all) for (const m of all) nameToId.set(m.name.trim().toLowerCase(), m.id);
 
-    const ids = names.map(n => nameToId.get(n)).filter(Boolean) as string[];
-    if (!ids.length) return res.json({ ok: true, updated: 0, total: names.length });
+    const foundIds: string[] = [];
+    const missing: string[] = [];
+    for (const n of names) {
+      const key = n.toLowerCase();
+      let id = nameToId.get(key);
+      if (id) { foundIds.push(id); continue; }
+      // fallback: ilike for names with slight differences
+      const { data: match } = await db.from("church_members").select("id").eq("is_active", true).ilike("name", n).maybeSingle();
+      if (match) { foundIds.push(match.id); nameToId.set(key, match.id); }
+      else missing.push(n);
+    }
 
-    const updates: Record<string, unknown> = { council };
-    if (gender === "male" || gender === "female") updates.gender = gender;
-    const { error } = await db.from("church_members").update(updates).in("id", ids);
+    let updated = 0;
+    if (foundIds.length) {
+      const updates: Record<string, unknown> = { council };
+      if (gender === "male" || gender === "female") updates.gender = gender;
+      const { error: updErr } = await db.from("church_members").update(updates).in("id", foundIds);
+      if (updErr) return res.status(500).json({ error: updErr.message });
+      updated = foundIds.length;
+    }
 
-    const updated = error ? 0 : ids.length;
     const admin = (req as any).admin;
     await logAudit({
       adminId: admin.id,
@@ -232,7 +247,9 @@ membersRouter.post("/bulk-edit", requireAdmin, requireAdminOrAbove, async (req, 
       ipAddress: (req as any).adminIp,
     });
 
-    res.json({ ok: true, updated, total: names.length });
+    let msg = `${updated} of ${names.length} members updated.`;
+    if (missing.length) msg += ` Not found: ${missing.join(", ")}`;
+    res.json({ ok: true, updated, total: names.length, message: msg, missing });
   } catch (err) {
     console.error("bulk edit error:", err);
     res.status(500).json({ error: "Something went wrong. Please try again." });
