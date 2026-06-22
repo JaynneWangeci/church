@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Church, Heart, Target, Users } from "lucide-react";
 import { useInView } from "../hooks/useInView";
 import { useLang } from "../context/LanguageContext";
@@ -35,44 +35,7 @@ export default function AboutSection() {
   const TYPING_SPEED = 35;
   const READ_DURATION = 55000;
 
-  useEffect(() => {
-    setTypedText('');
-    setTypingDone(false);
-    setCardPhase('enter');
-    const enterTimer = setTimeout(() => {
-      setCardPhase('typing');
-    }, 600);
-    return () => clearTimeout(enterTimer);
-  }, [activeCard]);
-
-  useEffect(() => {
-    if (cardPhase !== 'typing') return;
-    const text = cards[activeCard].text;
-    let i = 0;
-    const interval = setInterval(() => {
-      i++;
-      setTypedText(text.slice(0, i));
-      if (i >= text.length) {
-        clearInterval(interval);
-        setTypingDone(true);
-        setCardPhase('read');
-      }
-    }, TYPING_SPEED);
-    return () => clearInterval(interval);
-  }, [cardPhase, activeCard, cards]);
-
-  useEffect(() => {
-    if (cardPhase !== 'read') return;
-    timerRef.current = setTimeout(() => {
-      setCardPhase('exit');
-      setTimeout(() => {
-        setActiveCard(prev => (prev + 1) % cards.length);
-      }, 800);
-    }, READ_DURATION);
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [cardPhase, cards.length]);
-
-  const cards = [
+  const cards = useMemo(() => [
     {
       icon: Target,
       title: t("Our Goal", "Lengo Letu"),
@@ -97,7 +60,7 @@ export default function AboutSection() {
         "Kila mchango huenda moja kwa moja kwenye Mfuko wa Maendeleo. Mheshimu mjumbe wa kamati na uache urithi katika kazi hii takatifu."
       ),
     },
-  ];
+  ], [t]);
 
   const goToCard = useCallback((index: number) => {
     if (cardPhase === 'exit') return;
