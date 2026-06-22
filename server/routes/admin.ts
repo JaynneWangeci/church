@@ -336,7 +336,7 @@ adminRouter.get("/fellowship-report", requireAdmin, async (req, res) => {
     // All active members grouped by council
     const { data: allMembers } = await db
       .from("church_members")
-      .select("id, name, council, created_at")
+      .select("id, name, council, gender, created_at")
       .eq("is_active", true)
       .order("name");
 

@@ -47,6 +47,7 @@ export interface ChurchMember {
   id: string;
   name: string;
   council: string;
+  gender: string | null;
   is_active: boolean;
   created_at: string;
 }

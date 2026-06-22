@@ -43,6 +43,7 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
       pledgesData,
       memberCount,
       newMembers,
+      genderCounts,
     ] = await Promise.all([
       // Current 90d daily data
       campaignFilter(db.from("donations")
@@ -97,6 +98,11 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
         .select("id", { count: "exact", head: false })
         .eq("is_active", true)
         .gte("created_at", periods["30d"].toISOString()),
+
+      // Gender breakdown (fetch all active members with gender)
+      db.from("church_members")
+        .select("gender")
+        .eq("is_active", true),
     ]);
 
     // ── Daily aggregation ──
@@ -273,6 +279,11 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
         total: memberCount.count || 0,
         new_30d: newMembers.count || 0,
         ranking: memberRankingList,
+        gender: {
+          male: (genderCounts.data || []).filter((g: any) => g.gender === "male").length,
+          female: (genderCounts.data || []).filter((g: any) => g.gender === "female").length,
+          unset: (genderCounts.data || []).filter((g: any) => !g.gender).length,
+        },
       },
       pledges: {
         total: pledgeTotal,

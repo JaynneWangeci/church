@@ -32,6 +32,7 @@ export default function AdminDashboard() {
   const [churchMembers, setChurchMembers] = useState<ChurchMember[]>([]);
   const [newName, setNewName] = useState("");
   const [newCouncil, setNewCouncil] = useState("maranatha_fellowship");
+  const [newGender, setNewGender] = useState("");
   const [memberError, setMemberError] = useState("");
   const [bulkNames, setBulkNames] = useState("");
   const [bulkCouncil, setBulkCouncil] = useState("maranatha_fellowship");
@@ -40,6 +41,7 @@ export default function AdminDashboard() {
   const [editingMember, setEditingMember] = useState<string | null>(null);
   const [editMemberName, setEditMemberName] = useState("");
   const [editMemberCouncil, setEditMemberCouncil] = useState("");
+  const [editMemberGender, setEditMemberGender] = useState("");
   const [memberCouncilFilter, setMemberCouncilFilter] = useState("");
   const [admins, setAdmins] = useState<AdminUserRecord[]>([]);
   const [showAddAdmin, setShowAddAdmin] = useState(false);
@@ -240,7 +242,7 @@ export default function AdminDashboard() {
       const res = await fetch("/api/members", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: newName.trim().replace(/^\d+[\.\)]?\s*(?:[A-Za-z]\s+)?/, "").replace(/\.+$/, ""), council: newCouncil }),
+        body: JSON.stringify({ name: newName.trim().replace(/^\d+[\.\)]?\s*(?:[A-Za-z]\s+)?/, "").replace(/\.+$/, ""), council: newCouncil, gender: newGender || undefined }),
       });
       if (!res.ok) { const d = await res.json(); setMemberError(d.error || "Something went wrong. Please try again."); return; }
       setNewName("");
@@ -375,7 +377,7 @@ export default function AdminDashboard() {
       const res = await fetch(`/api/members/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: editMemberName.trim(), council: editMemberCouncil }),
+        body: JSON.stringify({ name: editMemberName.trim(), council: editMemberCouncil, gender: editMemberGender || null }),
       });
       if (res.ok) { setEditingMember(null); fetchMembers(); }
     } catch {}
@@ -739,6 +741,15 @@ export default function AdminDashboard() {
                     ))}
                   </select>
                 </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-muted">Gender</label>
+                  <select value={newGender} onChange={(e) => setNewGender(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk">
+                    <option value="">Not set</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
+                </div>
                 <button type="submit"
                   className="w-full rounded-lg bg-nobuk py-2.5 text-sm font-bold text-white hover:bg-nobuk-light">
                   Add Member
@@ -914,6 +925,13 @@ export default function AdminDashboard() {
                                       className="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-ink outline-none focus:border-nobuk">
                                       {councils.map(c => <option key={c.slug} value={c.slug}>{c.name}</option>)}
                                     </select>
+                                    <select value={editMemberGender}
+                                      onChange={e => setEditMemberGender(e.target.value)}
+                                      className="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-ink outline-none focus:border-nobuk">
+                                      <option value="">Gender</option>
+                                      <option value="male">Male</option>
+                                      <option value="female">Female</option>
+                                    </select>
                                     <button onClick={() => handleUpdateMember(m.id)}
                                       className="rounded-md bg-nobuk px-2.5 py-1.5 text-xs font-bold text-white hover:bg-nobuk-light">Save</button>
                                     <button onClick={() => setEditingMember(null)}
@@ -932,9 +950,14 @@ export default function AdminDashboard() {
                                       <div className="min-w-0">
                                         <p className="text-sm font-medium text-ink truncate">{m.name}</p>
                                       </div>
+                                      {m.gender && (
+                                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${m.gender === "male" ? "bg-blue-100 text-blue-700" : "bg-pink-100 text-pink-700"}`}>
+                                          {m.gender === "male" ? "M" : "F"}
+                                        </span>
+                                      )}
                                     </div>
                                     <div className="flex items-center gap-1 shrink-0">
-                                      <button onClick={() => { setEditingMember(m.id); setEditMemberName(m.name); setEditMemberCouncil(m.council); }}
+                                      <button onClick={() => { setEditingMember(m.id); setEditMemberName(m.name); setEditMemberCouncil(m.council); setEditMemberGender(m.gender || ""); }}
                                         className="rounded-lg p-1.5 text-muted transition hover:bg-blue-50 hover:text-blue-600" title="Edit">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                                       </button>
@@ -2267,6 +2290,55 @@ export default function AdminDashboard() {
                         </div>
                       </div>
                     </div>
+
+                    {/* ── Gender Breakdown ── */}
+                    {dashboardData.members.gender && (
+                      <div className="mt-6 rounded-lg border border-gray-100 bg-white p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Users size={16} className="text-nobuk" />
+                          <h3 className="text-sm font-bold text-ink">Men / Women</h3>
+                        </div>
+                        <div className="flex items-center gap-6">
+                          <div className="relative flex h-32 w-32 shrink-0 items-center justify-center">
+                            <div
+                              className="h-full w-full rounded-full"
+                              style={{
+                                background: (() => {
+                                  const m = dashboardData.members.gender.male;
+                                  const f = dashboardData.members.gender.female;
+                                  const u = dashboardData.members.gender.unset;
+                                  const total = m + f + u;
+                                  if (total === 0) return "conic-gradient(#e5e7eb 0deg 360deg)";
+                                  const mPct = (m / total) * 360;
+                                  const fPct = (f / total) * 360;
+                                  return `conic-gradient(#3B82F6 0deg ${mPct}deg, #EC4899 ${mPct}deg ${mPct + fPct}deg, #D1D5DB ${mPct + fPct}deg 360deg)`;
+                                })(),
+                              }}
+                            />
+                            <div className="absolute flex h-20 w-20 items-center justify-center rounded-full bg-white">
+                              <span className="text-lg font-bold text-nobuk">{dashboardData.members.gender.male + dashboardData.members.gender.female + dashboardData.members.gender.unset}</span>
+                            </div>
+                          </div>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex items-center gap-2">
+                              <div className="h-3 w-3 rounded-full bg-blue-500" />
+                              <span className="text-muted">Men</span>
+                              <span className="ml-auto font-bold text-ink">{dashboardData.members.gender.male}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="h-3 w-3 rounded-full bg-pink-500" />
+                              <span className="text-muted">Women</span>
+                              <span className="ml-auto font-bold text-ink">{dashboardData.members.gender.female}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="h-3 w-3 rounded-full bg-gray-300" />
+                              <span className="text-muted">Unset</span>
+                              <span className="ml-auto font-bold text-ink">{dashboardData.members.gender.unset}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </>
               ) : (

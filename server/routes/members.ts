@@ -160,7 +160,7 @@ membersRouter.post("/dedup", requireAdmin, requireAdminOrAbove, async (_req, res
 membersRouter.post("/", requireAdmin, requireAdminOrAbove, async (req, res) => {
   try {
     const db = requireService();
-    const { name, council } = req.body;
+    const { name, council, gender } = req.body;
     if (!name || !council) return res.status(400).json({ error: "name and council required" });
 
     const trimmed = name.trim();
@@ -175,9 +175,11 @@ membersRouter.post("/", requireAdmin, requireAdminOrAbove, async (req, res) => {
       return res.status(409).json({ error: "A member with this name already exists", duplicate: existing[0] });
     }
 
+    const insertData: Record<string, unknown> = { name: trimmed, council };
+    if (gender === "male" || gender === "female") insertData.gender = gender;
     const { data, error } = await db
       .from("church_members")
-      .insert({ name: trimmed, council })
+      .insert(insertData)
       .select()
       .single();
 
@@ -228,11 +230,12 @@ membersRouter.post("/bulk-delete", requireAdmin, requireAdminOrAbove, async (req
 membersRouter.patch("/:id", requireAdmin, requireAdminOrAbove, async (req, res) => {
   try {
     const db = requireService();
-    const { name, council, is_active } = req.body;
+    const { name, council, is_active, gender } = req.body;
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name.trim();
     if (council !== undefined) updates.council = council;
     if (is_active !== undefined) updates.is_active = is_active;
+    if (gender === "male" || gender === "female" || gender === null) updates.gender = gender;
 
     const { data, error } = await db
       .from("church_members")
