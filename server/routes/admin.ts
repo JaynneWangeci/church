@@ -509,34 +509,52 @@ adminRouter.post("/migrate-v9", async (_req, res) => {
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!url || !key) return res.status(500).json({ error: "Supabase not configured" });
     const sql = "ALTER TABLE donations ADD COLUMN IF NOT EXISTS honour_known_as TEXT;";
+    const ref = url.match(/https:\/\/(.+)\.supabase\.co/)?.[1];
 
-    // Try pg-meta query endpoint (internal Supabase API, auth via service key)
-    const pgMetaRes = await fetch(`${url}/pg/query`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${key}`,
-        "apikey": key,
-      },
-      body: JSON.stringify({ query: sql }),
+    const headers = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${key}`,
+      "apikey": key,
+    };
+
+    // 1. Try pg-meta DDL endpoint (schema changes, bypasses schema cache)
+    const ddlRes = await fetch(`${url}/pg/ddl`, {
+      method: "POST", headers, body: JSON.stringify({ query: sql }),
     });
-    if (pgMetaRes.ok) return res.json({ ok: true, message: "Migration complete (pg-meta)" });
+    if (ddlRes.ok) return res.json({ ok: true, message: "Migration complete (pg/ddl)" });
+    const ddlErr = await ddlRes.text().catch(() => "unknown");
 
-    // Try the Supabase SQL API endpoint
+    // 2. Try pg-meta query endpoint
+    const queryRes = await fetch(`${url}/pg/query`, {
+      method: "POST", headers, body: JSON.stringify({ query: sql }),
+    });
+    if (queryRes.ok) return res.json({ ok: true, message: "Migration complete (pg/query)" });
+    const queryErr = await queryRes.text().catch(() => "unknown");
+
+    // 3. Try Supabase SQL API
     const sqlRes = await fetch(`${url}/api/sql`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${key}`,
-        "apikey": key,
-      },
-      body: JSON.stringify({ query: sql }),
+      method: "POST", headers, body: JSON.stringify({ query: sql }),
     });
-    if (sqlRes.ok) return res.json({ ok: true, message: "Migration complete (sql api)" });
-
-    const pgMetaErr = await pgMetaRes.text().catch(() => "unknown");
+    if (sqlRes.ok) return res.json({ ok: true, message: "Migration complete (api/sql)" });
     const sqlErr = await sqlRes.text().catch(() => "unknown");
-    res.status(500).json({ error: "All endpoints failed", pgMeta: pgMetaErr.slice(0, 300), sql: sqlErr.slice(0, 300) });
+
+    // 4. Try Management API (uses service key as bearer)
+    if (ref) {
+      const mgmtRes = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
+        method: "POST", headers, body: JSON.stringify({ query: sql }),
+      });
+      if (mgmtRes.ok) return res.json({ ok: true, message: "Migration complete (mgmt API)" });
+      const mgmtErr = await mgmtRes.text().catch(() => "unknown");
+      return res.status(500).json({
+        error: "All endpoints failed",
+        ddl: ddlErr.slice(0, 200),
+        query: queryErr.slice(0, 200),
+        sql: sqlErr.slice(0, 200),
+        mgmt: mgmtErr.slice(0, 200),
+      });
+    }
+
+    res.status(500).json({ error: "All endpoints failed", ddl: ddlErr.slice(0, 200), query: queryErr.slice(0, 200), sql: sqlErr.slice(0, 200) });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
