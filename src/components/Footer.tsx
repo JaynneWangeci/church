@@ -1,8 +1,19 @@
-import { Heart, Church, Shield } from "lucide-react";
+import { Heart, Church, Shield, Phone } from "lucide-react";
 import { useLang } from "../context/LanguageContext";
+import { useEffect, useState } from "react";
 
 export default function Footer() {
   const { t } = useLang();
+  const [phone, setPhone] = useState("");
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        setPhone(data?.settings?.church_phone || "0727278577");
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <footer className="bg-nobuk backdrop-blur-sm px-4 py-16">
@@ -32,6 +43,12 @@ export default function Footer() {
           </div>
 
           <div className="flex items-center gap-4">
+            {phone && (
+              <a href={`tel:${phone}`} className="flex items-center gap-1 text-sm text-white/50 transition hover:text-[#5B9BD5]">
+                <Phone size={14} />
+                {phone}
+              </a>
+            )}
             <a href="/admin/login" className="flex items-center gap-1 text-sm text-white/30 transition hover:text-white/60">
               <Shield size={14} />
               {t("Admin", "Msimamizi")}

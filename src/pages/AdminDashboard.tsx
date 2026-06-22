@@ -2294,6 +2294,7 @@ function SiteContentEditor() {
   const [translating, setTranslating] = useState(false);
   const [content, setContent] = useState({
     goal_amount: 30000000,
+    church_phone: "0727278577",
     cards: [
       { title_en: "Our Goal", text_en: "" },
       { title_en: "Our Community", text_en: "" },
@@ -2367,7 +2368,7 @@ function SiteContentEditor() {
       const res = await fetch("/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ site_content: JSON.stringify(payload) }),
+        body: JSON.stringify({ site_content: JSON.stringify(payload), church_phone: content.church_phone }),
       });
       if (res.ok) setMsg("Saved successfully!");
       else setMsg("Failed to save");
@@ -2396,6 +2397,13 @@ function SiteContentEditor() {
             {msg}
           </div>
         )}
+
+        {/* Church Phone */}
+        <div className="mb-6">
+          <label className="mb-1.5 block text-sm font-bold text-ink">Church Phone</label>
+          <input type="text" value={content.church_phone} onChange={e => setContent({...content, church_phone: e.target.value})}
+            className="w-full max-w-xs rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" />
+        </div>
 
         {/* Goal */}
         <div className="mb-6">
