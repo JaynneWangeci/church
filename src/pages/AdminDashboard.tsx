@@ -324,8 +324,10 @@ export default function AdminDashboard() {
     });
     const data = await res.json();
     if (res.ok) {
+      const missing = data.missing?.length || 0;
       let msg = `${data.updated} of ${data.total} members updated.`;
-      if (data.missing?.length) msg += `\nNot found: ${data.missing.join(", ")}`;
+      if (missing) msg += `\n${missing} name${missing > 1 ? 's' : ''} not found in database. Use "Bulk Add Members" first.`;
+      if (data.missing?.length && data.missing.length <= 5) msg += `\nNot found: ${data.missing.join(", ")}`;
       setBulkEditResult(msg);
       setBulkEditNames("");
       const lower = new Set(names.map(n => n.trim().toLowerCase()));
@@ -944,9 +946,6 @@ export default function AdminDashboard() {
                   className="w-full rounded-lg bg-nobuk py-2.5 text-sm font-bold text-white hover:bg-nobuk-light disabled:opacity-40">
                   Update {bulkEditNames.trim() ? bulkEditNames.trim().split('\n').filter(n => n.trim()).length : 0} Members
                 </button>
-                <button onClick={() => { setBulkEditResult("Running migration..."); fetch("/api/admin/migrate-v10", { method: "POST" }).then(r => r.json()).then(d => setBulkEditResult(d.message || d.error + (d.details ? ": " + d.details.join(" | ") : "") || "Done")).catch(() => setBulkEditResult("Migration failed")); }} className="w-full text-center text-[10px] text-muted hover:text-nobuk transition">
-                  Run database migration (add gender column)
-                </button>
               </div>
             </div>
 
@@ -1011,8 +1010,8 @@ export default function AdminDashboard() {
                       setChurchMembers(prev => prev.filter(m => !idSet.has(m.id)));
                     }
                   }}
-                    className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white hover:bg-red-700 transition">
-                    <Trash2 size={14} /> Delete All {memberCouncilFilter.replace(/_/g, " ")} Members
+                    className="flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-semibold text-red-700 hover:bg-red-100 transition">
+                    <Trash2 size={11} /> Delete all
                   </button>
                 )}
               </div>
