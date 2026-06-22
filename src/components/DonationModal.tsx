@@ -94,6 +94,7 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
   const [name, setName] = useState(initialDonorName || '');
   const [phone, setPhone] = useState('');
   const [message, setMessage] = useState('');
+  const [knownAs, setKnownAs] = useState('');
   const [error, setError] = useState('');
   const [receiptNumber, setReceiptNumber] = useState('');
   const [finalAmount, setFinalAmount] = useState(0);
@@ -232,6 +233,7 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
           message: message || null,
           honored_member_id: isGeneral ? null : member.id,
           church_member_id: donorMemberId,
+          honour_known_as: knownAs.trim() || null,
         }),
       });
       const donData = await donRes.json();
@@ -374,6 +376,18 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
                   </div>
                 )}
               </div>
+
+              {!isGeneral && (
+                <div>
+                  <label className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-[#1B2838]">
+                    <User size={14} className="text-[#5B9BD5]" /> How does {member.name.split(' ')[0]} know you?
+                  </label>
+                  <input type="text" value={knownAs} onChange={e => setKnownAs(e.target.value)}
+                    placeholder={`e.g. Auntie Emma`}
+                    className="w-full rounded-xl border border-[#2C4056]/20 bg-white px-4 py-3 text-sm text-[#1B2838] outline-none transition focus:border-[#1E6F9F] placeholder:text-[#5B6F88]/40" />
+                  <p className="mt-1 text-xs text-[#5B6F88]">The name {member.name.split(' ')[0]} will see in their portfolio (leave blank to use your name)</p>
+                </div>
+              )}
 
               <div>
                 <label className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-[#1B2838]">

@@ -103,6 +103,7 @@ export default function DonationForm() {
   const [honName, setHonName] = useState("");
   const [honPhone, setHonPhone] = useState("");
   const [honMessage, setHonMessage] = useState("");
+  const [honKnownAs, setHonKnownAs] = useState("");
   const [honoredMember, setHonoredMember] = useState("");
   const [members, setMembers] = useState<MemberOption[]>([]);
   const [genMemberSearch, setGenMemberSearch] = useState("");
@@ -260,6 +261,7 @@ export default function DonationForm() {
     message: string;
     honoredMemberId?: string;
     churchMemberId?: string;
+    honour_known_as?: string;
   }) {
     setError("");
 
@@ -295,6 +297,7 @@ export default function DonationForm() {
           message: params.message || null,
           honored_member_id: params.honoredMemberId || null,
           church_member_id: params.churchMemberId || null,
+          honour_known_as: params.honour_known_as || null,
         }),
       });
       const donData = await donRes.json();
@@ -381,13 +384,13 @@ export default function DonationForm() {
     }
 
     const amount = honAmount === "custom" ? Number(honCustom) || 0 : honAmount || 0;
-    processDonation({ amount, donorName: honName, phone: honPhone, message: honMessage, honoredMemberId: honoredMember, churchMemberId: donorMemberId });
+    processDonation({ amount, donorName: honName, phone: honPhone, message: honMessage, honoredMemberId: honoredMember, churchMemberId: donorMemberId, honour_known_as: honKnownAs.trim() || undefined });
   }
 
   function reset() {
     setStep("form");
     setGenAmount(null); setGenCustom(""); setGenSelectedMember(""); setGenPhone(""); setGenMessage("");
-    setHonAmount(null); setHonCustom(""); setHonName(""); setHonPhone(""); setHonMessage("");
+    setHonAmount(null); setHonCustom(""); setHonName(""); setHonPhone(""); setHonMessage(""); setHonKnownAs("");
     setHonoredMember(""); setReceiptNumber(""); setDonationId(""); setError(""); setFinalHonouredMember(null);
   }
 
@@ -728,6 +731,15 @@ export default function DonationForm() {
                         </div>
                       </div>
                     )}
+                  </div>
+                  <div>
+                    <label className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-nobuk">
+                      <User size={14} className="text-amber" /> How does {selectedMember?.name?.split(' ')[0] || 'they'} know you?
+                    </label>
+                    <input type="text" value={honKnownAs} onChange={e => setHonKnownAs(e.target.value)}
+                      placeholder={`e.g. Auntie Emma`}
+                      className="w-full rounded-xl border-2 border-gray-200 bg-white px-4 py-3 text-nobuk outline-none transition focus:border-nobuk placeholder:text-muted/50" />
+                    <p className="mt-1 text-xs text-muted">The name they will see in their portfolio (leave blank to use your name)</p>
                   </div>
                   <div>
                     <label className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-nobuk">

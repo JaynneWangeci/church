@@ -58,7 +58,7 @@ donationsRouter.get("/", async (req, res) => {
 donationsRouter.post("/", async (req, res) => {
   try {
     const db = requireService();
-    const { campaign_id, donor_name, amount, phone, honored_member_id, church_member_id, message } = req.body;
+    const { campaign_id, donor_name, amount, phone, honored_member_id, church_member_id, message, honour_known_as } = req.body;
 
     if (!campaign_id || !amount || !phone) {
       return res.status(400).json({ error: "campaign_id, amount, and phone required" });
@@ -86,6 +86,7 @@ donationsRouter.post("/", async (req, res) => {
         honored_member_id: honored_member_id || null,
         church_member_id: resolvedMemberId,
         message: message || null,
+        honour_known_as: honour_known_as || null,
       })
       .select()
       .single();

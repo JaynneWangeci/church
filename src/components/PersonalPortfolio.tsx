@@ -246,7 +246,7 @@ export default function PersonalPortfolio({ name, onClose }: Props) {
                     <div className="flex items-center gap-2">
                       <Medal size={14} className="text-amber-400" />
                       <div>
-                        <p className="text-sm font-bold text-gray-900">{h.donor_name || 'Anonymous'}</p>
+                        <p className="text-sm font-bold text-gray-900">{h.honour_known_as || h.donor_name || 'Anonymous'}</p>
                         <p className="text-xs text-gray-400">{new Date(h.created_at).toLocaleDateString()}</p>
                         {h.phone && <p className="text-[10px] text-gray-400">{h.phone}</p>}
                       </div>
