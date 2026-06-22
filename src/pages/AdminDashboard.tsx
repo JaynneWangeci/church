@@ -1880,16 +1880,11 @@ export default function AdminDashboard() {
                                 {f.donation.top_donors?.length > 0 ? (
                                   <div className="space-y-1">
                                     {f.donation.top_donors.map((d: any, i: number) => {
-                                      const maxAmt = f.donation.top_donors[0]?.total || 1;
-                                      const barW = (d.total / maxAmt) * 100;
                                       return (
-                                        <div key={d.name} className="flex items-center gap-2">
-                                          <span className="w-4 text-[10px] font-bold text-muted">{i + 1}.</span>
-                                          <span className="flex-1 truncate text-xs text-ink">{d.name}</span>
-                                          <span className="text-xs font-semibold text-ink tabular-nums">KES {d.total.toLocaleString("en-KE")}</span>
-                                          <div className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-100">
-                                            <div className="h-full rounded-full bg-nobuk" style={{ width: `${barW}%` }} />
-                                          </div>
+                                        <div key={d.name} className="flex items-center gap-1.5">
+                                          <span className="w-5 shrink-0 text-[10px] font-bold text-muted">{i + 1}.</span>
+                                          <span className="min-w-0 flex-1 truncate text-xs text-ink">{d.name}</span>
+                                          <span className="shrink-0 text-xs font-semibold text-ink tabular-nums">KES {d.total.toLocaleString("en-KE")}</span>
                                         </div>
                                       );
                                     })}

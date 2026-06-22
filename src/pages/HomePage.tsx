@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Globe, MapPin, Heart, HandHeart, Phone, Share2, Sun, Moon } from 'lucide-react';
+import { Globe, MapPin, Heart, HandHeart, Phone, Share2 } from 'lucide-react';
 import { useLang } from '../context/LanguageContext';
 import { useInView } from '../hooks/useInView';
 import SlideshowBackground from "../components/SlideshowBackground";
@@ -21,7 +21,6 @@ const SECTIONS = [
 export default function HomePage() {
   const { lang, setLang, t } = useLang();
   const { ref: mapRef, inView: mapInView } = useInView();
-  const [lightMode, setLightMode] = useState(false);
   const [activeSection, setActiveSection] = useState('hero');
 
   useEffect(() => {
@@ -51,20 +50,13 @@ export default function HomePage() {
   }, []);
 
   return (
-    <main className={`relative min-h-screen transition-colors duration-500 ${lightMode ? 'bg-gradient-to-b from-blue-50 via-white to-blue-50 text-gray-800' : 'bg-gradient-to-b from-[#0a1628] via-[#0f2847] to-[#1a3a5c] text-gray-100'}`}>
-      {/* Language + Theme toggles */}
-      <div className="fixed top-4 right-4 z-50 flex items-center gap-1.5">
-        <button onClick={() => setLang(lang === 'en' ? 'sw' : 'en')}
-          className="flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-[10px] font-semibold text-white/60 backdrop-blur-sm transition hover:bg-white/20 hover:text-white/90">
-          <Globe size={10} />
-          {lang === 'en' ? 'SW' : 'EN'}
-        </button>
-        <button onClick={() => setLightMode(!lightMode)}
-          className="flex items-center rounded-full bg-white/10 p-1.5 text-white/60 backdrop-blur-sm transition hover:bg-white/20 hover:text-white/90"
-          title={lightMode ? 'Dark mode' : 'Light mode'}>
-          {lightMode ? <Moon size={11} /> : <Sun size={11} />}
-        </button>
-      </div>
+    <main className="relative min-h-screen bg-gradient-to-b from-[#0a1628] via-[#0f2847] to-[#1a3a5c] text-gray-100">
+      {/* Language toggle */}
+      <button onClick={() => setLang(lang === 'en' ? 'sw' : 'en')}
+        className="fixed top-4 right-4 z-50 flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-[10px] font-semibold text-white/60 backdrop-blur-sm transition hover:bg-white/20 hover:text-white/90">
+        <Globe size={10} />
+        {lang === 'en' ? 'SW' : 'EN'}
+      </button>
 
       {/* Section nav dots */}
       <div className="fixed right-3 top-1/2 z-40 hidden -translate-y-1/2 flex-col items-center gap-3 md:flex">
@@ -90,14 +82,14 @@ export default function HomePage() {
 
         {/* Google Maps pin */}
         <section ref={mapRef} className={`px-4 py-16 transition-all duration-700 ${mapInView ? "animate-fade-in" : "opacity-0"}`}
-          style={{ background: lightMode ? 'linear-gradient(180deg, #f0f5ff 0%, #e8f0fe 100%)' : 'linear-gradient(180deg, rgba(15,40,71,0.95) 0%, rgba(10,22,40,0.98) 100%)' }}>
+          style={{ background: 'linear-gradient(180deg, rgba(15,40,71,0.95) 0%, rgba(10,22,40,0.98) 100%)' }}>
           <div className="mx-auto max-w-4xl text-center">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-blue-500/20 px-4 py-1.5 backdrop-blur-sm">
               <MapPin size={14} className="text-blue-300" />
               <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">{t('Find Us', 'Tupate')}</span>
             </div>
-            <h2 className={`mb-2 text-2xl font-bold ${lightMode ? 'text-gray-800' : 'text-white'}`}>{t('Visit AIPCA Bahati Cathedral', 'Tembelea AIPCA Bahati Cathedral')}</h2>
-            <p className={`mb-6 text-sm ${lightMode ? 'text-gray-500' : 'text-blue-200/70'}`}>
+            <h2 className="mb-2 text-2xl font-bold text-white">{t('Visit AIPCA Bahati Cathedral', 'Tembelea AIPCA Bahati Cathedral')}</h2>
+            <p className="mb-6 text-sm text-blue-200/70">
               {t('We welcome you to worship with us. Use the map below for directions.', 'Tunakukaribisha kuabudu pamoja nasi. Tumia ramani hapa chini kwa maelekezo.')}
             </p>
             <div className="mx-auto max-w-3xl overflow-hidden rounded-2xl border border-blue-400/20 shadow-lg shadow-blue-900/30">
