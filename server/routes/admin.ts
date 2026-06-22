@@ -566,20 +566,36 @@ adminRouter.post("/migrate-v10", async (_req, res) => {
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!url || !key) return res.status(500).json({ error: "Supabase not configured" });
     const sql = "ALTER TABLE church_members ADD COLUMN IF NOT EXISTS gender TEXT CHECK (gender IN ('male', 'female'));";
+    const ref = url.match(/https:\/\/(.+)\.supabase\.co/)?.[1];
     const headers = { "Content-Type": "application/json", "apikey": key, "Authorization": `Bearer ${key}` };
 
+    const results: string[] = [];
+
+    // 1. Management API (most reliable)
+    if (ref) {
+      const mgmtRes = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
+        method: "POST", headers, body: JSON.stringify({ query: sql }),
+      });
+      if (mgmtRes.ok) return res.json({ ok: true, message: "gender column added" });
+      results.push("mgmt: " + (await mgmtRes.text().catch(() => "?")));
+    }
+
+    // 2. pg-meta DDL
     const ddlRes = await fetch(`${url}/pg/ddl`, { method: "POST", headers, body: JSON.stringify({ query: sql }) });
     if (ddlRes.ok) return res.json({ ok: true, message: "gender column added" });
-    const ddlErr = await ddlRes.text().catch(() => "");
+    results.push("ddl: " + (await ddlRes.text().catch(() => "?")));
 
+    // 3. pg-meta query
     const queryRes = await fetch(`${url}/pg/query`, { method: "POST", headers, body: JSON.stringify({ query: sql }) });
-    if (queryRes.ok) return res.json({ ok: true, message: "gender column added (pg/query)" });
-    const queryErr = await queryRes.text().catch(() => "");
+    if (queryRes.ok) return res.json({ ok: true, message: "gender column added" });
+    results.push("query: " + (await queryRes.text().catch(() => "?")));
 
+    // 4. /api/sql
     const sqlRes = await fetch(`${url}/api/sql`, { method: "POST", headers, body: JSON.stringify({ query: sql }) });
-    if (sqlRes.ok) return res.json({ ok: true, message: "gender column added (api/sql)" });
+    if (sqlRes.ok) return res.json({ ok: true, message: "gender column added" });
+    results.push("sql: " + (await sqlRes.text().catch(() => "?")));
 
-    res.status(500).json({ error: "All endpoints failed", ddl: ddlErr.slice(0, 200), query: queryErr.slice(0, 200) });
+    res.status(500).json({ error: "All endpoints failed", details: results });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
