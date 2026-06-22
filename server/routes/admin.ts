@@ -501,3 +501,29 @@ adminRouter.get("/audit-actions", requireAdmin, requireSuperAdmin, async (_req, 
     res.status(500).json({ error: "Server error" });
   }
 });
+
+// ── Migration v9: add honour_known_as column ──
+adminRouter.post("/migrate-v9", async (_req, res) => {
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) return res.status(500).json({ error: "Supabase not configured" });
+    const sql = "ALTER TABLE donations ADD COLUMN IF NOT EXISTS honour_known_as TEXT;";
+    const response = await fetch(`${url}/rest/v1/rpc/exec_sql`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${key}`,
+        "apikey": key,
+      },
+      body: JSON.stringify({ query: sql }),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      return res.status(500).json({ error: `SQL error: ${text.slice(0, 300)}` });
+    }
+    res.json({ ok: true, message: "Column honour_known_as added" });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
