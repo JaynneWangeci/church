@@ -1823,7 +1823,7 @@ export default function AdminDashboard() {
                           <summary className="flex cursor-pointer items-center gap-3 rounded-lg bg-cream px-4 py-3 transition hover:bg-nobuk-muted">
                             <div className="flex-1 min-w-0">
                               <span className="text-sm font-bold text-ink capitalize">{label}</span>
-                              <span className="ml-2 text-xs text-muted">{f.member_count} members · {f.pledge.count} pledges</span>
+                              <span className="ml-2 whitespace-nowrap text-xs text-muted">{f.member_count} members · {f.pledge.count} pledges</span>
                             </div>
                             <div className="flex items-center gap-4 text-xs tabular-nums">
                               <span className="text-muted">Donations: KES {f.donation.total.toLocaleString("en-KE")}</span>
@@ -1926,16 +1926,7 @@ export default function AdminDashboard() {
                     })}
                   </div>
 
-                  {/* Unlinked donations */}
-                  {fellowshipReport.unlinked?.count > 0 && (
-                    <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                      <p className="text-xs font-bold text-amber-800">Unlinked Donations</p>
-                      <p className="text-xs text-amber-700">
-                        {fellowshipReport.unlinked.count} donations totalling KES {fellowshipReport.unlinked.total.toLocaleString("en-KE")}
-                        {' '}could not be matched to any fellowship member.
-                      </p>
-                    </div>
-                  )}
+
                 </>
               )}
             </div>
