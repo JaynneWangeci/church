@@ -2291,17 +2291,16 @@ function SiteContentEditor() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [translating, setTranslating] = useState(false);
   const [content, setContent] = useState({
     goal_amount: 30000000,
     cards: [
-      { title_en: "Our Goal", title_sw: "Lengo Letu", text_en: "", text_sw: "" },
-      { title_en: "Our Community", title_sw: "Jamii Yetu", text_en: "", text_sw: "" },
-      { title_en: "Give with Purpose", title_sw: "Toa kwa Kusudi", text_en: "", text_sw: "" },
+      { title_en: "Our Goal", text_en: "" },
+      { title_en: "Our Community", text_en: "" },
+      { title_en: "Give with Purpose", text_en: "" },
     ],
     about_desc_en: "",
-    about_desc_sw: "",
     harambee_reason_en: "",
-    harambee_reason_sw: "",
   });
 
   useEffect(() => {
@@ -2311,7 +2310,7 @@ function SiteContentEditor() {
         if (data?.settings?.site_content) {
           try {
             const parsed = JSON.parse(data.settings.site_content);
-            setContent(prev => ({ ...prev, ...parsed, cards: parsed.cards || prev.cards }));
+            setContent(prev => ({ ...prev, ...parsed, cards: parsed.cards?.map((c: any) => ({ title_en: c.title_en, text_en: c.text_en })) || prev.cards }));
           } catch {}
         }
         setLoading(false);
@@ -2325,18 +2324,55 @@ function SiteContentEditor() {
     setContent({ ...content, cards });
   }
 
-  async function handleSave() {
-    setSaving(true); setMsg("");
+  async function translateText(text: string): Promise<string> {
+    if (!text.trim()) return "";
     try {
+      const res = await fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) return text;
+      const data = await res.json();
+      return data.translated || text;
+    } catch { return text; }
+  }
+
+  async function handleSave() {
+    setSaving(true); setTranslating(true); setMsg("Translating to Swahili...");
+
+    try {
+      // Auto-translate all English fields to Swahili
+      const cards = await Promise.all(content.cards.map(async (card) => ({
+        title_en: card.title_en,
+        title_sw: await translateText(card.title_en),
+        text_en: card.text_en,
+        text_sw: await translateText(card.text_en),
+      })));
+
+      const about_desc_sw = await translateText(content.about_desc_en);
+      const harambee_reason_sw = await translateText(content.harambee_reason_en);
+
+      setTranslating(false); setMsg("Saving...");
+
+      const payload = {
+        goal_amount: content.goal_amount,
+        cards,
+        about_desc_en: content.about_desc_en,
+        about_desc_sw,
+        harambee_reason_en: content.harambee_reason_en,
+        harambee_reason_sw,
+      };
+
       const res = await fetch("/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ site_content: JSON.stringify(content) }),
+        body: JSON.stringify({ site_content: JSON.stringify(payload) }),
       });
       if (res.ok) setMsg("Saved successfully!");
       else setMsg("Failed to save");
     } catch { setMsg("Network error"); }
-    setSaving(false);
+    setSaving(false); setTranslating(false);
   }
 
   if (loading) return <div className="flex justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-2 border-nobuk border-t-transparent" /></div>;
@@ -2347,12 +2383,12 @@ function SiteContentEditor() {
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-ink">Site Content</h2>
-            <p className="text-sm text-muted">Edit text displayed on the public homepage. Falls back to defaults if empty.</p>
+            <p className="text-sm text-muted">Type in English only — Swahili is auto-translated on save.</p>
           </div>
           <button onClick={handleSave} disabled={saving}
             className="btn-lift flex items-center gap-2 rounded-xl bg-nobuk px-5 py-2.5 text-sm font-bold text-white hover:bg-nobuk-light disabled:opacity-50">
             <Save size={16} />
-            {saving ? "Saving..." : "Save All"}
+            {translating ? "Translating..." : saving ? "Saving..." : "Save All"}
           </button>
         </div>
         {msg && (
@@ -2369,31 +2405,17 @@ function SiteContentEditor() {
         </div>
 
         {/* About description */}
-        <div className="mb-6 grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="mb-1.5 block text-sm font-bold text-ink">About Description (EN)</label>
-            <textarea value={content.about_desc_en} onChange={e => setContent({...content, about_desc_en: e.target.value})} rows={2}
-              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" placeholder="The construction of this Great House of God started in 2006..." />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-bold text-ink">About Description (SW)</label>
-            <textarea value={content.about_desc_sw} onChange={e => setContent({...content, about_desc_sw: e.target.value})} rows={2}
-              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" placeholder="Ujenzi wa Nyumba hii Kuu ya Mungu ulianza mwaka 2006..." />
-          </div>
+        <div className="mb-6">
+          <label className="mb-1.5 block text-sm font-bold text-ink">About Description</label>
+          <textarea value={content.about_desc_en} onChange={e => setContent({...content, about_desc_en: e.target.value})} rows={2}
+            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" placeholder="The construction of this Great House of God started in 2006..." />
         </div>
 
         {/* Harambee reason */}
-        <div className="mb-6 grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="mb-1.5 block text-sm font-bold text-ink">Harambee Reason (EN)</label>
-            <textarea value={content.harambee_reason_en} onChange={e => setContent({...content, harambee_reason_en: e.target.value})} rows={2}
-              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" placeholder="Together we are building the house of the Lord..." />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-bold text-ink">Harambee Reason (SW)</label>
-            <textarea value={content.harambee_reason_sw} onChange={e => setContent({...content, harambee_reason_sw: e.target.value})} rows={2}
-              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" placeholder="Kwa pamoja tunajenga nyumba ya Bwana..." />
-          </div>
+        <div className="mb-6">
+          <label className="mb-1.5 block text-sm font-bold text-ink">Harambee Reason</label>
+          <textarea value={content.harambee_reason_en} onChange={e => setContent({...content, harambee_reason_en: e.target.value})} rows={2}
+            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" placeholder="Together we are building the house of the Lord..." />
         </div>
 
         {/* Cards */}
@@ -2401,25 +2423,15 @@ function SiteContentEditor() {
         {content.cards.map((card, i) => (
           <div key={i} className="mb-5 rounded-xl border border-gray-100 bg-gray-50 p-4">
             <p className="mb-3 text-xs font-bold text-muted uppercase">Card {i + 1}</p>
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-3">
               <div>
-                <label className="mb-1 block text-xs font-semibold text-ink">Title (EN)</label>
+                <label className="mb-1 block text-xs font-semibold text-ink">Title</label>
                 <input type="text" value={card.title_en} onChange={e => updateCard(i, "title_en", e.target.value)}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-ink">Title (SW)</label>
-                <input type="text" value={card.title_sw} onChange={e => updateCard(i, "title_sw", e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
-              </div>
-              <div className="md:col-span-2">
-                <label className="mb-1 block text-xs font-semibold text-ink">Text (EN)</label>
+                <label className="mb-1 block text-xs font-semibold text-ink">Text</label>
                 <textarea value={card.text_en} onChange={e => updateCard(i, "text_en", e.target.value)} rows={2}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
-              </div>
-              <div className="md:col-span-2">
-                <label className="mb-1 block text-xs font-semibold text-ink">Text (SW)</label>
-                <textarea value={card.text_sw} onChange={e => updateCard(i, "text_sw", e.target.value)} rows={2}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
               </div>
             </div>

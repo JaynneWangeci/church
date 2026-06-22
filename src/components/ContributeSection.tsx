@@ -268,7 +268,7 @@ export default function ContributeSection() {
           <div className={`mt-10 text-center ${inView ? 'animate-fade-in' : 'opacity-0'}`} style={{ animationDelay: '0.5s' }}>
             <div className="mx-auto max-w-lg rounded-2xl border border-white/20 bg-white/70 backdrop-blur-md p-8 shadow-sm">
               <Heart size={24} className="mx-auto mb-3 text-[#1E6F9F]" />
-              <h3 className="text-xl font-bold text-[#1B2838]">{t('Or honour via M-Pesa', 'Au heshimu kupitia M-Pesa')}</h3>
+              <h3 className="text-xl font-bold text-[#1B2838]">{t('Or honour via M-Pesa', 'Au heshimu kwa M-Pesa')}</h3>
               <p className="mt-1 text-lg font-bold text-[#1E6F9F]">Paybill: 835 872</p>
               <p className="mt-1 text-xs text-[#5B6F88]">{t('Account: Your Name', 'Akaunti: Jina Lako')}</p>
             </div>

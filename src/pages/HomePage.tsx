@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Globe, MapPin, Heart, HandHeart, Phone, Share2 } from 'lucide-react';
+import { Globe, MapPin, Heart, HandHeart, Phone, Share2, Bible } from 'lucide-react';
 import { useLang } from '../context/LanguageContext';
 import { useInView } from '../hooks/useInView';
 import SlideshowBackground from "../components/SlideshowBackground";
@@ -22,6 +22,14 @@ export default function HomePage() {
   const { lang, setLang, t } = useLang();
   const { ref: mapRef, inView: mapInView } = useInView();
   const [activeSection, setActiveSection] = useState('hero');
+  const [dailyVerse, setDailyVerse] = useState<{ ref: string; en: string; sw: string } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/verses/today')
+      .then(r => r.ok && r.json())
+      .then(v => { if (v) setDailyVerse(v); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
@@ -71,6 +79,19 @@ export default function HomePage() {
           />
         ))}
       </div>
+
+      {/* Daily Bible verse */}
+      {dailyVerse && (
+        <div className="fixed top-14 left-1/2 z-40 -translate-x-1/2 max-w-lg px-4">
+          <div className="flex items-start gap-2 rounded-xl bg-white/10 px-3 py-2 backdrop-blur-md shadow-sm">
+            <Bible size={12} className="mt-0.5 shrink-0 text-amber" />
+            <p className="text-[10px] leading-relaxed text-white/70">
+              <span className="font-semibold text-white/90">{dailyVerse.ref}</span>{' '}
+              {lang === 'sw' ? dailyVerse.sw : dailyVerse.en}
+            </p>
+          </div>
+        </div>
+      )}
 
       <SlideshowBackground />
       <div className="relative z-10 pt-10">

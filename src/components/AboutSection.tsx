@@ -17,7 +17,7 @@ export default function AboutSection() {
       title: t("Our Goal", "Lengo Letu"),
       text: t(
         "Raise KES 30,000,000 for the AIPCA Bahati Cathedral sanctuary improvements, fellowship hall expansion, ministry growth, and grounds development.",
-        "Kuchangisha KES 30,000,000 kwa ajili ya uboreshaji wa patakatifu pa AIPCA Bahati Cathedral, upanuzi wa ukumbi wa ushirika, ukuzaji wa huduma, na maendeleo ya misingi."
+        "Kukusanya KES 30,000,000 kwa ajili ya kuboresha patakatifu pa AIPCA Bahati Cathedral, kupanua ukumbi wa ushirika, kukuza huduma, na kuendeleza eneo la kanisa."
       ),
     },
     {
@@ -25,7 +25,7 @@ export default function AboutSection() {
       title: t("Our Community", "Jamii Yetu"),
       text: t(
         "A growing congregation of over 500 families in Bahati, Eastlands Nairobi. Together we are building a house of worship for generations to come.",
-        "Mkutano unaokua wa zaidi ya familia 500 huko Bahati, Eastlands Nairobi. Kwa pamoja tunajenga nyumba ya ibada kwa vizazi vijavyo."
+        "Jumuiya inayokua ya zaidi ya familia 500 huko Bahati, Eastlands Nairobi. Kwa pamoja tunajenga nyumba ya ibada kwa vizazi vijavyo."
       ),
     },
     {
@@ -33,7 +33,7 @@ export default function AboutSection() {
       title: t("Give with Purpose", "Toa kwa Kusudi"),
       text: t(
         "Every contribution goes directly to the Development Fund. Honor a committee member and leave a legacy in this sacred work.",
-        "Kila mchango huenda moja kwa moja kwa Mfuko wa Maendeleo. Mheshimu mjumbe wa kamati na uache urithi katika kazi hii takatifu."
+        "Kila mchango huenda moja kwa moja kwenye Mfuko wa Maendeleo. Mheshimu mjumbe wa kamati na uache urithi katika kazi hii takatifu."
       ),
     },
   ];
@@ -78,7 +78,7 @@ export default function AboutSection() {
           <p className="mt-3 text-muted">
             {t(
               "The construction of this Great House of God started in 2006. Now we unite to complete what was started with faith and determination.",
-              "Ujenzi wa Nyumba hii Kuu ya Mungu ulianza mwaka 2006. Sasa tunaungana kukamilisha kilichoanazwa kwa imani na dhamira."
+              "Ujenzi wa Nyumba hii Kuu ya Mungu ulianza mwaka 2006. Sasa tunaungana kukamilisha kilichoanza kwa imani na dhamira."
             )}
           </p>
         </div>

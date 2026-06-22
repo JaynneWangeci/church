@@ -226,7 +226,7 @@ export default function ChurchHero() {
             transition: 'opacity 0.8s ease-out 0.2s, transform 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.2s',
           }}
         >
-          <span className="italic text-[#5B9BD5]/70">&ldquo;{t('Unless the Lord builds the house, its builders labour in vain.', 'Bwana asipojenga nyumba, wajengaji hufanya kazi bure.')}&rdquo;</span>
+          <span className="italic text-[#5B9BD5]/70">&ldquo;{t('Unless the Lord builds the house, its builders labour in vain.', 'Bwana asipoijenga nyumba, wajengi hufanya kazi bure.')}&rdquo;</span>
           <br />
           <span className="text-white/30">Psalm 127:1</span>
         </p>
@@ -257,7 +257,7 @@ export default function ChurchHero() {
           transition: 'opacity 1s ease-out 0.8s',
         }}
       >
-        <span className="text-[10px] font-medium tracking-widest text-white/30 uppercase">{t('Scroll', 'Tembea')}</span>
+        <span className="text-[10px] font-medium tracking-widest text-white/30 uppercase">{t('Scroll', 'Tembeza')}</span>
         <div className="h-8 w-[1px] bg-gradient-to-b from-white/40 to-transparent animate-scroll-indicator" />
       </div>
 

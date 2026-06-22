@@ -87,7 +87,7 @@ export default function PledgeForm({ onClose, onCreated, donorName: initialName 
     setError('');
     if (!name.trim()) { setError(t('Kindly enter your name', 'Tafadhali ingiza jina lako')); return; }
     const amt = Number(amount);
-    if (!amt || amt < 10) { setError(t('Please enter an amount of KES 10 or more', 'Kiasi lazma kiwe angalau KES 10')); return; }
+    if (!amt || amt < 10) { setError(t('Please enter an amount of KES 10 or more', 'Kiasi lazima kiwe angalau KES 10')); return; }
 
     // Auto-save typed name if not in DB
     const exists = members.some(m => m.name.toLowerCase() === name.trim().toLowerCase());
@@ -113,7 +113,7 @@ export default function PledgeForm({ onClose, onCreated, donorName: initialName 
       if (!res.ok) { const d = await res.json(); setError(d.error || t('Something went wrong. Please try again.', 'Kuna tatizo. Tafadhali jaribu tena.')); return; }
       onCreated();
       onClose();
-    } catch { setError(t('A connection issue occurred. Kindly try again.', 'Hitilafu ya mtandao. Tafadhali jaribu tena.')); }
+    } catch { setError(t('A connection issue occurred. Kindly try again.', 'Hitilafu ya muunganisho. Tafadhali jaribu tena.')); }
     finally { setSubmitting(false); }
   }
 
@@ -197,7 +197,7 @@ export default function PledgeForm({ onClose, onCreated, donorName: initialName 
 
           <div>
             <label className="mb-1 block text-xs font-bold text-gray-700">
-              {t('Reminder Frequency', 'Mara kwa mara ya vikumbusho')}
+              {t('Reminder Frequency', 'Ukawaida wa Vikumbusho')}
             </label>
             <div className="flex gap-2">
               {freqOptions.map(f => (

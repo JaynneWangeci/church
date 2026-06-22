@@ -304,7 +304,7 @@ export default function PledgeBoard() {
           <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-4 py-1.5 text-xs font-bold text-blue-700 uppercase tracking-widest">
             <Medal size={12} /> {t('Pledge Progress', 'Maendeleo ya Ahadi')}
           </span>
-          <h2 className="mt-3 text-2xl font-bold text-gray-900">{t('See who has pledged and track fulfilment', 'Tazama walioahidi na fuatilia utimilizwaji')}</h2>
+          <h2 className="mt-3 text-2xl font-bold text-gray-900">{t('See who has pledged and track fulfilment', 'Tazama walioahidi na ufuatilie utimilifu')}</h2>
 
           {/* Tab bar */}
           <div className="mx-auto mt-6 flex max-w-lg rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
@@ -550,8 +550,8 @@ export default function PledgeBoard() {
               </div>
               <h3 className="mb-2 text-lg font-bold text-gray-900">{t('Track Progress', 'Fuatilia Maendeleo')}</h3>
               <p className="mb-6 text-sm text-gray-500 max-w-md mx-auto">
-                {t('Enter your full name to see all your pledges, donations, and contributions made in your honour.',
-                  'Ingiza jina lako kamili kuona ahadi zako, michango, na michango iliyotolewa kwa heshima yako.')}
+{t('Enter your full name to see all your pledges, donations, and contributions made in your honour.',
+        'Ingiza jina lako kamili kuona ahadi zako zote, michango yako, na michango iliyotolewa kwa heshima yako.')}
               </p>
             </div>
 
@@ -606,7 +606,7 @@ export default function PledgeBoard() {
                       <p className="mb-1.5 text-xs font-bold text-gray-500">{t('Donations Made', 'Michango Iliyotolewa')}</p>
                       {result.donations.map((d: any) => (
                         <div key={d.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 mb-1">
-                          <span className="text-xs text-gray-700">{d.donor_name || t('Anonymous', 'Hakujulikana')}</span>
+                          <span className="text-xs text-gray-700">{d.donor_name || t('Anonymous', 'Asiyejulikana')}</span>
                           <span className="text-xs font-bold text-gray-900">KES {Number(d.amount).toLocaleString()}</span>
                         </div>
                       ))}
@@ -621,7 +621,7 @@ export default function PledgeBoard() {
                           <div className="flex items-center gap-2">
                             <Heart size={12} className="text-amber-500" />
                             <div>
-                              <span className="text-xs text-gray-700">{h.donor_name || t('Anonymous', 'Hakujulikana')}</span>
+                              <span className="text-xs text-gray-700">{h.donor_name || t('Anonymous', 'Asiyejulikana')}</span>
                               {h.phone && <p className="text-[10px] text-gray-400">{h.phone}</p>}
                             </div>
                           </div>
