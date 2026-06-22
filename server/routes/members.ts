@@ -209,7 +209,7 @@ membersRouter.post("/bulk-edit", requireAdmin, requireAdminOrAbove, async (req, 
     if (!Array.isArray(names) || !names.length) return res.status(400).json({ error: "Provide at least one name" });
     if (!council) council = "general_member";
 
-    names = names.map((n: string) => n.trim()).filter(Boolean);
+    names = names.map((n: string) => n.replace(/^\d+[\.\)]?\s*/, "").replace(/\.+$/, "").trim()).filter(Boolean);
 
     const { data: all, error: fetchErr } = await db.from("church_members").select("id, name").eq("is_active", true);
     if (fetchErr) return res.status(500).json({ error: "Failed to fetch members: " + fetchErr.message });
