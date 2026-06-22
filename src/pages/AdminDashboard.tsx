@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   TrendingUp, Users, DollarSign, Clock, AlertCircle,
-  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileSpreadsheet, Search, ScanSearch, ArrowUpRight, ArrowDownRight, PieChart, Target,
+  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileSpreadsheet, Search, ScanSearch, ArrowUpRight, ArrowDownRight, PieChart, Target, Save,
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePie, Pie, Cell, Legend,
@@ -28,7 +28,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [logs, setLogs] = useState<unknown[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"overview" | "members" | "admins" | "analytics" | "council" | "pledges" | "fellowshipreports">("overview");
+  const [tab, setTab] = useState<"overview" | "members" | "admins" | "analytics" | "council" | "pledges" | "fellowshipreports" | "sitecontent">("overview");
   const [churchMembers, setChurchMembers] = useState<ChurchMember[]>([]);
   const [newName, setNewName] = useState("");
   const [newCouncil, setNewCouncil] = useState("maranatha_fellowship");
@@ -538,6 +538,17 @@ export default function AdminDashboard() {
             <BarChart3 size={14} className="inline mr-1" />
             Analytics
           </button>
+          {(admin.role === "admin" || admin.role === "super_admin") && (
+            <button
+              onClick={() => setTab("sitecontent")}
+              className={`pb-3 text-sm font-bold transition border-b-2 ${
+                tab === "sitecontent" ? "border-nobuk text-nobuk" : "border-transparent text-muted hover:text-nobuk"
+              }`}
+            >
+              <Settings size={14} className="inline mr-1" />
+              Site Content
+            </button>
+          )}
         </div>
 
         {tab === "overview" && (
@@ -2275,7 +2286,152 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
+        {tab === "sitecontent" && <SiteContentEditor />}
       </main>
+    </div>
+  );
+}
+
+function SiteContentEditor() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [content, setContent] = useState({
+    goal_amount: 30000000,
+    cards: [
+      { title_en: "Our Goal", title_sw: "Lengo Letu", text_en: "", text_sw: "" },
+      { title_en: "Our Community", title_sw: "Jamii Yetu", text_en: "", text_sw: "" },
+      { title_en: "Give with Purpose", title_sw: "Toa kwa Kusudi", text_en: "", text_sw: "" },
+    ],
+    about_desc_en: "",
+    about_desc_sw: "",
+    harambee_reason_en: "",
+    harambee_reason_sw: "",
+  });
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.settings?.site_content) {
+          try {
+            const parsed = JSON.parse(data.settings.site_content);
+            setContent(prev => ({ ...prev, ...parsed, cards: parsed.cards || prev.cards }));
+          } catch {}
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  function updateCard(i: number, field: string, value: string) {
+    const cards = [...content.cards];
+    cards[i] = { ...cards[i], [field]: value };
+    setContent({ ...content, cards });
+  }
+
+  async function handleSave() {
+    setSaving(true); setMsg("");
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ site_content: JSON.stringify(content) }),
+      });
+      if (res.ok) setMsg("Saved successfully!");
+      else setMsg("Failed to save");
+    } catch { setMsg("Network error"); }
+    setSaving(false);
+  }
+
+  if (loading) return <div className="flex justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-2 border-nobuk border-t-transparent" /></div>;
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-ink">Site Content</h2>
+            <p className="text-sm text-muted">Edit text displayed on the public homepage. Falls back to defaults if empty.</p>
+          </div>
+          <button onClick={handleSave} disabled={saving}
+            className="btn-lift flex items-center gap-2 rounded-xl bg-nobuk px-5 py-2.5 text-sm font-bold text-white hover:bg-nobuk-light disabled:opacity-50">
+            <Save size={16} />
+            {saving ? "Saving..." : "Save All"}
+          </button>
+        </div>
+        {msg && (
+          <div className={`mb-4 rounded-lg px-4 py-2 text-sm font-medium ${msg.includes("Success") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+            {msg}
+          </div>
+        )}
+
+        {/* Goal */}
+        <div className="mb-6">
+          <label className="mb-1.5 block text-sm font-bold text-ink">Goal Amount (KES)</label>
+          <input type="number" value={content.goal_amount} onChange={e => setContent({...content, goal_amount: Number(e.target.value)})}
+            className="w-full max-w-xs rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" />
+        </div>
+
+        {/* About description */}
+        <div className="mb-6 grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-sm font-bold text-ink">About Description (EN)</label>
+            <textarea value={content.about_desc_en} onChange={e => setContent({...content, about_desc_en: e.target.value})} rows={2}
+              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" placeholder="The construction of this Great House of God started in 2006..." />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-bold text-ink">About Description (SW)</label>
+            <textarea value={content.about_desc_sw} onChange={e => setContent({...content, about_desc_sw: e.target.value})} rows={2}
+              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" placeholder="Ujenzi wa Nyumba hii Kuu ya Mungu ulianza mwaka 2006..." />
+          </div>
+        </div>
+
+        {/* Harambee reason */}
+        <div className="mb-6 grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-sm font-bold text-ink">Harambee Reason (EN)</label>
+            <textarea value={content.harambee_reason_en} onChange={e => setContent({...content, harambee_reason_en: e.target.value})} rows={2}
+              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" placeholder="Together we are building the house of the Lord..." />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-bold text-ink">Harambee Reason (SW)</label>
+            <textarea value={content.harambee_reason_sw} onChange={e => setContent({...content, harambee_reason_sw: e.target.value})} rows={2}
+              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" placeholder="Kwa pamoja tunajenga nyumba ya Bwana..." />
+          </div>
+        </div>
+
+        {/* Cards */}
+        <h3 className="mb-3 text-sm font-bold text-ink uppercase tracking-wider">Objectives Cards</h3>
+        {content.cards.map((card, i) => (
+          <div key={i} className="mb-5 rounded-xl border border-gray-100 bg-gray-50 p-4">
+            <p className="mb-3 text-xs font-bold text-muted uppercase">Card {i + 1}</p>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink">Title (EN)</label>
+                <input type="text" value={card.title_en} onChange={e => updateCard(i, "title_en", e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink">Title (SW)</label>
+                <input type="text" value={card.title_sw} onChange={e => updateCard(i, "title_sw", e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-xs font-semibold text-ink">Text (EN)</label>
+                <textarea value={card.text_en} onChange={e => updateCard(i, "text_en", e.target.value)} rows={2}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-xs font-semibold text-ink">Text (SW)</label>
+                <textarea value={card.text_sw} onChange={e => updateCard(i, "text_sw", e.target.value)} rows={2}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

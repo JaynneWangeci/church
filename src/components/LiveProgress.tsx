@@ -16,8 +16,8 @@ export default function LiveProgress() {
   const { ref, inView } = useInView();
   const prevPct = useRef(0);
   const [recentDonations, setRecentDonations] = useState<any[]>([]);
-  const [tickerIdx, setTickerIdx] = useState(0);
   const [endsAt, setEndsAt] = useState<string | null>(null);
+  const [siteContent, setSiteContent] = useState<any>(null);
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   const pct = Math.min((raised / goal) * 100, 100);
@@ -47,6 +47,14 @@ export default function LiveProgress() {
       .then(r => r.ok && r.json())
       .then(data => { if (data) setHarambeeDays(data.days_remaining); })
       .catch(() => {});
+    fetch('/api/settings')
+      .then(r => r.ok && r.json())
+      .then(data => {
+        if (data?.settings?.site_content) {
+          try { setSiteContent(JSON.parse(data.settings.site_content)); } catch {}
+        }
+      })
+      .catch(() => {});
     fetchPledges();
 
     const interval = setInterval(() => {
@@ -59,6 +67,10 @@ export default function LiveProgress() {
 
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (siteContent?.goal_amount) setGoal(Number(siteContent.goal_amount));
+  }, [siteContent]);
 
   useEffect(() => {
     if (!endsAt) return;
@@ -78,24 +90,18 @@ export default function LiveProgress() {
   }, [endsAt]);
 
   useEffect(() => {
-    fetch('/api/donations?status=completed&limit=2')
+    fetch('/api/donations?status=completed&limit=10')
       .then(r => r.ok && r.json())
-      .then(data => { if (data?.donations?.length) setRecentDonations(data.donations.slice(0, 2)); })
+      .then(data => { if (data?.donations?.length) setRecentDonations(data.donations.slice(0, 10)); })
       .catch(() => {});
     const interval = setInterval(() => {
-      fetch('/api/donations?status=completed&limit=2')
+      fetch('/api/donations?status=completed&limit=10')
         .then(r => r.ok && r.json())
-        .then(data => { if (data?.donations?.length) setRecentDonations(data.donations.slice(0, 2)); })
+        .then(data => { if (data?.donations?.length) setRecentDonations(data.donations.slice(0, 10)); })
         .catch(() => {});
     }, 15000);
     return () => clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    if (recentDonations.length <= 1) return;
-    const timer = setInterval(() => setTickerIdx(i => (i + 1) % recentDonations.length), 4000);
-    return () => clearInterval(timer);
-  }, [recentDonations.length]);
 
   useEffect(() => {
     if (!inView) return;
@@ -176,26 +182,26 @@ export default function LiveProgress() {
             Tujenge Pamoja
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-white/50">
-            Together we are building the house of the Lord. Every contribution brings us closer to our goal.
+            {siteContent?.harambee_reason_en || 'Together we are building the house of the Lord. Every contribution brings us closer to our goal.'}
           </p>
         </div>
 
         {/* Main progress card */}
         <div className={`relative rounded-3xl border border-white/10 bg-white/[0.03] p-8 shadow-2xl backdrop-blur-sm transition-all duration-700 delay-200 md:p-12 ${inView ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
-          {/* Live ticker / recent donors */}
+          {/* Live marquee ticker */}
           {recentDonations.length > 0 && (
-            <div className="mb-6 flex items-center gap-3 overflow-hidden rounded-xl border border-white/5 bg-white/[0.02] px-4 py-2.5">
+            <div className="mb-5 flex items-center gap-3 overflow-hidden rounded-xl border border-white/5 bg-white/[0.02] px-4 py-2">
               <span className="relative flex h-2 w-2 shrink-0">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-green-400" />
               </span>
-              <div className="relative h-5 flex-1 overflow-hidden">
-                <div className="ticker-scroll">
-                  {recentDonations.slice(0, 2).map((d, i) => (
-                    <div key={i} className="flex h-5 items-center gap-2 text-sm">
+              <div className="relative flex-1 overflow-hidden" style={{ maskImage: 'linear-gradient(90deg, transparent 0, #000 20px, #000 calc(100% - 20px), transparent 100%)' }}>
+                <div className="flex animate-marquee gap-10" style={{ width: 'max-content' }}>
+                  {[...recentDonations, ...recentDonations].map((d, i) => (
+                    <span key={i} className="flex shrink-0 items-center gap-2 text-sm whitespace-nowrap">
                       <span className="font-medium text-white/80">{d.donor_name || 'Anonymous'}</span>
                       <span className="font-semibold text-amber">KES {Number(d.amount).toLocaleString()}</span>
-                    </div>
+                    </span>
                   ))}
                 </div>
               </div>

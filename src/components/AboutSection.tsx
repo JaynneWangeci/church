@@ -1,15 +1,38 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Church, Heart, Target, Users, ChevronLeft, ChevronRight } from "lucide-react";
 import { useInView } from "../hooks/useInView";
 import { useLang } from "../context/LanguageContext";
 
 export default function AboutSection() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const { ref, inView } = useInView();
   const [activeCard, setActiveCard] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
+  const [dynamicContent, setDynamicContent] = useState<any>(null);
 
-  const cards = [
+  useEffect(() => {
+    fetch("/api/settings")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.settings?.site_content) {
+          try { setDynamicContent(JSON.parse(data.settings.site_content)); } catch {}
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const siteCards = dynamicContent?.cards;
+  const icons = [Target, Users, Heart];
+
+  const cards = siteCards && siteCards.length === 3
+    ? siteCards.map((c: any, i: number) => ({
+        icon: icons[i] || Target,
+        title: lang === 'sw' ? (c.title_sw || c.title_en) : c.title_en,
+        text: lang === 'sw' ? (c.text_sw || c.text_en) : c.text_en,
+      }))
+    : null;
+
+  const defaultCards = [
     {
       icon: Target,
       title: t("Our Goal", "Lengo Letu"),
@@ -74,29 +97,54 @@ export default function AboutSection() {
             Tujenge Pamoja
           </h2>
           <p className="mt-3 text-muted">
-            {t(
-              "The construction of this Great House of God started in 2006. Now we unite to complete what was started with faith and determination.",
-              "Ujenzi wa Nyumba hii Kuu ya Mungu ulianza mwaka 2006. Sasa tunaungana kukamilisha kilichoanazwa kwa imani na dhamira."
-            )}
+            {dynamicContent?.about_desc_en
+              ? (lang === 'sw' ? (dynamicContent.about_desc_sw || dynamicContent.about_desc_en) : dynamicContent.about_desc_en)
+              : t(
+                "The construction of this Great House of God started in 2006. Now we unite to complete what was started with faith and determination.",
+                "Ujenzi wa Nyumba hii Kuu ya Mungu ulianza mwaka 2006. Sasa tunaungana kukamilisha kilichoanazwa kwa imani na dhamira."
+              )
+            }
           </p>
         </div>
 
         <div className="relative">
-          {/* Carousel */}
+          {/* Mobile carousel */}
           <div
             ref={(el) => { carouselRef.current = el; ref.current = el; }}
             onScroll={handleScroll}
-            className="carousel-snap flex gap-6 overflow-x-auto pb-4 scrollbar-hide md:justify-center"
+            className="carousel-snap flex gap-5 overflow-x-auto pb-4 scrollbar-hide md:hidden"
           >
-            {cards.map((card, i) => {
+            {(cards || defaultCards).map((card, i) => {
               const Icon = card.icon;
               return (
                 <div
                   key={card.title}
-                  className={`min-w-[85vw] shrink-0 snap-start md:min-w-[380px] lg:min-w-[400px] card-hover group rounded-2xl border border-white/20 bg-white/80 backdrop-blur-md p-8 shadow-sm transition-all duration-500 ${
+                  className={`min-w-[80vw] shrink-0 snap-start card-hover group rounded-2xl border border-white/20 bg-white/80 backdrop-blur-md p-6 shadow-sm transition-all duration-500 ${
                     inView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
                   }`}
                   style={{ transitionDelay: `${i * 0.15}s` }}
+                >
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-nobuk-muted transition-colors group-hover:bg-nobuk">
+                    <Icon size={20} className="text-nobuk transition-colors group-hover:text-white" />
+                  </div>
+                  <h3 className="text-base font-bold text-nobuk">{card.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted">{card.text}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop grid */}
+          <div ref={ref} className="hidden md:grid md:grid-cols-3 gap-6">
+            {(cards || defaultCards).map((card, i) => {
+              const Icon = card.icon;
+              return (
+                <div
+                  key={card.title}
+                  className={`card-hover group rounded-2xl border border-white/20 bg-white/80 backdrop-blur-md p-8 shadow-sm ${
+                    inView ? "animate-slide-up" : "opacity-0"
+                  }`}
+                  style={{ animationDelay: `${i * 0.15}s` }}
                 >
                   <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-nobuk-muted transition-colors group-hover:bg-nobuk">
                     <Icon size={22} className="text-nobuk transition-colors group-hover:text-white" />
@@ -108,23 +156,9 @@ export default function AboutSection() {
             })}
           </div>
 
-          {/* Arrow nav (desktop) */}
-          <div className="hidden md:flex absolute -left-4 top-1/2 -translate-y-1/2">
-            <button onClick={() => scrollTo(activeCard - 1 < 0 ? cards.length - 1 : activeCard - 1)}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/80 shadow-md backdrop-blur-sm hover:bg-white transition-all">
-              <ChevronLeft size={18} className="text-nobuk" />
-            </button>
-          </div>
-          <div className="hidden md:flex absolute -right-4 top-1/2 -translate-y-1/2">
-            <button onClick={() => scrollTo((activeCard + 1) % cards.length)}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/80 shadow-md backdrop-blur-sm hover:bg-white transition-all">
-              <ChevronRight size={18} className="text-nobuk" />
-            </button>
-          </div>
-
-          {/* Dot indicators */}
-          <div className="mt-6 flex items-center justify-center gap-2">
-            {cards.map((_, i) => (
+          {/* Dot indicators (mobile only) */}
+          <div className="mt-5 flex items-center justify-center gap-2 md:hidden">
+            {(cards || defaultCards).map((_, i) => (
               <button key={i} onClick={() => scrollTo(i)}
                 className={`h-2 rounded-full transition-all duration-300 ${
                   i === activeCard ? "w-8 bg-amber" : "w-2 bg-amber/30 hover:bg-amber/50"
