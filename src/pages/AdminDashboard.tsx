@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   TrendingUp, Users, DollarSign, Clock, AlertCircle,
-  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileSpreadsheet, Search, ScanSearch, ArrowUpRight, ArrowDownRight, PieChart, Target, Save,
+  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileSpreadsheet, Search, ScanSearch, ArrowUpRight, ArrowDownRight, PieChart, Target, Save, Pencil,
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePie, Pie, Cell, Legend,
@@ -39,6 +39,10 @@ export default function AdminDashboard() {
   const [bulkGender, setBulkGender] = useState("");
   const [bulkError, setBulkError] = useState("");
   const [bulkResult, setBulkResult] = useState("");
+  const [bulkEditNames, setBulkEditNames] = useState("");
+  const [bulkEditCouncil, setBulkEditCouncil] = useState("");
+  const [bulkEditGender, setBulkEditGender] = useState("");
+  const [bulkEditResult, setBulkEditResult] = useState("");
   const [editingMember, setEditingMember] = useState<string | null>(null);
   const [editMemberName, setEditMemberName] = useState("");
   const [editMemberCouncil, setEditMemberCouncil] = useState("");
@@ -306,6 +310,26 @@ export default function AdminDashboard() {
     if (added > 0) fetchMembers();
   }
 
+  async function handleBulkEdit() {
+    const names = bulkEditNames.trim().split('\n').map(l => l.trim()).filter(Boolean);
+    if (!names.length) { setBulkEditResult("Paste at least one name"); return; }
+    if (!bulkEditCouncil) { setBulkEditResult("Select a fellowship"); return; }
+    setBulkEditResult("");
+    const res = await fetch("/api/members/bulk-edit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ names, council: bulkEditCouncil, gender: bulkEditGender || undefined }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setBulkEditResult(`${data.updated} of ${data.total} members updated.`);
+      setBulkEditNames("");
+      fetchMembers();
+    } else {
+      setBulkEditResult(data.error || "Something went wrong");
+    }
+  }
+
   function toggleMember(id: string) {
     setSelectedMembers(prev => {
       const next = new Set(prev);
@@ -377,6 +401,9 @@ export default function AdminDashboard() {
 
   async function handleUpdateMember(id: string) {
     if (!editMemberName.trim()) return;
+    const prev = churchMembers.find(m => m.id === id);
+    setChurchMembers(prev => prev.map(m => m.id === id ? { ...m, name: editMemberName.trim(), council: editMemberCouncil, gender: editMemberGender || null } : m));
+    setEditingMember(null);
     try {
       const res = await fetch(`/api/members/${id}`, {
         method: "PATCH",
@@ -386,9 +413,12 @@ export default function AdminDashboard() {
       if (res.ok) {
         const data = await res.json();
         setChurchMembers(prev => prev.map(m => m.id === id ? data.member : m));
-        setEditingMember(null);
+      } else if (prev) {
+        setChurchMembers(prev => prev.map(m => m.id === id ? prev : m));
       }
-    } catch {}
+    } catch {
+      if (prev) setChurchMembers(prev => prev.map(m => m.id === id ? prev : m));
+    }
   }
 
   function handleLogout() {
@@ -861,6 +891,53 @@ export default function AdminDashboard() {
                 <button onClick={handleBulkAdd} disabled={!bulkNames.trim()}
                   className="w-full rounded-lg bg-nobuk py-2.5 text-sm font-bold text-white hover:bg-nobuk-light disabled:opacity-40">
                   Add {bulkNames.trim() ? bulkNames.trim().split('\n').filter(n => n.trim()).length : 0} Members
+                </button>
+              </div>
+            </div>
+
+            {/* Bulk Edit Members */}
+            <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <Pencil size={16} className="text-nobuk" />
+                <h2 className="text-sm font-bold text-ink">Bulk Edit Members</h2>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-muted">Paste names to reassign</label>
+                  <textarea value={bulkEditNames} onChange={(e) => setBulkEditNames(e.target.value)} rows={4}
+                    placeholder={"John Kamau\nMary Wambui\nPeter Njoroge\n\nOne name per line — matching names will be updated to the fellowship and gender below"}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk resize-vertical placeholder:text-muted/50" />
+                  <p className="mt-1 text-[10px] text-muted">{bulkEditNames.trim() ? (bulkEditNames.trim().split('\n').filter(n => n.trim()).length + " names") : "Paste names above"}</p>
+                </div>
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <label className="mb-1 block text-xs font-bold text-muted">New fellowship</label>
+                    <select value={bulkEditCouncil} onChange={(e) => setBulkEditCouncil(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk">
+                      <option value="">Select fellowship...</option>
+                      {(councils.length ? councils : []).map(c => (
+                        <option key={c.slug} value={c.slug}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex-1">
+                    <label className="mb-1 block text-xs font-bold text-muted">New gender</label>
+                    <select value={bulkEditGender} onChange={(e) => setBulkEditGender(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk">
+                      <option value="">Keep current</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                    </select>
+                  </div>
+                </div>
+                {bulkEditResult && (
+                  <div className={`rounded-lg border px-3 py-2 text-xs ${bulkEditResult.includes("error") || bulkEditResult.includes("Something") ? "border-red-300 bg-red-50 text-red-700" : "border-green-300 bg-green-50 text-green-700"}`}>
+                    {bulkEditResult}
+                  </div>
+                )}
+                <button onClick={handleBulkEdit} disabled={!bulkEditNames.trim() || !bulkEditCouncil}
+                  className="w-full rounded-lg bg-nobuk py-2.5 text-sm font-bold text-white hover:bg-nobuk-light disabled:opacity-40">
+                  Update {bulkEditNames.trim() ? bulkEditNames.trim().split('\n').filter(n => n.trim()).length : 0} Members
                 </button>
               </div>
             </div>

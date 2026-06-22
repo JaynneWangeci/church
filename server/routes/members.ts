@@ -202,6 +202,47 @@ membersRouter.post("/", requireAdmin, requireAdminOrAbove, async (req, res) => {
   }
 });
 
+membersRouter.post("/bulk-edit", requireAdmin, requireAdminOrAbove, async (req, res) => {
+  try {
+    const db = requireService();
+    let { names, council, gender } = req.body;
+    if (!Array.isArray(names) || !names.length) return res.status(400).json({ error: "Provide at least one name" });
+    if (!council) council = "general_member";
+
+    names = names.map(n => n.trim()).filter(Boolean);
+    let updated = 0;
+    for (const name of names) {
+      const { data: existing } = await db
+        .from("church_members")
+        .select("id")
+        .eq("is_active", true)
+        .ilike("name", name)
+        .maybeSingle();
+
+      if (!existing) continue;
+
+      const updates: Record<string, unknown> = { council };
+      if (gender === "male" || gender === "female") updates.gender = gender;
+      const { error } = await db.from("church_members").update(updates).eq("id", existing.id);
+      if (!error) updated++;
+    }
+
+    const admin = (req as any).admin;
+    await logAudit({
+      adminId: admin.id,
+      action: "bulk_edit_church_members",
+      resourceType: "church_member",
+      resourceId: `${updated} updated`,
+      ipAddress: (req as any).adminIp,
+    });
+
+    res.json({ ok: true, updated, total: names.length });
+  } catch (err) {
+    console.error("bulk edit error:", err);
+    res.status(500).json({ error: "Something went wrong. Please try again." });
+  }
+});
+
 membersRouter.post("/bulk-delete", requireAdmin, requireAdminOrAbove, async (req, res) => {
   try {
     const db = requireService();
