@@ -1,4 +1,4 @@
-import { Router } from "express";
+﻿import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
 import {
   requireAdmin, requireSuperAdmin, logAudit,
@@ -510,84 +510,33 @@ adminRouter.post("/migrate-v9", async (_req, res) => {
     if (!url || !key) return res.status(500).json({ error: "Supabase not configured" });
     const sql = "ALTER TABLE donations ADD COLUMN IF NOT EXISTS honour_known_as TEXT;";
 
-    // Extract project ref
-    const ref = url.match(/https:\/\/(.+)\.supabase\.co/)?.[1];
-    const dbPass = process.env.SUPABASE_DB_PASSWORD || process.env.POSTGRES_PASSWORD || process.env.DATABASE_PASSWORD;
-
-    // Try direct pg connection if we have the db password
-    if (ref && dbPass) {
-      try {
-        const { default: { Pool } } = await import("pg") as any;
-        const region = process.env.SUPABASE_REGION || "eu-west-1";
-        const pool = new Pool({
-          host: `aws-0-${region}.pooler.supabase.com`,
-          port: 6543,
-          database: "postgres",
-          user: `postgres.${ref}`,
-          password: dbPass,
-          ssl: { rejectUnauthorized: false },
-          connectionTimeoutMillis: 5000,
-        });
-        await pool.query(sql);
-        await pool.end();
-        return res.json({ ok: true, message: "Migration complete (pooler)" });
-      } catch (poolErr: any) {
-        return res.status(500).json({ error: `Pooler failed: ${poolErr.message}` });
-      }
-    }
-
-    // Fallback: try various Supabase REST endpoints
-    const bodies = [
-      JSON.stringify({ query: sql }),
-      JSON.stringify({ sql }),
-      JSON.stringify({ command: sql }),
-      JSON.stringify({});
-    ];
-    const endpoints = [
-      `${url}/sql/v1/query`,
-      `${url}/api/sql`,
-      `${url}/rest/v1/rpc/`,
-      `${url}/rest/v1/`,
-    ];
-    for (const ep of endpoints) {
-      for (const body of bodies) {
-        try {
-          const r = await fetch(ep, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${key}`,
-              "apikey": key,
-            },
-            body,
-          });
-          if (r.ok) return res.json({ ok: true, message: `Column added via ${ep}` });
-        } catch { /* try next */ }
-      }
-    }
-
-    // Last resort: try Supabase Management API with service key
-    if (ref) {
-      try {
-        const r = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${key}`,
-          },
-          body: JSON.stringify({ query: sql }),
-        });
-        if (r.ok) return res.json({ ok: true, message: "Column added via mgmt API" });
-      } catch { /* ignore */ }
-    }
-
-    return res.status(500).json({
-      error: "No endpoint worked",
-      ref,
-      hasDbPass: !!dbPass,
-      hasUrl: !!url,
-      hasKey: !!key,
+    // Try pg-meta query endpoint (internal Supabase API, auth via service key)
+    const pgMetaRes = await fetch(`${url}/pg/query`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${key}`,
+        "apikey": key,
+      },
+      body: JSON.stringify({ query: sql }),
     });
+    if (pgMetaRes.ok) return res.json({ ok: true, message: "Migration complete (pg-meta)" });
+
+    // Try the Supabase SQL API endpoint
+    const sqlRes = await fetch(`${url}/api/sql`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${key}`,
+        "apikey": key,
+      },
+      body: JSON.stringify({ query: sql }),
+    });
+    if (sqlRes.ok) return res.json({ ok: true, message: "Migration complete (sql api)" });
+
+    const pgMetaErr = await pgMetaRes.text().catch(() => "unknown");
+    const sqlErr = await sqlRes.text().catch(() => "unknown");
+    res.status(500).json({ error: "All endpoints failed", pgMeta: pgMetaErr.slice(0, 300), sql: sqlErr.slice(0, 300) });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
