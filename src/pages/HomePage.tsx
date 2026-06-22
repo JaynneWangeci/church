@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Globe, MapPin, Heart, HandHeart, Phone, Share2, Bible } from 'lucide-react';
+import { Globe, MapPin, Heart, HandHeart, Phone, Share2, BookOpen } from 'lucide-react';
 import { useLang } from '../context/LanguageContext';
 import { useInView } from '../hooks/useInView';
 import SlideshowBackground from "../components/SlideshowBackground";
@@ -84,7 +84,7 @@ export default function HomePage() {
       {dailyVerse && (
         <div className="fixed top-14 left-1/2 z-40 -translate-x-1/2 max-w-lg px-4">
           <div className="flex items-start gap-2 rounded-xl bg-white/10 px-3 py-2 backdrop-blur-md shadow-sm">
-            <Bible size={12} className="mt-0.5 shrink-0 text-amber" />
+            <BookOpen size={12} className="mt-0.5 shrink-0 text-amber" />
             <p className="text-[10px] leading-relaxed text-white/70">
               <span className="font-semibold text-white/90">{dailyVerse.ref}</span>{' '}
               {lang === 'sw' ? dailyVerse.sw : dailyVerse.en}
