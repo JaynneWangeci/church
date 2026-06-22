@@ -621,7 +621,7 @@ export default function PledgeBoard() {
                           <div className="flex items-center gap-2">
                             <Heart size={12} className="text-amber-500" />
                             <div>
-                              <span className="text-xs text-gray-700">{h.donor_name || t('Anonymous', 'Asiyejulikana')}</span>
+                              <span className="text-xs text-gray-700">{h.honour_known_as || h.donor_name || t('Anonymous', 'Asiyejulikana')}</span>
                               {h.phone && <p className="text-[10px] text-gray-400">{h.phone}</p>}
                             </div>
                           </div>

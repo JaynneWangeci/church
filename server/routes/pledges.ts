@@ -140,7 +140,7 @@ pledgesRouter.get("/:name", async (req, res) => {
     const honouredIds = (honouredMembers || []).map(m => m.id);
 
     const { data: honoured } = honouredIds.length
-      ? await db.from("donations").select("id, donor_name, amount, phone, created_at").eq("status", "completed").in("honored_member_id", honouredIds).order("created_at", { ascending: false })
+      ? await db.from("donations").select("id, donor_name, honour_known_as, amount, phone, created_at").eq("status", "completed").in("honored_member_id", honouredIds).order("created_at", { ascending: false })
       : { data: [] };
 
     res.json({ pledges: pledges || [], honoured: honoured || [] });
@@ -172,7 +172,7 @@ pledgesRouter.get("/search/name", async (req, res) => {
 
     const honourIds2 = (honourMemberIds || []).map(m => m.id);
     const { data: donationsByHonour } = honourIds2.length
-      ? await db.from("donations").select("id, donor_name, amount, created_at, honored_member_id, receipt_number, phone").eq("status", "completed").in("honored_member_id", honourIds2)
+      ? await db.from("donations").select("id, donor_name, honour_known_as, amount, created_at, honored_member_id, receipt_number, phone").eq("status", "completed").in("honored_member_id", honourIds2)
       : { data: [] };
 
     const donationMap = new Map<string, any>();
@@ -186,7 +186,7 @@ pledgesRouter.get("/search/name", async (req, res) => {
     const honouredIds = (honouredMembers || []).map(m => m.id);
 
     const { data: honoured } = honouredIds.length
-      ? await db.from("donations").select("id, donor_name, amount, phone, created_at").eq("status", "completed").in("honored_member_id", honouredIds).order("created_at", { ascending: false })
+      ? await db.from("donations").select("id, donor_name, honour_known_as, amount, phone, created_at").eq("status", "completed").in("honored_member_id", honouredIds).order("created_at", { ascending: false })
       : { data: [] };
 
     res.json({ pledges: pledges || [], donations: donations || [], honoured: honoured || [] });
