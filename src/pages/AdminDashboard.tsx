@@ -338,7 +338,7 @@ export default function AdminDashboard() {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) fetchMembers();
+      if (res.ok) setChurchMembers(prev => prev.filter(m => m.id !== id));
     } catch {}
   }
 
@@ -352,8 +352,9 @@ export default function AdminDashboard() {
         body: JSON.stringify({ ids: Array.from(selectedMembers) }),
       });
       if (res.ok) {
+        const deleted = new Set(selectedMembers);
         setSelectedMembers(new Set());
-        fetchMembers();
+        setChurchMembers(prev => prev.filter(m => !deleted.has(m.id)));
       }
     } catch {}
   }
@@ -382,7 +383,11 @@ export default function AdminDashboard() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: editMemberName.trim(), council: editMemberCouncil, gender: editMemberGender || null }),
       });
-      if (res.ok) { setEditingMember(null); fetchMembers(); }
+      if (res.ok) {
+        const data = await res.json();
+        setChurchMembers(prev => prev.map(m => m.id === id ? data.member : m));
+        setEditingMember(null);
+      }
     } catch {}
   }
 
@@ -916,7 +921,10 @@ export default function AdminDashboard() {
                       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                       body: JSON.stringify({ ids }),
                     });
-                    if (r.ok) fetchMembers();
+                    if (r.ok) {
+                      const idSet = new Set(ids);
+                      setChurchMembers(prev => prev.filter(m => !idSet.has(m.id)));
+                    }
                   }}
                     className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white hover:bg-red-700 transition">
                     <Trash2 size={14} /> Delete All {memberCouncilFilter.replace(/_/g, " ")} Members
