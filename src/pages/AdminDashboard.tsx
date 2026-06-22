@@ -1820,15 +1820,15 @@ export default function AdminDashboard() {
                       const pledgePct = f.pledge.total > 0 ? (f.pledge.paid / f.pledge.total) * 100 : 0;
                       return (
                         <details key={f.council} className="group rounded-lg border border-gray-100 bg-white" open>
-                          <summary className="flex cursor-pointer items-center gap-3 rounded-lg bg-cream px-4 py-3 transition hover:bg-nobuk-muted">
-                            <div className="flex-1 min-w-0">
-                              <span className="text-sm font-bold text-ink capitalize">{label}</span>
-                              <span className="ml-2 whitespace-nowrap text-xs text-muted">{f.member_count} members · {f.pledge.count} pledges</span>
+                          <summary className="flex cursor-pointer flex-col gap-1 rounded-lg bg-cream px-4 py-3 transition hover:bg-nobuk-muted md:flex-row md:items-center md:justify-between">
+                            <div className="flex items-baseline gap-2 min-w-0">
+                              <span className="text-sm font-bold text-ink capitalize shrink-0">{label}</span>
+                              <span className="whitespace-nowrap text-xs text-muted">{f.member_count} members · {f.pledge.count} pledges</span>
                             </div>
-                            <div className="flex items-center gap-4 text-xs tabular-nums">
-                              <span className="text-muted">Donations: KES {f.donation.total.toLocaleString("en-KE")}</span>
-                              <span className="text-green-700 font-medium">Pledged: KES {f.pledge.paid.toLocaleString("en-KE")}</span>
-                              <span className="text-amber-dark font-medium">Rate: {f.pledge.fulfillment_rate}%</span>
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs tabular-nums">
+                              <span className="text-muted whitespace-nowrap">Donations: KES {f.donation.total.toLocaleString("en-KE")}</span>
+                              <span className="text-green-700 font-medium whitespace-nowrap">Pledged: KES {f.pledge.paid.toLocaleString("en-KE")}</span>
+                              <span className="text-amber-dark font-medium whitespace-nowrap">Rate: {f.pledge.fulfillment_rate}%</span>
                             </div>
                           </summary>
 
