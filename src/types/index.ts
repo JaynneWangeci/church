@@ -123,6 +123,18 @@ export const COUNCIL_LABELS: Record<string, string> = {
   general_member: "General Member",
 };
 
+export const COUNCIL_ORDER: Record<string, number> = {
+  maranatha_fellowship: 1,
+  bethlehem_fellowship: 2,
+  jerusalem_fellowship: 3,
+  aefeso_fellowship: 4,
+  galilee_fellowship: 5,
+  bethel_fellowship: 6,
+  berea_fellowship: 7,
+  judea_fellowship: 8,
+  general_member: 9,
+};
+
 export const DEFAULT_COUNCILS: Council[] = [
   { slug: "maranatha_fellowship", name: "Maranatha Fellowship", is_active: true, created_at: "" },
   { slug: "bethlehem_fellowship", name: "Bethlehem Fellowship", is_active: true, created_at: "" },

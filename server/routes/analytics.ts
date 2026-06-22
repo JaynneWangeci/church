@@ -225,7 +225,7 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
     const pledgePaid = pledges.reduce((s, p) => s + Number(p.paid), 0);
     const pledgeRemaining = pledges.reduce((s, p) => s + Number(p.remaining), 0);
     const pledgeFulfilled = pledges.filter(p => p.status === "fulfilled").length;
-    const pledgeActive = pledges.filter(p => p.status === "active").length;
+    const pledgeActive = pledges.filter(p => p.status === "pending").length;
     const pledgeFulfillmentRate = pledgeTotal > 0 ? (pledgePaid / pledgeTotal) * 100 : 0;
 
     // ── Payment method breakdown ──

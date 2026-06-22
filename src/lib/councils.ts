@@ -1,4 +1,5 @@
 import type { Council } from "../types";
+import { COUNCIL_ORDER } from "../types";
 
 let cachedCouncils: Council[] | null = null;
 let cacheTime = 0;
@@ -11,7 +12,7 @@ export async function fetchCouncils(): Promise<Council[]> {
     const res = await fetch("/api/councils");
     if (res.ok) {
       const data = await res.json();
-      cachedCouncils = data.councils || [];
+      cachedCouncils = (data.councils || []).sort((a: Council, b: Council) => (COUNCIL_ORDER[a.slug] || 99) - (COUNCIL_ORDER[b.slug] || 99));
       cacheTime = now;
       return cachedCouncils;
     }

@@ -36,6 +36,11 @@ const councilMeta: Record<string, { label: string; icon: typeof Church; color: s
   bethlehem_fellowship: { label: "Bethlehem Fellowship", icon: Users, color: 'bg-pink-100 text-pink-600' },
   jerusalem_fellowship: { label: "Jerusalem Fellowship", icon: Users, color: 'bg-indigo-100 text-indigo-600' },
   aefeso_fellowship: { label: 'Aefeso Fellowship', icon: Medal, color: 'bg-amber-100 text-amber-600' },
+  galilee_fellowship: { label: 'Galilee Fellowship', icon: Users, color: 'bg-purple-100 text-purple-600' },
+  bethel_fellowship: { label: 'Bethel Fellowship', icon: Users, color: 'bg-cyan-100 text-cyan-600' },
+  berea_fellowship: { label: 'Berea Fellowship', icon: Users, color: 'bg-emerald-100 text-emerald-600' },
+  judea_fellowship: { label: 'Judea Fellowship', icon: Users, color: 'bg-orange-100 text-orange-600' },
+  general_member: { label: 'General Member', icon: Users, color: 'bg-gray-100 text-gray-600' },
 };
 
 function stars(paid: number, amount: number) {

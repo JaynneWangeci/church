@@ -7,6 +7,7 @@ import {
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePie, Pie, Cell, Legend,
 } from "recharts";
+import { COUNCIL_ORDER } from "../types";
 import type { DashboardStats, AdminUser, ChurchMember, CommitteeMember, Council } from "../types";
 import { fetchCouncils, getCouncilLabel, clearCouncilCache } from "../lib/councils";
 import * as pdfjs from "pdfjs-dist";
@@ -69,6 +70,7 @@ export default function AdminDashboard() {
   const [dedupResult, setDedupResult] = useState("");
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [analyticsRange, setAnalyticsRange] = useState<"7d" | "30d" | "90d" | "1y" | "all">("30d");
+  const [chartPeriod, setChartPeriod] = useState<"daily" | "weekly" | "monthly">("daily");
   const [committeeMembers, setCommitteeMembers] = useState<CommitteeMember[]>([]);
   const [newComName, setNewComName] = useState("");
   const [newComRole, setNewComRole] = useState("");
@@ -1017,7 +1019,7 @@ export default function AdminDashboard() {
               </div>
               {churchMembers.length ? (
                 <div className="space-y-4">
-                  {Object.entries(groupedMembers).map(([council, councilMembers]) => {
+                  {Object.entries(groupedMembers).sort(([a], [b]) => (COUNCIL_ORDER[a] || 99) - (COUNCIL_ORDER[b] || 99)).map(([council, councilMembers]) => {
                     if (memberCouncilFilter && council !== memberCouncilFilter) return null;
                     const filteredCouncil = memberSearch
                       ? councilMembers.filter(m => m.name.toLowerCase().includes(memberSearch.toLowerCase()))
@@ -1742,7 +1744,7 @@ export default function AdminDashboard() {
                   grouped[p.council].push(p);
                 }
 
-                const councilOrder = [...new Set([...(councils.map(c => c.slug)), ...Object.keys(grouped)])].filter(c => grouped[c]?.length);
+                const councilOrder = [...new Set([...(councils.map(c => c.slug)), ...Object.keys(grouped)])].filter(c => grouped[c]?.length).sort((a, b) => (COUNCIL_ORDER[a] || 99) - (COUNCIL_ORDER[b] || 99));
 
                 const councilColors: Record<string, string> = {
                   maranatha_fellowship: 'bg-blue-100 text-blue-700',
@@ -1811,7 +1813,7 @@ export default function AdminDashboard() {
                                   <td className="py-2 pr-3">
                                     <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${
                                       p.status === "fulfilled" ? "bg-green-100 text-green-800" :
-                                      p.status === "active" ? "bg-blue-100 text-blue-800" :
+                                      p.status === "pending" ? "bg-blue-100 text-blue-800" :
                                       "bg-gray-100 text-gray-600"
                                     }`}>{p.status}</span>
                                   </td>
@@ -2152,17 +2154,25 @@ export default function AdminDashboard() {
                     })}
                   </div>
 
-                  {/* ── Revenue Chart (daily) ── */}
+                  {/* ── Revenue Chart ── */}
                   <div className="mb-6 rounded-lg border border-gray-100 bg-white p-4">
                     <div className="mb-4 flex items-center justify-between">
                       <h3 className="text-sm font-bold text-ink">Revenue Trend</h3>
-                      <div className="flex gap-3 text-[10px] text-muted">
-                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-500" /> Daily</span>
-                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-400" /> Weekly avg</span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+                          {(["daily", "weekly", "monthly"] as const).map(p => (
+                            <button key={p} onClick={() => setChartPeriod(p)}
+                              className={`px-2 py-1 text-[10px] font-semibold transition ${
+                                chartPeriod === p ? "bg-nobuk text-white" : "text-muted hover:bg-cream"
+                              }`}>
+                              {p.charAt(0).toUpperCase() + p.slice(1)}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
                     <ResponsiveContainer width="100%" height={240}>
-                      <AreaChart data={dashboardData.trends.daily.slice(-(analyticsRange === "7d" ? 7 : analyticsRange === "30d" ? 30 : analyticsRange === "90d" ? 90 : analyticsRange === "1y" ? 365 : undefined))}>
+                      <AreaChart data={dashboardData.trends[chartPeriod].slice(-(analyticsRange === "7d" ? 7 : analyticsRange === "30d" ? 30 : analyticsRange === "90d" ? 90 : analyticsRange === "1y" ? 365 : undefined))}>
                         <defs>
                           <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#2563EB" stopOpacity={0.3} />
@@ -2170,12 +2180,12 @@ export default function AdminDashboard() {
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={v => v.slice(5)} stroke="#9CA3AF" />
+                        <XAxis dataKey={chartPeriod === "weekly" ? "week" : chartPeriod === "monthly" ? "month" : "date"} tick={{ fontSize: 10 }} tickFormatter={v => chartPeriod === "daily" ? v.slice(5) : v} stroke="#9CA3AF" />
                         <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} stroke="#9CA3AF" />
                         <Tooltip
                           contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 12 }}
                           formatter={(value: number) => [`KES ${value.toLocaleString("en-KE")}`, "Revenue"]}
-                          labelFormatter={label => new Date(label).toLocaleDateString("en-KE", { weekday: "short", month: "short", day: "numeric" })}
+                          labelFormatter={label => new Date(label + (chartPeriod === "monthly" ? "-02" : "")).toLocaleDateString("en-KE", chartPeriod === "daily" ? { weekday: "short", month: "short", day: "numeric" } : chartPeriod === "weekly" ? { month: "short", day: "numeric" } : { month: "long", year: "numeric" })}
                         />
                         <Area type="monotone" dataKey="total" stroke="#2563EB" strokeWidth={2} fill="url(#revenueGrad)" dot={false} activeDot={{ r: 4 }} />
                       </AreaChart>
@@ -2189,7 +2199,7 @@ export default function AdminDashboard() {
                     <div className="rounded-lg border border-gray-100 bg-white p-4">
                       <h3 className="mb-3 text-sm font-bold text-ink">Council Breakdown</h3>
                       <ResponsiveContainer width="100%" height={dashboardData.breakdowns.council.length * 48 + 20}>
-                        <BarChart data={dashboardData.breakdowns.council} layout="vertical" margin={{ left: 20, right: 20 }}>
+                        <BarChart data={[...dashboardData.breakdowns.council].sort((a: any, b: any) => (COUNCIL_ORDER[a.council] || 99) - (COUNCIL_ORDER[b.council] || 99))} layout="vertical" margin={{ left: 20, right: 20 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
                           <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} stroke="#9CA3AF" />
                           <YAxis type="category" dataKey="council" tick={{ fontSize: 11 }} tickFormatter={v => v.replace(/_/g, " ")} stroke="#9CA3AF" width={120} />
@@ -2221,8 +2231,8 @@ export default function AdminDashboard() {
                             </tr>
                           </thead>
                           <tbody>
-                            {dashboardData.breakdowns.council.map((f: any, i: number) => (
-                              <tr key={f.council} className={i < dashboardData.breakdowns.council.length - 1 ? "border-b border-gray-50" : ""}>
+                            {[...dashboardData.breakdowns.council].sort((a: any, b: any) => (COUNCIL_ORDER[a.council] || 99) - (COUNCIL_ORDER[b.council] || 99)).map((f: any, i: number, arr: any[]) => (
+                              <tr key={f.council} className={i < arr.length - 1 ? "border-b border-gray-50" : ""}>
                                 <td className="py-2 pr-2 font-medium text-ink capitalize whitespace-nowrap">{f.council.replace(/_/g, " ")}</td>
                                 <td className="py-2 pr-2 text-right tabular-nums text-ink">{f.member_count}</td>
                                 <td className="py-2 pr-2 text-right tabular-nums text-ink">{f.count}</td>

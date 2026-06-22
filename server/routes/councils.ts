@@ -4,15 +4,19 @@ import { requireAdmin, requireAdminOrAbove, logAudit } from "../lib/admin.js";
 
 export const councilsRouter = Router();
 
+const COUNCIL_RANK: Record<string, number> = {
+  maranatha_fellowship: 1, bethlehem_fellowship: 2, jerusalem_fellowship: 3,
+  aefeso_fellowship: 4, galilee_fellowship: 5, bethel_fellowship: 6,
+  berea_fellowship: 7, judea_fellowship: 8, general_member: 9,
+};
+
 councilsRouter.get("/", async (_req, res) => {
   try {
     const db = requireService();
-    const { data, error } = await db
-      .from("councils")
-      .select("*")
-      .order("slug");
+    const { data, error } = await db.from("councils").select("*");
     if (error) return res.status(500).json({ error: error.message });
-    res.json({ councils: data || [] });
+    const sorted = (data || []).sort((a: any, b: any) => (COUNCIL_RANK[a.slug] || 99) - (COUNCIL_RANK[b.slug] || 99));
+    res.json({ councils: sorted });
   } catch (err) {
     console.error("councils error:", err);
     res.status(500).json({ error: "Server error" });

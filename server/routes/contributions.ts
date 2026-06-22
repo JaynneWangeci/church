@@ -691,7 +691,7 @@ contributionsRouter.get("/export/xlsx", requireAdmin, async (req, res) => {
       r.getCell(4).numFmt = '#,##0';
       r.getCell(5).numFmt = '#,##0';
       if (p.status === "fulfilled") r.getCell(6).font = { color: { argb: "059669" }, bold: true };
-      else if (p.status === "active") r.getCell(6).font = { color: { argb: "2563EB" }, bold: true };
+      else if (p.status === "pending") r.getCell(6).font = { color: { argb: "2563EB" }, bold: true };
       else r.getCell(6).font = { color: { argb: "D97706" }, bold: true };
       if (i % 2 === 0) r.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F9FAFB" } }; });
     });

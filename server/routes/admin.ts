@@ -407,7 +407,7 @@ adminRouter.get("/fellowship-report", requireAdmin, async (req, res) => {
       const pledgePaid = pledges.reduce((s, p) => s + Number(p.paid), 0);
       const pledgeRemaining = pledges.reduce((s, p) => s + Number(p.remaining), 0);
       const pledgeFulfilled = pledges.filter(p => p.status === "fulfilled").length;
-      const pledgeActive = pledges.filter(p => p.status === "active").length;
+      const pledgeActive = pledges.filter(p => p.status === "pending").length;
 
       // Donation stats
       const donationTotal = donations.reduce((s, d) => s + Number(d.amount), 0);
