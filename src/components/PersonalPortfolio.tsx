@@ -226,8 +226,7 @@ export default function PersonalPortfolio({ name, onClose }: Props) {
                       <p className="text-xs text-gray-400">{new Date(d.created_at).toLocaleDateString()}</p>
                     </div>
                     <div className="text-right text-xs text-gray-400">
-                      {d.receipt_number && <p className="font-mono">{d.receipt_number}</p>}
-                      {d.phone && <p>{d.phone}</p>}
+                      <p>Completed</p>
                     </div>
                   </div>
                 ))}
