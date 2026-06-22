@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Church, Heart, Target, Users } from "lucide-react";
 import { useInView } from "../hooks/useInView";
 import { useLang } from "../context/LanguageContext";
@@ -28,9 +28,49 @@ export default function AboutSection() {
   const { t } = useLang();
   const { ref: gridRef, inView } = useInView();
   const [activeCard, setActiveCard] = useState(0);
-  const carouselRef = useRef<HTMLDivElement>(null);
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
+  const [typedText, setTypedText] = useState('');
+  const [typingDone, setTypingDone] = useState(false);
+  const [cardPhase, setCardPhase] = useState<'enter' | 'typing' | 'read' | 'exit'>('enter');
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const TYPING_SPEED = 35;
+  const READ_DURATION = 55000;
+
+  useEffect(() => {
+    setTypedText('');
+    setTypingDone(false);
+    setCardPhase('enter');
+    const enterTimer = setTimeout(() => {
+      setCardPhase('typing');
+    }, 600);
+    return () => clearTimeout(enterTimer);
+  }, [activeCard]);
+
+  useEffect(() => {
+    if (cardPhase !== 'typing') return;
+    const text = cards[activeCard].text;
+    let i = 0;
+    const interval = setInterval(() => {
+      i++;
+      setTypedText(text.slice(0, i));
+      if (i >= text.length) {
+        clearInterval(interval);
+        setTypingDone(true);
+        setCardPhase('read');
+      }
+    }, TYPING_SPEED);
+    return () => clearInterval(interval);
+  }, [cardPhase, activeCard, cards]);
+
+  useEffect(() => {
+    if (cardPhase !== 'read') return;
+    timerRef.current = setTimeout(() => {
+      setCardPhase('exit');
+      setTimeout(() => {
+        setActiveCard(prev => (prev + 1) % cards.length);
+      }, 800);
+    }, READ_DURATION);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [cardPhase, cards.length]);
 
   const cards = [
     {
@@ -59,31 +99,13 @@ export default function AboutSection() {
     },
   ];
 
-  const scrollTo = useCallback((index: number) => {
-    const el = carouselRef.current;
-    if (!el) return;
-    const child = el.children[index] as HTMLElement;
-    if (child) {
-      el.scrollTo({ left: child.offsetLeft - el.offsetLeft, behavior: "smooth" });
+  const goToCard = useCallback((index: number) => {
+    if (cardPhase === 'exit') return;
+    setCardPhase('exit');
+    setTimeout(() => {
       setActiveCard(index);
-    }
-  }, []);
-
-  const handleScroll = useCallback(() => {
-    const el = carouselRef.current;
-    if (!el) return;
-    const scrollLeft = el.scrollLeft;
-    const children = Array.from(el.children) as HTMLElement[];
-    for (let i = 0; i < children.length; i++) {
-      const child = children[i];
-      const childStart = child.offsetLeft - el.offsetLeft;
-      const childEnd = childStart + child.offsetWidth;
-      if (scrollLeft >= childStart - 50 && scrollLeft < childEnd - 50) {
-        setActiveCard(i);
-        break;
-      }
-    }
-  }, []);
+    }, 800);
+  }, [cardPhase]);
 
   return (
     <section id="about" className="scroll-mt-16 bg-white/10 backdrop-blur-sm px-4 py-24 md:py-32">
@@ -107,31 +129,53 @@ export default function AboutSection() {
         </div>
 
         <div className="relative">
-          {/* Mobile carousel */}
-          <div
-            ref={carouselRef}
-            onScroll={handleScroll}
-            className="carousel-snap relative flex gap-5 overflow-x-auto pb-4 scrollbar-hide md:hidden
-              [mask-image:linear-gradient(90deg,transparent_2%,#000_15%,#000_85%,transparent_98%)]"
-          >
-            {cards.map((card, i) => {
-              const Icon = card.icon;
-              return (
-                <div
-                  key={card.title}
-                  className={`min-w-[80vw] shrink-0 snap-start card-hover group rounded-2xl border border-white/20 bg-white/80 backdrop-blur-md p-6 shadow-sm transition-all duration-700 ${
-                    mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-                  }`}
-                  style={{ transitionDelay: `${i * 0.15}s` }}
-                >
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-nobuk-muted transition-colors group-hover:bg-nobuk">
-                    <Icon size={20} className="text-nobuk transition-colors group-hover:text-white" />
+          {/* Mobile carousel — typewriter + auto-advance */}
+          <div className="md:hidden">
+            <div className="relative mx-auto max-w-sm" style={{ minHeight: 260 }}>
+              {cards.map((card, i) => {
+                const Icon = card.icon;
+                const isActive = i === activeCard;
+                const exiting = cardPhase === 'exit' && isActive;
+                return (
+                  <div key={card.title}
+                    className={`rounded-2xl border border-white/20 bg-white/80 backdrop-blur-md p-6 shadow-sm w-full transition-all duration-700 ${
+                      isActive
+                        ? exiting
+                          ? 'opacity-0 scale-75 -rotate-6 translate-y-8'
+                          : 'opacity-100 scale-100 rotate-0 translate-y-0'
+                        : 'opacity-0 scale-50 pointer-events-none absolute inset-0'
+                    }`}
+                    style={{ transitionTimingFunction: isActive && exiting ? 'cubic-bezier(.6,.04,.98,.34)' : 'cubic-bezier(.34,1.56,.64,1)' }}
+                  >
+                    <div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-500 ${
+                        isActive ? 'bg-nobuk scale-110' : 'bg-nobuk-muted'
+                      }`}>
+                      <Icon size={20} className={`transition-colors duration-500 ${isActive ? 'text-white' : 'text-nobuk'}`} />
+                    </div>
+                    <h3 className="text-base font-bold text-nobuk">{card.title}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-muted">
+                      {isActive ? typedText : ''}
+                      {isActive && !typingDone && <span className="ml-0.5 inline-block h-3.5 w-[2px] bg-amber animate-pulse" />}
+                    </p>
+                    {isActive && typingDone && (
+                      <span className="mt-2 inline-block rounded-full bg-amber/20 px-2 py-0.5 text-[10px] font-semibold text-amber-dark">
+                        {Math.ceil(((cardPhase === 'read' ? READ_DURATION : 0) - (timerRef.current ? 0 : 0)) / 1000)}s
+                      </span>
+                    )}
                   </div>
-                  <h3 className="text-base font-bold text-nobuk">{card.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted">{card.text}</p>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+            {/* Dot indicators (mobile only) */}
+            <div className="mt-5 flex items-center justify-center gap-2">
+              {cards.map((_, i) => (
+                <button key={i} onClick={() => goToCard(i)}
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    i === activeCard ? "w-8 bg-amber" : "w-2 bg-amber/30 hover:bg-amber/50"
+                  }`}
+                />
+              ))}
+            </div>
           </div>
 
           {/* Desktop grid */}
@@ -155,16 +199,6 @@ export default function AboutSection() {
             })}
           </div>
 
-          {/* Dot indicators (mobile only) */}
-          <div className="mt-5 flex items-center justify-center gap-2 md:hidden">
-            {cards.map((_, i) => (
-              <button key={i} onClick={() => scrollTo(i)}
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  i === activeCard ? "w-8 bg-amber" : "w-2 bg-amber/30 hover:bg-amber/50"
-                }`}
-              />
-            ))}
-          </div>
         </div>
       </div>
     </section>
