@@ -3,6 +3,27 @@ import { Church, Heart, Target, Users } from "lucide-react";
 import { useInView } from "../hooks/useInView";
 import { useLang } from "../context/LanguageContext";
 
+function TiltCard({ children, className, style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const handleMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width - 0.5;
+    const y = (e.clientY - r.top) / r.height - 0.5;
+    el.style.transform = `perspective(600px) rotateY(${x * 8}deg) rotateX(${-y * 8}deg)`;
+  }, []);
+  const handleLeave = useCallback(() => {
+    if (ref.current) ref.current.style.transform = 'perspective(600px) rotateY(0deg) rotateX(0deg)';
+  }, []);
+  return (
+    <div ref={ref} onMouseMove={handleMove} onMouseLeave={handleLeave}
+      className={className} style={{ ...style, transformStyle: 'preserve-3d', transition: 'transform 0.15s ease-out' }}>
+      {children}
+    </div>
+  );
+}
+
 export default function AboutSection() {
   const { t } = useLang();
   const { ref: gridRef, inView } = useInView();
@@ -75,12 +96,14 @@ export default function AboutSection() {
           <h2 className="mt-4 font-heading text-3xl font-bold text-nobuk md:text-4xl">
             Tujenge Pamoja
           </h2>
-          <p className="mt-3 text-muted">
-            {t(
-              "The construction of this Great House of God started in 2006. Now we unite to complete what was started with faith and determination.",
-              "Ujenzi wa Nyumba hii Kuu ya Mungu ulianza mwaka 2006. Sasa tunaungana kukamilisha kilichoanza kwa imani na dhamira."
-            )}
-          </p>
+          <div className="mt-4 space-y-3 text-left text-sm leading-relaxed text-muted md:text-center md:text-base">
+            <p>
+              {t(
+                "The construction of this Great House of God started in 2006. Now we unite to complete what was started with faith and determination.",
+                "Ujenzi wa Nyumba hii Kuu ya Mungu ulianza mwaka 2006. Sasa tunaungana kukamilisha kilichoanza kwa imani na dhamira."
+              )}
+            </p>
+          </div>
         </div>
 
         <div className="relative">
@@ -116,8 +139,7 @@ export default function AboutSection() {
             {cards.map((card, i) => {
               const Icon = card.icon;
               return (
-                <div
-                  key={card.title}
+                <TiltCard key={card.title}
                   className={`card-hover group rounded-2xl border border-white/20 bg-white/80 backdrop-blur-md p-8 shadow-sm ${
                     inView ? "animate-slide-up" : "opacity-0"
                   }`}
@@ -128,7 +150,7 @@ export default function AboutSection() {
                   </div>
                   <h3 className="text-lg font-bold text-nobuk">{card.title}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-muted">{card.text}</p>
-                </div>
+                </TiltCard>
               );
             })}
           </div>
