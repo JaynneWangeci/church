@@ -160,8 +160,9 @@ membersRouter.post("/dedup", requireAdmin, requireAdminOrAbove, async (_req, res
 membersRouter.post("/", requireAdmin, requireAdminOrAbove, async (req, res) => {
   try {
     const db = requireService();
-    const { name, council, gender } = req.body;
-    if (!name || !council) return res.status(400).json({ error: "name and council required" });
+    let { name, council, gender } = req.body;
+    if (!name) return res.status(400).json({ error: "name is required" });
+    if (!council) council = "general_member";
 
     const trimmed = name.trim();
 
@@ -233,7 +234,7 @@ membersRouter.patch("/:id", requireAdmin, requireAdminOrAbove, async (req, res) 
     const { name, council, is_active, gender } = req.body;
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name.trim();
-    if (council !== undefined) updates.council = council;
+    if (council !== undefined) updates.council = council || "general_member";
     if (is_active !== undefined) updates.is_active = is_active;
     if (gender === "male" || gender === "female" || gender === null) updates.gender = gender;
 
