@@ -66,6 +66,7 @@ fellowshipsRouter.get("/progress", async (_req, res) => {
       };
     });
 
+    fellowshipStats.sort((a, b) => b.total_amount - a.total_amount);
     res.json({ fellowships: fellowshipStats });
   } catch (err) {
     console.error("fellowship progress error:", err);

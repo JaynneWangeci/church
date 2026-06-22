@@ -16,7 +16,7 @@ export default function FellowshipProgress() {
   const [fellowships, setFellowships] = useState<Fellowship[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  function fetchProgress() {
     fetch("/api/fellowships/progress")
       .then(r => r.ok ? r.json() : null)
       .then(data => {
@@ -24,6 +24,12 @@ export default function FellowshipProgress() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    fetchProgress();
+    const interval = setInterval(fetchProgress, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   if (loading) return null;
