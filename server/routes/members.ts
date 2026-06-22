@@ -209,24 +209,20 @@ membersRouter.post("/bulk-edit", requireAdmin, requireAdminOrAbove, async (req, 
     if (!Array.isArray(names) || !names.length) return res.status(400).json({ error: "Provide at least one name" });
     if (!council) council = "general_member";
 
-    names = names.map(n => n.trim()).filter(Boolean);
-    let updated = 0;
-    for (const name of names) {
-      const { data: existing } = await db
-        .from("church_members")
-        .select("id")
-        .eq("is_active", true)
-        .ilike("name", name)
-        .maybeSingle();
+    names = names.map((n: string) => n.trim().toLowerCase()).filter(Boolean);
 
-      if (!existing) continue;
+    const { data: all } = await db.from("church_members").select("id, name").eq("is_active", true);
+    const nameToId = new Map<string, string>();
+    if (all) for (const m of all) nameToId.set(m.name.trim().toLowerCase(), m.id);
 
-      const updates: Record<string, unknown> = { council };
-      if (gender === "male" || gender === "female") updates.gender = gender;
-      const { error } = await db.from("church_members").update(updates).eq("id", existing.id);
-      if (!error) updated++;
-    }
+    const ids = names.map(n => nameToId.get(n)).filter(Boolean) as string[];
+    if (!ids.length) return res.json({ ok: true, updated: 0, total: names.length });
 
+    const updates: Record<string, unknown> = { council };
+    if (gender === "male" || gender === "female") updates.gender = gender;
+    const { error } = await db.from("church_members").update(updates).in("id", ids);
+
+    const updated = error ? 0 : ids.length;
     const admin = (req as any).admin;
     await logAudit({
       adminId: admin.id,

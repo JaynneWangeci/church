@@ -250,9 +250,10 @@ export default function AdminDashboard() {
         body: JSON.stringify({ name: newName.trim().replace(/^\d+[\.\)]?\s*(?:[A-Za-z]\s+)?/, "").replace(/\.+$/, ""), council: newCouncil, gender: newGender || undefined }),
       });
       if (!res.ok) { const d = await res.json(); setMemberError(d.error || "Something went wrong. Please try again."); return; }
+      const d = await res.json();
+      setChurchMembers(prev => [...prev, d.member]);
       setNewName("");
       setMemberError("");
-      fetchMembers();
     } catch { setMemberError("A connection issue occurred. Please try again."); }
   }
 
@@ -285,6 +286,7 @@ export default function AdminDashboard() {
     }
 
     const addedNames = new Set<string>();
+    const newMembers: ChurchMember[] = [];
     const serverDups: string[] = [];
     let added = 0;
     for (const { name, council } of toAdd) {
@@ -294,7 +296,7 @@ export default function AdminDashboard() {
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ name, council, gender: bulkGender || undefined }),
         });
-        if (res.ok) { added++; addedNames.add(name); continue; }
+        if (res.ok) { const d = await res.json(); newMembers.push(d.member); added++; addedNames.add(name); continue; }
         if (res.status === 409) serverDups.push(`${name} (already in DB)`);
       } catch {}
     }
@@ -307,7 +309,7 @@ export default function AdminDashboard() {
     }
     setBulkResult(msg);
     setBulkNames(keptLines.length ? keptLines.map(e => e.name).join('\n') : "");
-    if (added > 0) fetchMembers();
+    if (newMembers.length) setChurchMembers(prev => [...prev, ...newMembers]);
   }
 
   async function handleBulkEdit() {
@@ -324,7 +326,8 @@ export default function AdminDashboard() {
     if (res.ok) {
       setBulkEditResult(`${data.updated} of ${data.total} members updated.`);
       setBulkEditNames("");
-      fetchMembers();
+      const lower = new Set(names.map(n => n.trim().toLowerCase()));
+      setChurchMembers(prev => prev.map(m => lower.has(m.name.trim().toLowerCase()) ? { ...m, council: bulkEditCouncil, gender: bulkEditGender || m.gender } : m));
     } else {
       setBulkEditResult(data.error || "Something went wrong");
     }
