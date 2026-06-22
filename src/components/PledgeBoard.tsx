@@ -4,6 +4,20 @@ import { useLang } from '../context/LanguageContext';
 import PersonalPortfolio from './PersonalPortfolio';
 import PledgeForm from './PledgeForm';
 
+function PledgeRing({ pct, size = 56 }: { pct: number; size?: number }) {
+  const r = 22;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (circ * Math.min(pct, 100)) / 100;
+  return (
+    <svg width={size} height={size} viewBox="0 0 52 52" className="shrink-0">
+      <circle cx="26" cy="26" r={r} fill="none" stroke="currentColor" strokeWidth="4" className="text-gray-200" />
+      <circle cx="26" cy="26" r={r} fill="none" stroke="currentColor" strokeWidth="4" strokeDasharray={circ} strokeDashoffset={offset}
+        strokeLinecap="round" className="text-blue-600 transition-all duration-700" style={{ transform: 'rotate(-90deg)', transformOrigin: 'center' }} />
+      <text x="26" y="26" textAnchor="middle" dominantBaseline="central" className="fill-gray-900 text-xs font-bold" fontSize="10">{Math.round(pct)}%</text>
+    </svg>
+  );
+}
+
 interface Pledge {
   id: string;
   donor_name: string;
@@ -347,14 +361,19 @@ export default function PledgeBoard() {
                       return (
                         <div key={p.id} className="rounded-lg bg-blue-50 p-3 text-left">
                           <div className="flex items-center justify-between">
-                            <p className="text-sm font-bold text-gray-900">{p.donor_name}</p>
+                            <div className="flex items-center gap-3">
+                              <PledgeRing pct={pct} />
+                              <div>
+                                <p className="text-sm font-bold text-gray-900">{p.donor_name}</p>
+                                <p className="text-xs text-gray-500">{t('Pledged:', 'Ameahidi:')} KES {p.amount.toLocaleString()}</p>
+                              </div>
+                            </div>
                             {p.status === 'fulfilled'
                               ? <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-700">{t('Fulfilled ✓', 'Imekamilika ✓')}</span>
                               : <span className="text-sm font-bold text-blue-700">{pct}%</span>
                             }
                           </div>
                           <div className="mt-1 flex gap-3 text-xs text-gray-600">
-                            <span>{t('Pledged:', 'Ameahidi:')} KES {p.amount.toLocaleString()}</span>
                             <span>{t('Paid:', 'Amelipa:')} KES {p.paid.toLocaleString()}</span>
                             <span className="font-bold text-blue-600">{t('Remaining:', 'Inabaki:')} KES {p.remaining.toLocaleString()}</span>
                           </div>

@@ -331,3 +331,18 @@ html {
 .stagger-3 { transition-delay: 0.3s; }
 .stagger-4 { transition-delay: 0.4s; }
 .stagger-5 { transition-delay: 0.5s; }
+
+/* ── Carousel snap ── */
+.carousel-snap { scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+.carousel-snap > * { scroll-snap-align: start; }
+
+/* ── Live ticker ── */
+@keyframes ticker-scroll { 0%, 40% { transform: translateY(0); } 50%, 90% { transform: translateY(-100%); } 100% { transform: translateY(0); } }
+.ticker-scroll { animation: ticker-scroll 5s ease-in-out infinite; }
+
+/* ── Confetti ── */
+.confetti-canvas { position: fixed; inset: 0; z-index: 9999; pointer-events: none; width: 100vw; height: 100vh; }
+
+/* ── Nav dots ── */
+@keyframes dot-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(196,150,74,0.4); } 50% { box-shadow: 0 0 0 5px rgba(196,150,74,0); } }
+.nav-dot-active { animation: dot-pulse 2s infinite; }

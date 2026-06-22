@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { TrendingUp, Target, Zap, ExternalLink, Heart } from 'lucide-react';
+import { TrendingUp, Target, Zap, ExternalLink, Heart, Clock, Share2 } from 'lucide-react';
 import { useInView } from '../hooks/useInView';
 
 export default function LiveProgress() {
@@ -15,6 +15,10 @@ export default function LiveProgress() {
   const barRef = useRef<HTMLDivElement>(null);
   const { ref, inView } = useInView();
   const prevPct = useRef(0);
+  const [recentDonations, setRecentDonations] = useState<any[]>([]);
+  const [tickerIdx, setTickerIdx] = useState(0);
+  const [endsAt, setEndsAt] = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   const pct = Math.min((raised / goal) * 100, 100);
   const pledgePct = pledgeTotal > 0 ? Math.min((pledgePaid / pledgeTotal) * 100, 100) : 0;
@@ -37,7 +41,7 @@ export default function LiveProgress() {
   useEffect(() => {
     fetch('/api/campaigns/development-fund')
       .then(r => r.ok && r.json())
-      .then(data => { if (data) { setRaised(Number(data.raised ?? 0)); setGoal(Number(data.goal ?? 30000000)); } })
+      .then(data => { if (data) { setRaised(Number(data.raised ?? 0)); setGoal(Number(data.goal ?? 30000000)); setEndsAt(data.ends_at || null); } })
       .catch(() => {});
     fetch('/api/settings/harambee')
       .then(r => r.ok && r.json())
@@ -48,13 +52,50 @@ export default function LiveProgress() {
     const interval = setInterval(() => {
       fetch('/api/campaigns/development-fund')
         .then(r => r.ok && r.json())
-        .then(data => { if (data) { setRaised(Number(data.raised ?? 0)); setGoal(Number(data.goal ?? 30000000)); } })
+        .then(data => { if (data) { setRaised(Number(data.raised ?? 0)); setGoal(Number(data.goal ?? 30000000)); setEndsAt(data.ends_at || null); } })
         .catch(() => {});
       fetchPledges();
     }, 8000);
 
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!endsAt) return;
+    const update = () => {
+      const diff = new Date(endsAt).getTime() - Date.now();
+      if (diff <= 0) { setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 }); return; }
+      setTimeLeft({
+        days: Math.floor(diff / 86400000),
+        hours: Math.floor((diff % 86400000) / 3600000),
+        minutes: Math.floor((diff % 3600000) / 60000),
+        seconds: Math.floor((diff % 60000) / 1000),
+      });
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [endsAt]);
+
+  useEffect(() => {
+    fetch('/api/donations?status=completed&limit=2')
+      .then(r => r.ok && r.json())
+      .then(data => { if (data?.donations?.length) setRecentDonations(data.donations.slice(0, 2)); })
+      .catch(() => {});
+    const interval = setInterval(() => {
+      fetch('/api/donations?status=completed&limit=2')
+        .then(r => r.ok && r.json())
+        .then(data => { if (data?.donations?.length) setRecentDonations(data.donations.slice(0, 2)); })
+        .catch(() => {});
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (recentDonations.length <= 1) return;
+    const timer = setInterval(() => setTickerIdx(i => (i + 1) % recentDonations.length), 4000);
+    return () => clearInterval(timer);
+  }, [recentDonations.length]);
 
   useEffect(() => {
     if (!inView) return;
@@ -97,6 +138,12 @@ export default function LiveProgress() {
     return () => clearInterval(timer);
   }, [pledgePct, inView]);
 
+  function handleShare() {
+    const text = `🏛️ AIPCA Bahati Cathedral Harambee Progress\n\n💰 Raised: KES ${displayRaised.toLocaleString()}\n🎯 Goal: KES ${goal.toLocaleString()}\n📊 ${pct.toFixed(2)}% Complete\n\n👉 Give at https://aipcaharambee.com`;
+    if (navigator.share) { navigator.share({ title: 'AIPCA Bahati Cathedral', text }).catch(() => {}); }
+    else { window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank'); }
+  }
+
   return (
     <section className="relative overflow-hidden bg-[#0f1a13] px-4 py-20 md:py-28">
       {/* Decorative background elements */}
@@ -135,6 +182,26 @@ export default function LiveProgress() {
 
         {/* Main progress card */}
         <div className={`relative rounded-3xl border border-white/10 bg-white/[0.03] p-8 shadow-2xl backdrop-blur-sm transition-all duration-700 delay-200 md:p-12 ${inView ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+          {/* Live ticker / recent donors */}
+          {recentDonations.length > 0 && (
+            <div className="mb-6 flex items-center gap-3 overflow-hidden rounded-xl border border-white/5 bg-white/[0.02] px-4 py-2.5">
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-green-400" />
+              </span>
+              <div className="relative h-5 flex-1 overflow-hidden">
+                <div className="ticker-scroll">
+                  {recentDonations.slice(0, 2).map((d, i) => (
+                    <div key={i} className="flex h-5 items-center gap-2 text-sm">
+                      <span className="font-medium text-white/80">{d.donor_name || 'Anonymous'}</span>
+                      <span className="font-semibold text-amber">KES {Number(d.amount).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Raised & Goal display */}
           <div className="mb-8 flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div className="text-center sm:text-left">
@@ -150,8 +217,8 @@ export default function LiveProgress() {
                   KES {goal.toLocaleString()}
                 </p>
               </div>
-              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-2 border-amber/20 bg-amber/5">
-                <span className="text-2xl font-bold text-amber tabular-nums">{pct.toFixed(2)}%</span>
+              <div className="group flex h-20 w-20 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-amber/20 bg-amber/5 transition-all duration-300 hover:border-amber/40 hover:bg-amber/10 hover:shadow-lg hover:shadow-amber/20">
+                <span className="text-2xl font-bold text-amber tabular-nums transition-all duration-300 group-hover:scale-110">{pct.toFixed(2)}%</span>
               </div>
             </div>
           </div>
@@ -169,6 +236,11 @@ export default function LiveProgress() {
                 }}
               >
                 <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/30 to-transparent animate-progress-shine" />
+                {/* LIVE badge */}
+                <div className="absolute -top-2 right-0 flex items-center gap-1 rounded-full bg-red-500 px-2 py-0.5 shadow-lg shadow-red-500/30">
+                  <span className="h-1.5 w-1.5 animate-ping rounded-full bg-white" />
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-white">LIVE</span>
+                </div>
                 {width > 15 && (
                   <div className="absolute right-0 top-1/2 h-6 w-6 -translate-y-1/2 translate-x-1/2 rounded-full border-2 border-amber bg-white shadow-lg shadow-amber/30 md:h-7 md:w-7">
                     <div className="flex h-full w-full items-center justify-center">
@@ -193,21 +265,34 @@ export default function LiveProgress() {
 
           {/* Stats row */}
           <div className="mt-8 grid grid-cols-3 gap-4 border-t border-white/5 pt-6">
-            <div className="text-center">
-              <Target size={16} className="mx-auto mb-1 text-amber" />
+            <div className="group text-center transition-all duration-300 hover:scale-105">
+              <Target size={16} className="mx-auto mb-1 text-amber transition-all duration-300 group-hover:scale-125" />
               <p className="text-lg font-bold text-white tabular-nums">{pct.toFixed(2)}%</p>
               <p className="text-[10px] font-medium uppercase tracking-wider text-white/40">Complete</p>
             </div>
-            <div className="text-center">
-              <TrendingUp size={16} className="mx-auto mb-1 text-amber" />
+            <div className="group text-center transition-all duration-300 hover:scale-105">
+              <TrendingUp size={16} className="mx-auto mb-1 text-amber transition-all duration-300 group-hover:scale-125" />
               <p className="text-lg font-bold text-white tabular-nums">KES {(goal - raised > 0 ? (goal - raised) : 0).toLocaleString()}</p>
               <p className="text-[10px] font-medium uppercase tracking-wider text-white/40">Remaining</p>
             </div>
-            <div className="text-center">
-              <ExternalLink size={16} className="mx-auto mb-1 text-amber" />
-              <p className="text-lg font-bold text-amber tabular-nums">{harambeeDays > 0 ? `${harambeeDays}d` : "—"}</p>
-              <p className="text-[10px] font-medium uppercase tracking-wider text-white/40">Days Left</p>
+            <div className="group text-center transition-all duration-300 hover:scale-105">
+              <Clock size={16} className="mx-auto mb-1 text-amber transition-all duration-300 group-hover:scale-125" />
+              <p className="text-lg font-bold text-amber tabular-nums">
+                {endsAt
+                  ? `${String(timeLeft.days).padStart(2,'0')}:${String(timeLeft.hours).padStart(2,'0')}:${String(timeLeft.minutes).padStart(2,'0')}:${String(timeLeft.seconds).padStart(2,'0')}`
+                  : harambeeDays > 0 ? `${harambeeDays}d` : "—"}
+              </p>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-white/40">Time Left</p>
             </div>
+          </div>
+
+          {/* Share button */}
+          <div className="mt-6 flex justify-center">
+            <button onClick={handleShare}
+              className="group inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-5 py-2 text-xs font-semibold text-white/50 transition-all duration-300 hover:border-amber/30 hover:bg-amber/5 hover:text-amber hover:shadow-lg hover:shadow-amber/10">
+              <Share2 size={14} className="transition-all duration-300 group-hover:scale-110" />
+              Share Progress
+            </button>
           </div>
 
           {/* Pledge Progress */}

@@ -3,6 +3,61 @@ import { Check, Loader2, ChevronDown, Search, Phone, User, MessageSquare, Heart,
 import { useInView } from "../hooks/useInView";
 import PledgeForm from "./PledgeForm";
 
+function FireConfetti() {
+  const fired = useRef(false);
+  useEffect(() => {
+    if (fired.current) return; fired.current = true;
+    const canvas = document.createElement('canvas');
+    canvas.className = 'confetti-canvas';
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d')!;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const colors = ['#C4964A','#5B9BD5','#22C55E','#EF4444','#A855F7','#F97316'];
+    const ps: any[] = [];
+    for (let i = 0; i < 80; i++) {
+      ps.push({
+        x: Math.random() * canvas.width, y: -10,
+        w: Math.random() * 8 + 4, h: Math.random() * 6 + 3,
+        c: colors[Math.floor(Math.random() * colors.length)],
+        vx: (Math.random() - 0.5) * 4, vy: Math.random() * 3 + 2,
+        rot: Math.random() * 360, rv: (Math.random() - 0.5) * 10,
+      });
+    }
+    let frames = 0;
+    function loop() {
+      if (frames++ > 90) { canvas.remove(); return; }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const p of ps) {
+        p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.rot += p.rv;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate((p.rot * Math.PI) / 180);
+        ctx.fillStyle = p.c;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      }
+      requestAnimationFrame(loop);
+    }
+    loop();
+  },[]);
+  return null;
+}
+
+function PlayChime() {
+  const fired = useRef(false);
+  useEffect(() => {
+    if (fired.current) return; fired.current = true;
+    try {
+      const ac = new AudioContext();
+      const g = ac.createGain(); g.gain.value = 0.12; g.connect(ac.destination);
+      const o = ac.createOscillator(); o.type='sine'; o.frequency.value=880; o.connect(g); o.start(); o.stop(ac.currentTime+0.3);
+      setTimeout(()=>{const o2=ac.createOscillator();o2.type='sine';o2.frequency.value=1108.73;o2.connect(g);o2.start();o2.stop(ac.currentTime+0.5);},100);
+    } catch {}
+  },[]);
+  return null;
+}
+
 type Tab = "general" | "honour";
 type Step = "form" | "processing" | "success";
 const presets = [500, 1000, 2500, 5000, 10000];
@@ -743,6 +798,8 @@ export default function DonationForm() {
 
         {step === "success" && (
           <div className="mt-8 animate-scale-in rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
+            <FireConfetti />
+            <PlayChime />
             <div className="mx-auto mb-4 flex h-16 w-16 animate-bounce-in items-center justify-center rounded-full bg-nobuk">
               <Check size={28} className="text-white" />
             </div>
