@@ -20,6 +20,7 @@ import { analyticsRouter } from "./routes/analytics.js";
 import { settingsRouter } from "./routes/settings.js";
 import { translateRouter } from "./routes/translate.js";
 import { versesRouter } from "./routes/verses.js";
+import { fellowshipsRouter } from "./routes/fellowships.js";
 import { rateLimit } from "./lib/admin.js";
 import { startAllWorkers, stopAllWorkers } from "./lib/queue.js";
 
@@ -64,6 +65,7 @@ app.use("/api/analytics", rateLimit, analyticsRouter);
 app.use("/api/settings", settingsRouter);
 app.use("/api/translate", translateRouter);
 app.use("/api/verses", versesRouter);
+app.use("/api/fellowships", fellowshipsRouter);
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 

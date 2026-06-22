@@ -9,12 +9,14 @@ import AboutSection from "../components/AboutSection";
 import ContributeSection from "../components/ContributeSection";
 import PledgeBoard from "../components/PledgeBoard";
 import Footer from "../components/Footer";
+import FellowshipProgress from "../components/FellowshipProgress";
 
 const SECTIONS = [
   { id: 'hero', label: 'Hero' },
   { id: 'contribute', label: 'Honour' },
   { id: 'pledge-board', label: 'Pledge' },
   { id: 'live-progress', label: 'Progress' },
+  { id: 'fellowships', label: 'Fellowships' },
   { id: 'about', label: 'About' },
 ];
 
@@ -87,6 +89,7 @@ export default function HomePage() {
         <ContributeSection />
         <section id="pledge-board"><PledgeBoard /></section>
         <section id="live-progress"><LiveProgress /></section>
+        <section id="fellowships"><FellowshipProgress /></section>
         <AboutSection />
 
         {/* Google Maps pin */}
