@@ -559,3 +559,28 @@ adminRouter.post("/migrate-v9", async (_req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+adminRouter.post("/migrate-v10", async (_req, res) => {
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) return res.status(500).json({ error: "Supabase not configured" });
+    const sql = "ALTER TABLE church_members ADD COLUMN IF NOT EXISTS gender TEXT CHECK (gender IN ('male', 'female'));";
+    const headers = { "Content-Type": "application/json", "apikey": key, "Authorization": `Bearer ${key}` };
+
+    const ddlRes = await fetch(`${url}/pg/ddl`, { method: "POST", headers, body: JSON.stringify({ query: sql }) });
+    if (ddlRes.ok) return res.json({ ok: true, message: "gender column added" });
+    const ddlErr = await ddlRes.text().catch(() => "");
+
+    const queryRes = await fetch(`${url}/pg/query`, { method: "POST", headers, body: JSON.stringify({ query: sql }) });
+    if (queryRes.ok) return res.json({ ok: true, message: "gender column added (pg/query)" });
+    const queryErr = await queryRes.text().catch(() => "");
+
+    const sqlRes = await fetch(`${url}/api/sql`, { method: "POST", headers, body: JSON.stringify({ query: sql }) });
+    if (sqlRes.ok) return res.json({ ok: true, message: "gender column added (api/sql)" });
+
+    res.status(500).json({ error: "All endpoints failed", ddl: ddlErr.slice(0, 200), query: queryErr.slice(0, 200) });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
