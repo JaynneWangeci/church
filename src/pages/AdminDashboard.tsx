@@ -334,11 +334,11 @@ export default function AdminDashboard() {
 
   async function deleteMember(id: string) {
     try {
-      await fetch(`/api/members/${id}`, {
+      const res = await fetch(`/api/members/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      fetchMembers();
+      if (res.ok) fetchMembers();
     } catch {}
   }
 
@@ -346,13 +346,15 @@ export default function AdminDashboard() {
     if (selectedMembers.size === 0) return;
     if (!confirm(`Remove ${selectedMembers.size} member${selectedMembers.size !== 1 ? 's' : ''}? This cannot be undone.`)) return;
     try {
-      await fetch("/api/members/bulk-delete", {
+      const res = await fetch("/api/members/bulk-delete", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ids: Array.from(selectedMembers) }),
       });
-      setSelectedMembers(new Set());
-      fetchMembers();
+      if (res.ok) {
+        setSelectedMembers(new Set());
+        fetchMembers();
+      }
     } catch {}
   }
 
@@ -905,15 +907,16 @@ export default function AdminDashboard() {
                   </button>
                 )}
                 {memberCouncilFilter && selectedMembers.size === 0 && (
-                  <button onClick={() => {
+                  <button onClick={async () => {
                     const ids = churchMembers.filter(m => m.council === memberCouncilFilter).map(m => m.id);
-                    if (ids.length && confirm(`Delete all ${ids.length} members from this fellowship?`)) {
-                      fetch("/api/members/bulk-delete", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                        body: JSON.stringify({ ids }),
-                      }).then(r => { if (r.ok) fetchMembers(); });
-                    }
+                    if (!ids.length) return;
+                    if (!confirm(`Delete all ${ids.length} members from this fellowship? This cannot be undone.`)) return;
+                    const r = await fetch("/api/members/bulk-delete", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                      body: JSON.stringify({ ids }),
+                    });
+                    if (r.ok) fetchMembers();
                   }}
                     className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white hover:bg-red-700 transition">
                     <Trash2 size={14} /> Delete All {memberCouncilFilter.replace(/_/g, " ")} Members
