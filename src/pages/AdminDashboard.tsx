@@ -36,6 +36,7 @@ export default function AdminDashboard() {
   const [memberError, setMemberError] = useState("");
   const [bulkNames, setBulkNames] = useState("");
   const [bulkCouncil, setBulkCouncil] = useState("maranatha_fellowship");
+  const [bulkGender, setBulkGender] = useState("");
   const [bulkError, setBulkError] = useState("");
   const [bulkResult, setBulkResult] = useState("");
   const [editingMember, setEditingMember] = useState<string | null>(null);
@@ -287,7 +288,7 @@ export default function AdminDashboard() {
         const res = await fetch("/api/members", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ name, council }),
+          body: JSON.stringify({ name, council, gender: bulkGender || undefined }),
         });
         if (res.ok) { added++; addedNames.add(name); continue; }
         if (res.status === 409) serverDups.push(`${name} (already in DB)`);
@@ -833,6 +834,15 @@ export default function AdminDashboard() {
                     {(councils.length ? councils : []).map(c => (
                       <option key={c.slug} value={c.slug}>{c.name}</option>
                     ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-muted">Gender for all</label>
+                  <select value={bulkGender} onChange={(e) => setBulkGender(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk">
+                    <option value="">Not set</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
                   </select>
                 </div>
                 {bulkError && (
