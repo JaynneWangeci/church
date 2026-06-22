@@ -20,6 +20,7 @@ export const exportQueue = new Queue("exports", { connection: getConnection() })
 export const mpesaQueue = new Queue("mpesa", { connection: getConnection() });
 export const auditQueue = new Queue("audit", { connection: getConnection() });
 export const analyticsRefreshQueue = new Queue("analytics-refresh", { connection: getConnection() });
+export const followUpQueue = new Queue("follow-up", { connection: getConnection() });
 
 // ── Job Types ──
 
@@ -62,6 +63,21 @@ export async function enqueueAnalyticsRefresh() {
     delay: 5000,
     removeOnComplete: { age: 3600 },
     removeOnFail: { age: 3600 },
+  });
+}
+
+export async function enqueueFollowUp(
+  context: "pledge" | "payment",
+  phone: string,
+  donorName: string,
+  amount: number,
+) {
+  const delayMs = context === "pledge" ? 3 * 24 * 60 * 60 * 1000 : 5 * 60 * 1000;
+  return followUpQueue.add("send_follow_up", { context, phone, donorName, amount }, {
+    delay: delayMs,
+    attempts: 3,
+    backoff: { type: "exponential", delay: 60000 },
+    removeOnComplete: { age: 7 * 86400 },
   });
 }
 
@@ -119,6 +135,52 @@ export function startReminderWorker() {
   return worker;
 }
 
+// ── Worker: Follow-up Messages ──
+
+export function startFollowUpWorker() {
+  const worker = new Worker("follow-up", async (job: Job) => {
+    const { context, phone, donorName, amount } = job.data;
+    const { sendWhatsApp } = await import("../lib/twilio.js");
+    const { PLEDGE_VERSES, PAYMENT_VERSES, REMINDER_VERSES, pickVerse } = await import("../routes/verses.js");
+
+    let verse;
+    let intro;
+    if (context === "pledge") {
+      verse = pickVerse(PLEDGE_VERSES);
+      intro = `Hi ${donorName}! Just checking in on your pledge of KES ${Number(amount).toLocaleString()}.`;
+    } else if (context === "payment") {
+      verse = pickVerse(PAYMENT_VERSES);
+      intro = `Hi ${donorName}! Thank you again for your generous gift of KES ${Number(amount).toLocaleString()}.`;
+    } else {
+      verse = pickVerse(REMINDER_VERSES);
+      intro = `Hi ${donorName}!`;
+    }
+
+    const message =
+      `💬 *AIPCA Bahati Cathedral*\n\n${intro}\n\n` +
+      `📖 *${verse.ref}* — "${verse.text}"\n\n` +
+      `_Tujenge Pamoja!_ 🇰🇪`;
+
+    const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
+    const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
+    if (!twilioAccountSid || !twilioAuthToken) return { sent: false, reason: "twilio_not_configured" };
+
+    const twilio = (await import("twilio")) as any;
+    const client = twilio(twilioAccountSid, twilioAuthToken);
+    const to = phone.startsWith("whatsapp:") ? phone : `whatsapp:${phone}`;
+    const from = process.env.TWILIO_WHATSAPP_NUMBER || "whatsapp:+14155238886";
+    await client.messages.create({ body: message, from, to });
+
+    return { sent: true, context, donorName };
+  }, { connection: getConnection(), concurrency: 5 });
+
+  worker.on("failed", (job, err) => {
+    console.error(`Follow-up job ${job?.id} failed:`, err.message);
+  });
+
+  return worker;
+}
+
 // ── Worker: Exports ──
 
 export function startExportWorker() {
@@ -164,6 +226,7 @@ export function startAllWorkers() {
   if (workersStarted) return;
   workersStarted = true;
   startReminderWorker();
+  startFollowUpWorker();
   startExportWorker();
   startAnalyticsRefreshWorker();
 }
@@ -173,6 +236,7 @@ export function startAllWorkers() {
 export async function stopAllWorkers() {
   await Promise.all([
     reminderQueue.close(),
+    followUpQueue.close(),
     exportQueue.close(),
     mpesaQueue.close(),
     auditQueue.close(),

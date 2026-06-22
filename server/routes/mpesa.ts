@@ -2,6 +2,8 @@ import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
 import { sendWhatsApp } from "../lib/twilio.js";
 import { requireAdmin } from "../lib/admin.js";
+import { PAYMENT_VERSES, pickVerse } from "./verses.js";
+import { enqueueFollowUp } from "../lib/queue.js";
 
 export const mpesaRouter = Router();
 
@@ -60,17 +62,21 @@ function whatsAppConfirmation(donation: any): void {
   const name = donation.donor_name || "Mungu anakupenda";
   const amount = Number(donation.amount).toLocaleString("en-KE");
   const receipt = donation.receipt_number || "";
+  const v = pickVerse(PAYMENT_VERSES);
   const msg =
     `🙏 *Harambee Donation Confirmation* — AIPCA Bahati Cathedral\n\n` +
     `Asante sana ${name}!\n` +
     `Your gift of *KES ${amount}* has been received successfully.\n` +
     `${receipt ? `Receipt: ${receipt}\n` : ""}` +
-    `\n"Each of you should give what you have decided in your heart to give, not reluctantly or under compulsion, for God loves a cheerful giver." — 2 Corinthians 9:7\n` +
+    `\n📖 *${v.ref}* — "${v.text}"\n` +
     `\n_Baraka tele, familia yako ya AIPCA inakuombea._ 🇰🇪\n\n` +
     `*EN* — Thank you for building His house. Your generosity is building the Kingdom of God in Bahati and beyond. May the Lord bless you abundantly.\n` +
     `*SW* — Asante kwa kujenga Nyumba Yake. Mungu akubariki sana, na tujenge pamoja!`;
 
   sendWhatsApp(donation.phone, msg).catch(() => {});
+
+  // Follow-up in 5 minutes
+  enqueueFollowUp("payment", donation.phone, name, donation.amount).catch(() => {});
 }
 
 mpesaRouter.post("/stkpush", async (req, res) => {

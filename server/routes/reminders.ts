@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
 import { sendWhatsApp } from "../lib/twilio.js";
+import { REMINDER_VERSES, pickVerse } from "./verses.js";
 
 export const remindersRouter = Router();
 
@@ -16,20 +17,15 @@ remindersRouter.post("/send", async (_req, res) => {
       .not("whatsapp_number", "is", null)
       .neq("status", "fulfilled");
 
-    const bibleRes = await db.from("bible_verses").select("*");
-    const verses = bibleRes.data || [];
-    const enVerses = verses.filter(v => v.language === "en");
-    const swVerses = verses.filter(v => v.language === "sw");
-
     let sent = 0;
     for (const pledge of due || []) {
       if (!pledge.whatsapp_number) continue;
 
-      const enVerse = enVerses[Math.floor(Math.random() * enVerses.length)];
-      const swVerse = swVerses[Math.floor(Math.random() * swVerses.length)];
+      const enV = pickVerse(REMINDER_VERSES, "en");
+      const swV = pickVerse(REMINDER_VERSES, "sw");
       const pct = pledge.amount > 0 ? Math.round((pledge.paid / pledge.amount) * 100) : 0;
 
-      const message = `Hi ${pledge.donor_name}! ⛪\n\nYour pledge reminder:\n• Pledged: KES ${pledge.amount.toLocaleString()}\n• Paid: KES ${pledge.paid.toLocaleString()} (${pct}%)\n• Remaining: KES ${pledge.remaining.toLocaleString()}\n\nEncouragement:\n"${enVerse?.verse}" — ${enVerse?.reference}\n\nHabari ${pledge.donor_name}! ⛪\n\nUkumbusho wa ahadi yako:\n• Umeahidi: KES ${pledge.amount.toLocaleString()}\n• Umalipa: KES ${pledge.paid.toLocaleString()} (${pct}%)\n• Inabaki: KES ${pledge.remaining.toLocaleString()}\n\nNeno la kutia moyo:\n"${swVerse?.verse}" — ${swVerse?.reference}\n\nMungu akubariki! AIPCA Bahati Cathedral`;
+      const message = `Hi ${pledge.donor_name}! ⛪\n\nYour pledge reminder:\n• Pledged: KES ${pledge.amount.toLocaleString()}\n• Paid: KES ${pledge.paid.toLocaleString()} (${pct}%)\n• Remaining: KES ${pledge.remaining.toLocaleString()}\n\nEncouragement:\n"${enV.text}" — ${enV.ref}\n\nHabari ${pledge.donor_name}! ⛪\n\nUkumbusho wa ahadi yako:\n• Umeahidi: KES ${pledge.amount.toLocaleString()}\n• Umalipa: KES ${pledge.paid.toLocaleString()} (${pct}%)\n• Inabaki: KES ${pledge.remaining.toLocaleString()}\n\nNeno la kutia moyo:\n"${swV.text}" — ${swV.ref}\n\nMungu akubariki! AIPCA Bahati Cathedral`;
 
       const ok = await sendWhatsApp(pledge.whatsapp_number, message);
       if (ok) sent++;

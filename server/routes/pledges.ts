@@ -2,6 +2,8 @@ import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
 import { requireAdmin } from "../lib/admin.js";
 import { sendWhatsApp } from "../lib/twilio.js";
+import { PLEDGE_VERSES, pickVerse } from "./verses.js";
+import { enqueueFollowUp } from "../lib/queue.js";
 
 export const pledgesRouter = Router();
 
@@ -41,10 +43,11 @@ pledgesRouter.post("/", async (req, res) => {
       if (data?.whatsapp_number) {
         const amt = Number(data.amount).toLocaleString("en-KE");
         const added = newAmount.toLocaleString("en-KE");
+        const v = pickVerse(PLEDGE_VERSES);
         const msg =
           `🙏 *Pledge Updated* — AIPCA Bahati Cathedral\n\n` +
           `Hi ${data.donor_name}! You added *KES ${added}* to your pledge. Your new total is *KES ${amt}*.\n\n` +
-          `"Each of you should give what you have decided in your heart to give, not reluctantly or under compulsion, for God loves a cheerful giver." — 2 Corinthians 9:7\n\n` +
+          `📖 *${v.ref}* — "${v.text}"\n\n` +
           `*EN* — Thank you for building His house. May the Lord bless you abundantly.\n` +
           `*SW* — Asante kwa kujenga Nyumba Yake. Mungu akubariki sana, na tujenge pamoja!`;
 
@@ -80,16 +83,20 @@ pledgesRouter.post("/", async (req, res) => {
 
     if (data?.whatsapp_number) {
       const amt = Number(data.amount).toLocaleString("en-KE");
+      const v = pickVerse(PLEDGE_VERSES);
       const msg =
         `🙏 *Pledge Confirmation* — AIPCA Bahati Cathedral\n\n` +
         `Hi ${data.donor_name}! Thank you for your pledge of *KES ${amt}* towards the Harambee Development Fund.\n\n` +
-        `"Each of you should give what you have decided in your heart to give, not reluctantly or under compulsion, for God loves a cheerful giver." — 2 Corinthians 9:7\n\n` +
+        `📖 *${v.ref}* — "${v.text}"\n\n` +
         `_Baraka tele, familia yako ya AIPCA inakuombea._ 🇰🇪\n\n` +
         `You can track your progress and make payments at any time.\n` +
         `*EN* — Thank you for building His house. May the Lord bless you abundantly.\n` +
         `*SW* — Asante kwa kujenga Nyumba Yake. Mungu akubariki sana, na tujenge pamoja!`;
 
       sendWhatsApp(data.whatsapp_number, msg).catch(() => {});
+
+      // Follow-up in 3 days
+      enqueueFollowUp("pledge", data.whatsapp_number, data.donor_name, data.amount).catch(() => {});
     }
 
     res.status(201).json({ pledge: data, updated: false });
