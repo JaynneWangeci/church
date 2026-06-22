@@ -1,13 +1,15 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Church, Heart, Target, Users } from "lucide-react";
 import { useInView } from "../hooks/useInView";
 import { useLang } from "../context/LanguageContext";
 
 export default function AboutSection() {
   const { t } = useLang();
-  const { ref, inView } = useInView();
+  const { ref: gridRef, inView } = useInView();
   const [activeCard, setActiveCard] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   const cards = [
     {
@@ -84,17 +86,18 @@ export default function AboutSection() {
         <div className="relative">
           {/* Mobile carousel */}
           <div
-            ref={(el) => { carouselRef.current = el; ref.current = el; }}
+            ref={carouselRef}
             onScroll={handleScroll}
-            className="carousel-snap flex gap-5 overflow-x-auto pb-4 scrollbar-hide md:hidden"
+            className="carousel-snap relative flex gap-5 overflow-x-auto pb-4 scrollbar-hide md:hidden
+              [mask-image:linear-gradient(90deg,transparent_2%,#000_15%,#000_85%,transparent_98%)]"
           >
             {cards.map((card, i) => {
               const Icon = card.icon;
               return (
                 <div
                   key={card.title}
-                  className={`min-w-[80vw] shrink-0 snap-start card-hover group rounded-2xl border border-white/20 bg-white/80 backdrop-blur-md p-6 shadow-sm transition-all duration-500 ${
-                    inView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+                  className={`min-w-[80vw] shrink-0 snap-start card-hover group rounded-2xl border border-white/20 bg-white/80 backdrop-blur-md p-6 shadow-sm transition-all duration-700 ${
+                    mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
                   }`}
                   style={{ transitionDelay: `${i * 0.15}s` }}
                 >
@@ -109,7 +112,7 @@ export default function AboutSection() {
           </div>
 
           {/* Desktop grid */}
-          <div ref={ref} className="hidden md:grid md:grid-cols-3 gap-6">
+          <div ref={gridRef} className="hidden md:grid md:grid-cols-3 gap-6">
             {cards.map((card, i) => {
               const Icon = card.icon;
               return (
