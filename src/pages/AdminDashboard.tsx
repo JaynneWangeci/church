@@ -884,7 +884,7 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer select-none">
-                  <input type="checkbox" checked={churchMembers.length > 0 && churchMembers.filter(m => {
+                      <input type="checkbox" checked={churchMembers.length > 0 && churchMembers.filter(m => {
                     if (memberCouncilFilter && m.council !== memberCouncilFilter) return false;
                     if (memberSearch && !m.name.toLowerCase().includes(memberSearch.toLowerCase())) return false;
                     return true;
@@ -893,7 +893,7 @@ export default function AdminDashboard() {
                     className="h-4 w-4 rounded border-gray-300 text-nobuk focus:ring-nobuk" />
                   All
                 </label>
-                <select value={memberCouncilFilter} onChange={e => setMemberCouncilFilter(e.target.value)}
+                <select value={memberCouncilFilter} onChange={e => { setMemberCouncilFilter(e.target.value); setSelectedMembers(new Set()); }}
                   className="rounded-lg border border-gray-200 bg-cream px-3 py-2.5 text-sm text-ink outline-none focus:border-nobuk">
                   <option value="">All Fellowships</option>
                   {councils.map(c => <option key={c.slug} value={c.slug}>{c.name}</option>)}
@@ -902,6 +902,21 @@ export default function AdminDashboard() {
                   <button onClick={handleBulkDelete}
                     className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white hover:bg-red-700 transition">
                     <Trash2 size={14} /> Delete {selectedMembers.size} selected
+                  </button>
+                )}
+                {memberCouncilFilter && selectedMembers.size === 0 && (
+                  <button onClick={() => {
+                    const ids = churchMembers.filter(m => m.council === memberCouncilFilter).map(m => m.id);
+                    if (ids.length && confirm(`Delete all ${ids.length} members from this fellowship?`)) {
+                      fetch("/api/members/bulk-delete", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ ids }),
+                      }).then(r => { if (r.ok) fetchMembers(); });
+                    }
+                  }}
+                    className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white hover:bg-red-700 transition">
+                    <Trash2 size={14} /> Delete All {memberCouncilFilter.replace(/_/g, " ")} Members
                   </button>
                 )}
               </div>
