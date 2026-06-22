@@ -28,12 +28,8 @@ export default function AboutSection() {
   const { t } = useLang();
   const { ref: gridRef, inView } = useInView();
   const [activeCard, setActiveCard] = useState(0);
-  const [typedText, setTypedText] = useState('');
-  const [typingDone, setTypingDone] = useState(false);
-  const [cardPhase, setCardPhase] = useState<'enter' | 'typing' | 'read' | 'exit'>('enter');
+  const [exiting, setExiting] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const TYPING_SPEED = 20;
-  const READ_DURATION = 55000;
 
   const cards = useMemo(() => [
     {
@@ -62,13 +58,25 @@ export default function AboutSection() {
     },
   ], [t]);
 
+  useEffect(() => {
+    timerRef.current = setTimeout(() => {
+      setExiting(true);
+      setTimeout(() => {
+        setActiveCard(prev => (prev + 1) % cards.length);
+        setExiting(false);
+      }, 700);
+    }, 60000);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [activeCard, cards.length]);
+
   const goToCard = useCallback((index: number) => {
-    if (cardPhase === 'exit') return;
-    setCardPhase('exit');
+    if (exiting) return;
+    setExiting(true);
     setTimeout(() => {
       setActiveCard(index);
-    }, 800);
-  }, [cardPhase]);
+      setExiting(false);
+    }, 700);
+  }, [exiting]);
 
   return (
     <section id="about" className="scroll-mt-16 bg-white/10 backdrop-blur-sm px-4 py-24 md:py-32">
@@ -92,16 +100,15 @@ export default function AboutSection() {
         </div>
 
         <div className="relative">
-          {/* Mobile carousel — typewriter + auto-advance */}
+          {/* Mobile carousel — auto-advance every 60s */}
           <div className="md:hidden">
-            <div className="relative mx-auto max-w-sm" style={{ minHeight: 260 }}>
+            <div className="relative mx-auto max-w-sm" style={{ minHeight: 240 }}>
               {cards.map((card, i) => {
                 const Icon = card.icon;
                 const isActive = i === activeCard;
-                const exiting = cardPhase === 'exit' && isActive;
                 return (
                   <div key={card.title}
-                    className={`rounded-2xl border border-white/20 bg-white/80 backdrop-blur-md p-6 shadow-sm w-full transition-all duration-700 ${
+                    className={`rounded-2xl border border-white/20 bg-white/80 backdrop-blur-md p-5 shadow-sm w-full transition-all duration-700 ${
                       isActive
                         ? exiting
                           ? 'opacity-0 scale-75 -rotate-6 translate-y-8'
@@ -110,21 +117,13 @@ export default function AboutSection() {
                     }`}
                     style={{ transitionTimingFunction: isActive && exiting ? 'cubic-bezier(.6,.04,.98,.34)' : 'cubic-bezier(.34,1.56,.64,1)' }}
                   >
-                    <div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-500 ${
+                    <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-500 ${
                         isActive ? 'bg-nobuk scale-110' : 'bg-nobuk-muted'
                       }`}>
-                      <Icon size={20} className={`transition-colors duration-500 ${isActive ? 'text-white' : 'text-nobuk'}`} />
+                      <Icon size={18} className={`transition-colors duration-500 ${isActive ? 'text-white' : 'text-nobuk'}`} />
                     </div>
-                    <h3 className="text-base font-bold text-nobuk">{card.title}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-muted">
-                      {isActive ? typedText : ''}
-                      {isActive && !typingDone && <span className="ml-0.5 inline-block h-3.5 w-[2px] bg-amber animate-pulse" />}
-                    </p>
-                    {isActive && typingDone && (
-                      <span className="mt-2 inline-block rounded-full bg-amber/20 px-2 py-0.5 text-[10px] font-semibold text-amber-dark">
-                        {Math.ceil(((cardPhase === 'read' ? READ_DURATION : 0) - (timerRef.current ? 0 : 0)) / 1000)}s
-                      </span>
-                    )}
+                    <h3 className="text-sm font-bold text-nobuk">{card.title}</h3>
+                    <p className="mt-1.5 text-xs leading-relaxed text-muted">{card.text}</p>
                   </div>
                 );
               })}
