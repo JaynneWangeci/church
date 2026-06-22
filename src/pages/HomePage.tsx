@@ -52,19 +52,19 @@ export default function HomePage() {
 
   return (
     <main className={`relative min-h-screen transition-colors duration-500 ${lightMode ? 'bg-gradient-to-b from-blue-50 via-white to-blue-50 text-gray-800' : 'bg-gradient-to-b from-[#0a1628] via-[#0f2847] to-[#1a3a5c] text-gray-100'}`}>
-      {/* Language toggle */}
-      <button onClick={() => setLang(lang === 'en' ? 'sw' : 'en')}
-        className="fixed top-4 right-12 z-50 flex items-center gap-1.5 rounded-full border border-white/20 bg-[#0f2847]/90 px-3 py-1.5 text-xs font-bold text-white shadow-sm backdrop-blur-md hover:bg-[#1a3a5c] transition-all hover:scale-105">
-        <Globe size={14} />
-        {lang === 'en' ? 'Kiswahili' : 'English'}
-      </button>
-
-      {/* Dark/Light toggle */}
-      <button onClick={() => setLightMode(!lightMode)}
-        className="fixed top-4 right-4 z-50 flex items-center gap-1.5 rounded-full border border-white/20 bg-[#0f2847]/90 px-3 py-1.5 text-xs font-bold text-white shadow-sm backdrop-blur-md hover:bg-[#1a3a5c] transition-all hover:scale-105">
-        {lightMode ? <Moon size={14} /> : <Sun size={14} />}
-        {lightMode ? 'Dark' : 'Light'}
-      </button>
+      {/* Language + Theme toggles */}
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-1.5">
+        <button onClick={() => setLang(lang === 'en' ? 'sw' : 'en')}
+          className="flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-[10px] font-semibold text-white/60 backdrop-blur-sm transition hover:bg-white/20 hover:text-white/90">
+          <Globe size={10} />
+          {lang === 'en' ? 'SW' : 'EN'}
+        </button>
+        <button onClick={() => setLightMode(!lightMode)}
+          className="flex items-center rounded-full bg-white/10 p-1.5 text-white/60 backdrop-blur-sm transition hover:bg-white/20 hover:text-white/90"
+          title={lightMode ? 'Dark mode' : 'Light mode'}>
+          {lightMode ? <Moon size={11} /> : <Sun size={11} />}
+        </button>
+      </div>
 
       {/* Section nav dots */}
       <div className="fixed right-3 top-1/2 z-40 hidden -translate-y-1/2 flex-col items-center gap-3 md:flex">
@@ -114,8 +114,8 @@ export default function HomePage() {
       </div>
 
       {/* Mobile bottom action bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-[#0f2847]/95 backdrop-blur-xl md:hidden">
-        <div className="flex items-center justify-around px-2 py-2">
+      <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-50 md:hidden">
+        <div className="pointer-events-auto mx-3 mb-3 flex items-center justify-around rounded-2xl border border-white/10 bg-[#0f2847]/90 px-2 py-2 backdrop-blur-xl shadow-lg">
           <button onClick={() => { const el = document.getElementById('hero'); el?.scrollIntoView({ behavior: 'smooth' }); }}
             className="flex flex-col items-center gap-0.5 px-3 py-1 transition-all active:scale-90">
             <Heart size={18} className="text-amber" />

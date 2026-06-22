@@ -467,7 +467,7 @@ export default function AdminDashboard() {
 
       <main className="mx-auto max-w-6xl px-4 py-8">
         {/* Tab navigation */}
-        <div className="mb-6 flex gap-4 border-b border-gray-200">
+        <div className="mb-6 flex flex-wrap gap-4 border-b border-gray-200">
           <button
             onClick={() => setTab("overview")}
             className={`pb-3 text-sm font-bold transition border-b-2 ${
@@ -1747,12 +1747,30 @@ export default function AdminDashboard() {
         {tab === "fellowshipreports" && (
           <div className="space-y-6">
             <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
+              <div className="mb-4 flex items-center justify-between flex-wrap gap-2">
                 <h2 className="text-sm font-bold text-ink">Fellowship Reports</h2>
-                <button onClick={() => fetchFellowshipReport()}
-                  className="flex items-center gap-1 text-xs font-semibold text-nobuk hover:underline">
-                  <RefreshCw size={12} /> Refresh
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={async () => {
+                    setExporting("frxlsx");
+                    try {
+                      const res = await fetch("/api/contributions/export/xlsx", { headers: { Authorization: `Bearer ${token}` } });
+                      if (!res.ok) return;
+                      const blob = await res.blob();
+                      const a = document.createElement("a");
+                      a.href = URL.createObjectURL(blob);
+                      a.download = `fellowship-report-${new Date().toISOString().slice(0, 10)}.xlsx`;
+                      a.click();
+                      URL.revokeObjectURL(a.href);
+                    } catch {}
+                    setExporting(null);
+                  }} disabled={exporting === "frxlsx"} className="flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-[11px] font-semibold text-muted hover:bg-cream disabled:opacity-40">
+                    <Download size={12} /> {exporting === "frxlsx" ? "..." : "Export"}
+                  </button>
+                  <button onClick={() => fetchFellowshipReport()}
+                    className="flex items-center gap-1 text-xs font-semibold text-nobuk hover:underline">
+                    <RefreshCw size={12} /> Refresh
+                  </button>
+                </div>
               </div>
 
               {!fellowshipReport && (
@@ -1906,17 +1924,7 @@ export default function AdminDashboard() {
                               </div>
                             </div>
 
-                            {/* Members list */}
-                            {f.members?.length > 0 && (
-                              <div className="mt-4">
-                                <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted">Members ({f.members.length})</p>
-                                <div className="flex flex-wrap gap-1">
-                                  {f.members.map((m: any) => (
-                                    <span key={m.id} className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-muted">{m.name}</span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
+
                           </div>
                         </details>
                       );
