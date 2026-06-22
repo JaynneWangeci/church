@@ -944,6 +944,9 @@ export default function AdminDashboard() {
                   className="w-full rounded-lg bg-nobuk py-2.5 text-sm font-bold text-white hover:bg-nobuk-light disabled:opacity-40">
                   Update {bulkEditNames.trim() ? bulkEditNames.trim().split('\n').filter(n => n.trim()).length : 0} Members
                 </button>
+                <button onClick={() => { setBulkEditResult("Running migration..."); fetch("/api/admin/migrate-v10", { method: "POST" }).then(r => r.json()).then(d => setBulkEditResult(d.message || d.error || "Done")).catch(() => setBulkEditResult("Migration failed")); }} className="w-full text-center text-[10px] text-muted hover:text-nobuk transition">
+                  Run database migration (add gender column)
+                </button>
               </div>
             </div>
 
