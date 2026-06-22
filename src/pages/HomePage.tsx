@@ -22,6 +22,7 @@ export default function HomePage() {
   const { lang, setLang, t } = useLang();
   const { ref: mapRef, inView: mapInView } = useInView();
   const [activeSection, setActiveSection] = useState('hero');
+  const [phone, setPhone] = useState("0727278577");
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
       for (const entry of entries) {
@@ -40,6 +41,15 @@ export default function HomePage() {
   const scrollTo = useCallback((id: string) => {
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.settings?.church_phone) setPhone(data.settings.church_phone);
+      })
+      .catch(() => {});
   }, []);
 
   const handleShare = useCallback(() => {
@@ -117,7 +127,7 @@ export default function HomePage() {
             <HandHeart size={18} className="text-green-400" />
             <span className="text-[9px] font-bold text-white/70">Pledge</span>
           </button>
-          <button onClick={() => window.open('tel:+254700000000')}
+          <button onClick={() => window.open(`tel:${phone.replace(/\s/g, '')}`)}
             className="flex flex-col items-center gap-0.5 px-3 py-1 transition-all active:scale-90">
             <Phone size={18} className="text-blue-400" />
             <span className="text-[9px] font-bold text-white/70">Call</span>
