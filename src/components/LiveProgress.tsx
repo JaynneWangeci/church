@@ -17,7 +17,6 @@ export default function LiveProgress() {
   const prevPct = useRef(0);
   const [recentDonations, setRecentDonations] = useState<any[]>([]);
   const [endsAt, setEndsAt] = useState<string | null>(null);
-  const [siteContent, setSiteContent] = useState<any>(null);
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   const pct = Math.min((raised / goal) * 100, 100);
@@ -47,14 +46,6 @@ export default function LiveProgress() {
       .then(r => r.ok && r.json())
       .then(data => { if (data) setHarambeeDays(data.days_remaining); })
       .catch(() => {});
-    fetch('/api/settings')
-      .then(r => r.ok && r.json())
-      .then(data => {
-        if (data?.settings?.site_content) {
-          try { setSiteContent(JSON.parse(data.settings.site_content)); } catch {}
-        }
-      })
-      .catch(() => {});
     fetchPledges();
 
     const interval = setInterval(() => {
@@ -63,14 +54,10 @@ export default function LiveProgress() {
         .then(data => { if (data) { setRaised(Number(data.raised ?? 0)); setGoal(Number(data.goal ?? 30000000)); setEndsAt(data.ends_at || null); } })
         .catch(() => {});
       fetchPledges();
-    }, 8000);
+    }, 30000);
 
     return () => clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    if (siteContent?.goal_amount) setGoal(Number(siteContent.goal_amount));
-  }, [siteContent]);
 
   useEffect(() => {
     if (!endsAt) return;
@@ -182,7 +169,7 @@ export default function LiveProgress() {
             Tujenge Pamoja
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-white/50">
-            {siteContent?.harambee_reason_en || 'Together we are building the house of the Lord. Every contribution brings us closer to our goal.'}
+            Together we are building the house of the Lord. Every contribution brings us closer to our goal.
           </p>
         </div>
 

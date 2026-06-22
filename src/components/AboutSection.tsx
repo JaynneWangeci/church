@@ -1,38 +1,15 @@
-import { useState, useRef, useCallback, useEffect } from "react";
-import { Church, Heart, Target, Users, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
+import { Church, Heart, Target, Users } from "lucide-react";
 import { useInView } from "../hooks/useInView";
 import { useLang } from "../context/LanguageContext";
 
 export default function AboutSection() {
-  const { t, lang } = useLang();
+  const { t } = useLang();
   const { ref, inView } = useInView();
   const [activeCard, setActiveCard] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
-  const [dynamicContent, setDynamicContent] = useState<any>(null);
 
-  useEffect(() => {
-    fetch("/api/settings")
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data?.settings?.site_content) {
-          try { setDynamicContent(JSON.parse(data.settings.site_content)); } catch {}
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  const siteCards = dynamicContent?.cards;
-  const icons = [Target, Users, Heart];
-
-  const cards = siteCards && siteCards.length === 3
-    ? siteCards.map((c: any, i: number) => ({
-        icon: icons[i] || Target,
-        title: lang === 'sw' ? (c.title_sw || c.title_en) : c.title_en,
-        text: lang === 'sw' ? (c.text_sw || c.text_en) : c.text_en,
-      }))
-    : null;
-
-  const defaultCards = [
+  const cards = [
     {
       icon: Target,
       title: t("Our Goal", "Lengo Letu"),
@@ -97,13 +74,10 @@ export default function AboutSection() {
             Tujenge Pamoja
           </h2>
           <p className="mt-3 text-muted">
-            {dynamicContent?.about_desc_en
-              ? (lang === 'sw' ? (dynamicContent.about_desc_sw || dynamicContent.about_desc_en) : dynamicContent.about_desc_en)
-              : t(
-                "The construction of this Great House of God started in 2006. Now we unite to complete what was started with faith and determination.",
-                "Ujenzi wa Nyumba hii Kuu ya Mungu ulianza mwaka 2006. Sasa tunaungana kukamilisha kilichoanazwa kwa imani na dhamira."
-              )
-            }
+            {t(
+              "The construction of this Great House of God started in 2006. Now we unite to complete what was started with faith and determination.",
+              "Ujenzi wa Nyumba hii Kuu ya Mungu ulianza mwaka 2006. Sasa tunaungana kukamilisha kilichoanazwa kwa imani na dhamira."
+            )}
           </p>
         </div>
 
@@ -114,7 +88,7 @@ export default function AboutSection() {
             onScroll={handleScroll}
             className="carousel-snap flex gap-5 overflow-x-auto pb-4 scrollbar-hide md:hidden"
           >
-            {(cards || defaultCards).map((card, i) => {
+            {cards.map((card, i) => {
               const Icon = card.icon;
               return (
                 <div
@@ -136,7 +110,7 @@ export default function AboutSection() {
 
           {/* Desktop grid */}
           <div ref={ref} className="hidden md:grid md:grid-cols-3 gap-6">
-            {(cards || defaultCards).map((card, i) => {
+            {cards.map((card, i) => {
               const Icon = card.icon;
               return (
                 <div
@@ -158,7 +132,7 @@ export default function AboutSection() {
 
           {/* Dot indicators (mobile only) */}
           <div className="mt-5 flex items-center justify-center gap-2 md:hidden">
-            {(cards || defaultCards).map((_, i) => (
+            {cards.map((_, i) => (
               <button key={i} onClick={() => scrollTo(i)}
                 className={`h-2 rounded-full transition-all duration-300 ${
                   i === activeCard ? "w-8 bg-amber" : "w-2 bg-amber/30 hover:bg-amber/50"
