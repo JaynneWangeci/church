@@ -159,8 +159,7 @@ adminRouter.post("/admins", requireAdmin, requireSuperAdmin, async (req, res) =>
       return res.status(400).json({ error: "email, name, password required" });
     }
 
-    const bcrypt = await import("bcryptjs");
-    const password_hash = bcrypt.hashSync(password, 10);
+    const password_hash = hashPassword(password);
 
     const { data, error } = await db
       .from("admin_users")
