@@ -2693,9 +2693,10 @@ function SiteContentEditor() {
         harambee_reason_sw,
       };
 
+      const token = localStorage.getItem("token");
       const res = await fetch("/api/settings", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ site_content: JSON.stringify(payload), church_phone: content.church_phone }),
       });
       if (res.ok) setMsg("Saved successfully!");
