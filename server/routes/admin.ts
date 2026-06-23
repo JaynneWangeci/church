@@ -394,7 +394,7 @@ adminRouter.get("/fellowship-report", requireAdmin, async (req, res) => {
       ...Object.keys(memberByCouncil),
       ...Object.keys(pledgeByCouncil),
       ...Object.keys(donationByCouncil),
-    ])].sort();
+    ])];
 
     const report = [];
     for (const council of allCouncilSlugs) {
@@ -462,6 +462,8 @@ adminRouter.get("/fellowship-report", requireAdmin, async (req, res) => {
         },
       });
     }
+
+    report.sort((a, b) => b.donation.total - a.donation.total);
 
     // Unlinked donations (donor not matched to any member)
     const unlinkedTotal = donationNoMember.reduce((s, d) => s + Number(d.amount), 0);

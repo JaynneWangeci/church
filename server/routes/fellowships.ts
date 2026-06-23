@@ -7,6 +7,23 @@ fellowshipsRouter.get("/progress", async (_req, res) => {
   try {
     const db = requireService();
 
+    const COUNCIL_RANK: Record<string, number> = {
+      maranatha_fellowship: 1, bethlehem_fellowship: 2, jerusalem_fellowship: 3,
+      aefeso_fellowship: 4, galilee_fellowship: 5, bethel_fellowship: 6,
+      berea_fellowship: 7, judea_fellowship: 8, general_member: 9,
+    };
+    const councilMeta: Record<string, { label: string; color: string }> = {
+      maranatha_fellowship: { label: "Maranatha Fellowship", color: "#1E6F9F" },
+      bethlehem_fellowship: { label: "Bethlehem Fellowship", color: "#5B9BD5" },
+      jerusalem_fellowship: { label: "Jerusalem Fellowship", color: "#3A5A7A" },
+      aefeso_fellowship: { label: "Aefeso Fellowship", color: "#2C4056" },
+      galilee_fellowship: { label: "Galilee Fellowship", color: "#7C3AED" },
+      bethel_fellowship: { label: "Bethel Fellowship", color: "#0891B2" },
+      berea_fellowship: { label: "Berea Fellowship", color: "#059669" },
+      judea_fellowship: { label: "Judea Fellowship", color: "#D97706" },
+      general_member: { label: "General Member", color: "#6B7280" },
+    };
+
     const { data: campaign } = await db
       .from("campaigns")
       .select("id, goal")
@@ -42,27 +59,9 @@ fellowshipsRouter.get("/progress", async (_req, res) => {
       donationByCouncil[council].count += 1;
     }
 
-    const allCouncils = [...new Set([...Object.keys(memberByCouncil), ...Object.keys(donationByCouncil)])].sort((a, b) => (COUNCIL_RANK[a] || 99) - (COUNCIL_RANK[b] || 99));
-
-    const COUNCIL_RANK: Record<string, number> = {
-      maranatha_fellowship: 1, bethlehem_fellowship: 2, jerusalem_fellowship: 3,
-      aefeso_fellowship: 4, galilee_fellowship: 5, bethel_fellowship: 6,
-      berea_fellowship: 7, judea_fellowship: 8, general_member: 9,
-    };
-    const councilMeta: Record<string, { label: string; color: string }> = {
-      maranatha_fellowship: { label: "Maranatha Fellowship", color: "#1E6F9F" },
-      bethlehem_fellowship: { label: "Bethlehem Fellowship", color: "#5B9BD5" },
-      jerusalem_fellowship: { label: "Jerusalem Fellowship", color: "#3A5A7A" },
-      aefeso_fellowship: { label: "Aefeso Fellowship", color: "#2C4056" },
-      galilee_fellowship: { label: "Galilee Fellowship", color: "#7C3AED" },
-      bethel_fellowship: { label: "Bethel Fellowship", color: "#0891B2" },
-      berea_fellowship: { label: "Berea Fellowship", color: "#059669" },
-      judea_fellowship: { label: "Judea Fellowship", color: "#D97706" },
-      general_member: { label: "General Member", color: "#6B7280" },
-    };
+    const allCouncils = [...new Set([...Object.keys(memberByCouncil), ...Object.keys(donationByCouncil)])];
 
     const fellowshipStats = allCouncils
-      .sort((a, b) => (COUNCIL_RANK[a] || 99) - (COUNCIL_RANK[b] || 99))
       .map(council => {
         const meta = councilMeta[council] || { label: council.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()), color: "#6B7280" };
         const d = donationByCouncil[council] || { total: 0, count: 0 };
@@ -76,7 +75,8 @@ fellowshipsRouter.get("/progress", async (_req, res) => {
           goal,
           percentage: goal > 0 ? Math.round((d.total / goal) * 10000) / 100 : 0,
         };
-      });
+      })
+      .sort((a, b) => b.total_amount - a.total_amount);
     res.json({ fellowships: fellowshipStats });
   } catch (err) {
     console.error("fellowship progress error:", err);

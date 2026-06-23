@@ -256,6 +256,7 @@ export default function AdminDashboard() {
       setChurchMembers(prev => [...prev, d.member]);
       setNewName("");
       setMemberError("");
+      fetchStats(); fetchAnalytics(); fetchFellowshipReport(); fetchPledges();
     } catch { setMemberError("A connection issue occurred. Please try again."); }
   }
 
@@ -311,7 +312,7 @@ export default function AdminDashboard() {
     }
     setBulkResult(msg);
     setBulkNames(keptLines.length ? keptLines.map(e => e.name).join('\n') : "");
-    if (newMembers.length) setChurchMembers(prev => [...prev, ...newMembers]);
+    if (newMembers.length) { setChurchMembers(prev => [...prev, ...newMembers]); fetchStats(); fetchAnalytics(); fetchFellowshipReport(); fetchPledges(); }
   }
 
   async function handleBulkEdit() {
@@ -334,6 +335,10 @@ export default function AdminDashboard() {
       setBulkEditNames("");
       const lower = new Set(names.map(n => n.trim().toLowerCase()));
       setChurchMembers(prev => prev.map(m => lower.has(m.name.trim().toLowerCase()) ? { ...m, council: bulkEditCouncil, gender: bulkEditGender || m.gender } : m));
+      fetchStats();
+      fetchAnalytics();
+      fetchFellowshipReport();
+      fetchPledges();
     } else {
       setBulkEditResult(data.error || "Something went wrong");
     }
@@ -371,7 +376,7 @@ export default function AdminDashboard() {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) setChurchMembers(prev => prev.filter(m => m.id !== id));
+      if (res.ok) { setChurchMembers(prev => prev.filter(m => m.id !== id)); fetchStats(); fetchAnalytics(); fetchFellowshipReport(); fetchPledges(); }
     } catch {}
   }
 
@@ -388,6 +393,7 @@ export default function AdminDashboard() {
         const deleted = new Set(selectedMembers);
         setSelectedMembers(new Set());
         setChurchMembers(prev => prev.filter(m => !deleted.has(m.id)));
+        fetchStats(); fetchAnalytics(); fetchFellowshipReport(); fetchPledges();
       }
     } catch {}
   }
@@ -403,7 +409,7 @@ export default function AdminDashboard() {
       });
       const data = await res.json();
       setDedupResult(data.message || "Done.");
-      if (data.deduped > 0) fetchMembers();
+      if (data.deduped > 0) { fetchMembers(); fetchStats(); fetchAnalytics(); fetchFellowshipReport(); fetchPledges(); }
     } catch { setDedupResult("Something went wrong. Please try again."); }
     finally { setDeduping(false); }
   }
@@ -422,6 +428,7 @@ export default function AdminDashboard() {
       if (res.ok) {
         const data = await res.json();
         setChurchMembers(prev => prev.map(m => m.id === id ? data.member : m));
+        fetchStats(); fetchAnalytics(); fetchFellowshipReport(); fetchPledges();
       } else if (prev) {
         setChurchMembers(prev => prev.map(m => m.id === id ? prev : m));
       }

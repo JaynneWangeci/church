@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
 import { requireAdmin, requireAdminOrAbove, logAudit, rateLimit } from "../lib/admin.js";
+import { invalidateOnChange } from "../lib/redis.js";
 import type { AuditAction } from "../lib/admin.js";
 
 function sanitizeName(name: string): string {
@@ -247,6 +248,8 @@ membersRouter.post("/bulk-edit", requireAdmin, requireAdminOrAbove, async (req, 
       ipAddress: (req as any).adminIp,
     });
 
+    if (updated) invalidateOnChange("analytics");
+
     let msg = `${updated} of ${names.length} members updated.`;
     if (missing.length) msg += ` Not found: ${missing.join(", ")}`;
     res.json({ ok: true, updated, total: names.length, message: msg, missing });
@@ -265,6 +268,8 @@ membersRouter.post("/bulk-delete", requireAdmin, requireAdminOrAbove, async (req
     const { error } = await db.from("church_members").delete().in("id", ids);
 
     if (error) return res.status(500).json({ error: error.message });
+
+    invalidateOnChange("analytics");
 
     const admin = (req as any).admin;
     await logAudit({
@@ -301,6 +306,8 @@ membersRouter.patch("/:id", requireAdmin, requireAdminOrAbove, async (req, res) 
 
     if (error) return res.status(500).json({ error: error.message });
 
+    invalidateOnChange("analytics");
+
     const admin = (req as any).admin;
     await logAudit({
       adminId: admin.id,
@@ -323,6 +330,8 @@ membersRouter.delete("/:id", requireAdmin, requireAdminOrAbove, async (req, res)
     const { error } = await db.from("church_members").delete().eq("id", req.params.id);
 
     if (error) return res.status(500).json({ error: error.message });
+
+    invalidateOnChange("analytics");
 
     const admin = (req as any).admin;
     await logAudit({
