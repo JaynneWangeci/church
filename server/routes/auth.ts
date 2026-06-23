@@ -7,32 +7,11 @@ import {
   createSession, invalidateSession,
   checkLoginRateLimit, recordFailedAttempt, resetFailedAttempts, invalidateAllAdminSessions,
 } from "../lib/admin.js";
+import { sendSMS } from "../lib/africastalking.js";
 
 export const authRouter = Router();
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const RESEND_FROM = process.env.RESEND_FROM || "AIPCA Harambee <onboarding@resend.dev>";
 
-async function sendPasswordResetEmail(email: string, resetUrl: string): Promise<boolean> {
-  if (!RESEND_API_KEY) return false;
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: RESEND_FROM,
-        to: email,
-        subject: "Reset your AIPCA Harambee admin password",
-        html: `<p>Click the link below to reset your password. This link expires in 1 hour.</p>
-<p><a href="${resetUrl}">${resetUrl}</a></p>
-<p>If you did not request this, ignore this email.</p>`,
-      }),
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
 
 authRouter.get("/check-setup", async (_req, res) => {
   try {
@@ -49,13 +28,19 @@ authRouter.post("/setup", async (req, res) => {
   try {
     const db = requireService();
 
-    const { email, password, name } = req.body;
+    const { email, password, name, phone } = req.body;
     if (!email || !password || !name) {
       return res.status(400).json({ error: "email, password, and name required" });
     }
+    if (!phone) {
+      return res.status(400).json({ error: "phone required for password reset" });
+    }
 
-    if (password.length < 6) {
-      return res.status(400).json({ error: "Password must be at least 6 characters" });
+    if (password.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters" });
+    }
+    if (!/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+      return res.status(400).json({ error: "Password must include at least one uppercase letter and one number" });
     }
 
     const { data: existing } = await db.from("admin_users").select("id").limit(1);
@@ -64,8 +49,8 @@ authRouter.post("/setup", async (req, res) => {
     const passwordHash = hashPassword(password);
     const { data: admin, error } = await db
       .from("admin_users")
-      .insert({ email: email.toLowerCase().trim(), password_hash: passwordHash, name, role })
-      .select("id, email, name, role")
+      .insert({ email: email.toLowerCase().trim(), password_hash: passwordHash, name, role, phone })
+      .select("id, email, name, role, phone")
       .single();
 
     if (error) return res.status(500).json({ error: error.message });
@@ -176,6 +161,67 @@ authRouter.post("/logout", requireAdmin, async (req, res) => {
   }
 });
 
+authRouter.get("/sessions", requireAdmin, async (req, res) => {
+  try {
+    const admin = (req as any).admin;
+    const db = requireService();
+    const authHeader = req.headers.authorization;
+    const currentToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : "";
+    const currentHash = crypto.createHash("sha256").update(currentToken).digest("hex");
+
+    const { data: sessions } = await db
+      .from("admin_sessions")
+      .select("id, ip_address, user_agent, created_at, expires_at, token_hash")
+      .eq("admin_id", admin.id)
+      .order("created_at", { ascending: false });
+
+    const list = (sessions || []).map((s: Record<string, unknown>) => ({
+      id: s.id,
+      ipAddress: s.ip_address,
+      userAgent: s.user_agent,
+      createdAt: s.created_at,
+      expiresAt: s.expires_at,
+      isCurrent: s.token_hash === currentHash,
+    }));
+
+    res.json({ sessions: list });
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+authRouter.delete("/sessions/:id", requireAdmin, async (req, res) => {
+  try {
+    const admin = (req as any).admin;
+    const db = requireService();
+    const { id } = req.params;
+
+    const { data: session } = await db
+      .from("admin_sessions")
+      .select("id")
+      .eq("id", id)
+      .eq("admin_id", admin.id)
+      .single();
+
+    if (!session) {
+      return res.status(404).json({ error: "Session not found" });
+    }
+
+    await db.from("admin_sessions").delete().eq("id", id);
+
+    await logAudit({
+      adminId: admin.id,
+      action: "session_revoked",
+      ipAddress: (req as any).adminIp,
+      details: { sessionId: id },
+    });
+
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 authRouter.post("/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
@@ -186,27 +232,37 @@ authRouter.post("/forgot-password", async (req, res) => {
 
     const { data: admin } = await db
       .from("admin_users")
-      .select("id, email, name")
+      .select("id, email, name, role, phone")
       .eq("email", normalizedEmail)
       .single();
 
     if (!admin) {
-      return res.json({ ok: true, message: "If that email exists, a reset link has been sent." });
+      return res.status(404).json({ error: "Email not found." });
     }
 
-    const token = crypto.randomBytes(32).toString("hex");
+    if (admin.role !== "super_admin") {
+      return res.status(403).json({ error: "Only super admins can reset their password." });
+    }
+
+    if (!admin.phone) {
+      return res.status(400).json({ error: "No phone number registered. Contact support." });
+    }
+
+    // Invalidate any existing unexpired tokens so we always generate a fresh code
+    await db.from("password_reset_tokens").delete().eq("admin_id", admin.id);
+
+    // Generate 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
     await db.from("password_reset_tokens").insert({
       admin_id: admin.id,
-      token_hash: crypto.createHash("sha256").update(token).digest("hex"),
+      token_hash: crypto.createHash("sha256").update(code).digest("hex"),
       expires_at: expiresAt,
     });
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${req.protocol}://${req.headers.host}`;
-    const resetUrl = `${baseUrl}/admin/reset-password?token=${token}`;
-
-    const sent = await sendPasswordResetEmail(normalizedEmail, resetUrl);
+    // Send code via SMS
+    const smsSent = await sendSMS(admin.phone, `AIPCA Bahati: Your password reset code is ${code}. It expires in 1 hour.`);
 
     await logAudit({
       adminId: admin.id,
@@ -214,15 +270,11 @@ authRouter.post("/forgot-password", async (req, res) => {
       ipAddress: getClientIp(req),
     });
 
-    if (!RESEND_API_KEY) {
-      return res.json({
-        ok: true,
-        message: "Password reset link generated.",
-        resetUrl,
-      });
+    if (!smsSent) {
+      return res.status(500).json({ error: "Failed to send SMS. Try again." });
     }
 
-    res.json({ ok: true, message: "If that email exists, a reset link has been sent." });
+    res.json({ ok: true, message: "Reset code sent to your registered phone." });
   } catch (err) {
     console.error("forgot-password error:", err);
     res.status(500).json({ error: "Server error" });
@@ -231,25 +283,28 @@ authRouter.post("/forgot-password", async (req, res) => {
 
 authRouter.post("/reset-password", async (req, res) => {
   try {
-    const { token, password } = req.body;
-    if (!token || !password) return res.status(400).json({ error: "Token and password required" });
-    if (password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
+    const { code, password } = req.body;
+    if (!code || !password) return res.status(400).json({ error: "Code and password required" });
+    if (password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+    if (!/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+      return res.status(400).json({ error: "Password must include at least one uppercase letter and one number" });
+    }
 
     const db = requireService();
-    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    const codeHash = crypto.createHash("sha256").update(code).digest("hex");
 
     const { data: stored, error } = await db
       .from("password_reset_tokens")
       .select("id, admin_id, expires_at")
-      .eq("token_hash", tokenHash)
+      .eq("token_hash", codeHash)
       .single();
 
     if (error || !stored) {
-      return res.status(400).json({ error: "Invalid or expired reset token" });
+      return res.status(400).json({ error: "Invalid or expired reset code" });
     }
 
     if (new Date(stored.expires_at) < new Date()) {
-      return res.status(400).json({ error: "Reset token has expired" });
+      return res.status(400).json({ error: "Reset code has expired" });
     }
 
     const passwordHash = hashPassword(password);

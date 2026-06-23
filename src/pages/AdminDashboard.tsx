@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   TrendingUp, Users, DollarSign, Clock, AlertCircle,
-  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileSpreadsheet, Search, ScanSearch, ArrowUpRight, ArrowDownRight, PieChart, Target, Save, Pencil,
+  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileSpreadsheet, Search, ScanSearch, ArrowUpRight, ArrowDownRight, PieChart, Target, Save, Pencil, Monitor,
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePie, Pie, Cell, Legend,
@@ -84,6 +84,9 @@ export default function AdminDashboard() {
   const [newCouncilName, setNewCouncilName] = useState("");
   const [councilMgmtError, setCouncilMgmtError] = useState("");
   const [councilMgmtMsg, setCouncilMgmtMsg] = useState("");
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [showSessions, setShowSessions] = useState(false);
+  const [loadingSessions, setLoadingSessions] = useState(false);
   const [harambeeDate, setHarambeeDate] = useState("2026-09-27");
   const [harambeeDays, setHarambeeDays] = useState(0);
   const [editingHarambeeDate, setEditingHarambeeDate] = useState(false);
@@ -139,6 +142,20 @@ export default function AdminDashboard() {
       }
     } catch { /* silent */ }
   }, [admin?.role]);
+
+  const fetchSessions = useCallback(async () => {
+    try {
+      setLoadingSessions(true);
+      const res = await fetch("/api/auth/sessions", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSessions(data.sessions || []);
+      }
+    } catch { /* silent */ }
+    finally { setLoadingSessions(false); }
+  }, [token]);
 
   const fetchAdmins = useCallback(async () => {
     if (admin?.role !== "super_admin") return;
@@ -445,6 +462,18 @@ export default function AdminDashboard() {
     navigate("/admin/login");
   }
 
+  async function revokeSession(sessionId: string) {
+    try {
+      const res = await fetch(`/api/auth/sessions/${sessionId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setSessions(prev => prev.filter((s: any) => s.id !== sessionId));
+      }
+    } catch { /* silent */ }
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-cream">
@@ -517,6 +546,9 @@ export default function AdminDashboard() {
               <RefreshCw size={16} />
             </button>
             <a href="/" className="text-sm text-muted underline underline-offset-2 hover:text-nobuk">View Site</a>
+            <button onClick={() => { setShowSessions(p => !p); if (!showSessions) fetchSessions(); }} className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-muted transition hover:bg-cream">
+              <Monitor size={14} /> Security
+            </button>
             <button onClick={handleLogout} className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-muted transition hover:bg-cream">
               <LogOut size={14} /> Logout
             </button>
@@ -2494,6 +2526,48 @@ export default function AdminDashboard() {
         )}
 
         {tab === "sitecontent" && <SiteContentEditor />}
+
+        {showSessions && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowSessions(false)}>
+            <div className="mx-4 w-full max-w-lg rounded-2xl border border-white/10 bg-white p-6 shadow-2xl backdrop-blur" onClick={e => e.stopPropagation()}>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-bold text-ink">Active Sessions</h2>
+                <button onClick={() => setShowSessions(false)} className="text-sm text-muted hover:text-ink">&times;</button>
+              </div>
+              {loadingSessions ? (
+                <div className="flex justify-center py-8">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-nobuk border-t-transparent" />
+                </div>
+              ) : sessions.length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted">No active sessions.</p>
+              ) : (
+                <div className="space-y-2">
+                  {sessions.map((s: any) => (
+                    <div key={s.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-cream px-4 py-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-ink">
+                          {s.userAgent ? parseUserAgent(s.userAgent) : "Unknown device"}
+                          {s.isCurrent && <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">Current</span>}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted">
+                          {s.ipAddress || "Unknown IP"} &middot; {formatDate(s.createdAt)}
+                        </p>
+                      </div>
+                      {!s.isCurrent && (
+                        <button
+                          onClick={() => revokeSession(s.id)}
+                          className="ml-3 shrink-0 rounded-lg border border-red-200 px-3 py-1.5 text-xs text-red-600 transition hover:bg-red-50"
+                        >
+                          Revoke
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
@@ -2660,4 +2734,24 @@ function SiteContentEditor() {
       </div>
     </div>
   );
+}
+
+function parseUserAgent(ua: string): string {
+  if (ua.includes("Chrome") && !ua.includes("Edg")) return "Chrome";
+  if (ua.includes("Firefox")) return "Firefox";
+  if (ua.includes("Safari") && !ua.includes("Chrome")) return "Safari";
+  if (ua.includes("Edg")) return "Edge";
+  if (ua.includes("Postman")) return "Postman";
+  if (ua.includes("curl")) return "cURL";
+  return ua.slice(0, 40) + (ua.length > 40 ? "…" : "");
+}
+
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diff = now.getTime() - d.getTime();
+  if (diff < 60000) return "Just now";
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  return d.toLocaleString("en-KE", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }

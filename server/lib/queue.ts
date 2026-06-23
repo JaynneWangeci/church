@@ -140,7 +140,6 @@ export function startReminderWorker() {
 export function startFollowUpWorker() {
   const worker = new Worker("follow-up", async (job: Job) => {
     const { context, phone, donorName, amount } = job.data;
-    const { sendWhatsApp } = await import("../lib/twilio.js");
     const { PLEDGE_VERSES, PAYMENT_VERSES, REMINDER_VERSES, pickVerse } = await import("../routes/verses.js");
 
     let verse;
