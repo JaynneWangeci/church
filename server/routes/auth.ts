@@ -203,7 +203,7 @@ authRouter.post("/forgot-password", async (req, res) => {
       expires_at: expiresAt,
     });
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://church-pi-nine.vercel.app";
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${req.protocol}://${req.headers.host}`;
     const resetUrl = `${baseUrl}/admin/reset-password?token=${token}`;
 
     const sent = await sendPasswordResetEmail(normalizedEmail, resetUrl);
