@@ -55,6 +55,7 @@ export default function AdminDashboard() {
   const [newAdminName, setNewAdminName] = useState("");
   const [newAdminPassword, setNewAdminPassword] = useState("");
   const [newAdminRole, setNewAdminRole] = useState("admin");
+  const [newAdminPhone, setNewAdminPhone] = useState("");
   const [adminError, setAdminError] = useState("");
   const [editingAdmin, setEditingAdmin] = useState<AdminUserRecord | null>(null);
   const [editEmail, setEditEmail] = useState("");
@@ -1183,6 +1184,12 @@ export default function AdminDashboard() {
                         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
                     </div>
                     <div>
+                      <label className="mb-1 block text-xs font-bold text-muted">Phone (for reset)</label>
+                      <input type="tel" value={newAdminPhone} onChange={(e) => setNewAdminPhone(e.target.value)}
+                        placeholder="0712 345 678"
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                    </div>
+                    <div>
                       <label className="mb-1 block text-xs font-bold text-muted">Password</label>
                       <input type="password" value={newAdminPassword} onChange={(e) => setNewAdminPassword(e.target.value)}
                         placeholder="Min 6 chars"
@@ -1206,10 +1213,10 @@ export default function AdminDashboard() {
                         const res = await fetch("/api/admin/admins", {
                           method: "POST",
                           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                          body: JSON.stringify({ name: newAdminName, email: newAdminEmail, password: newAdminPassword, role: newAdminRole }),
+                          body: JSON.stringify({ name: newAdminName, email: newAdminEmail, password: newAdminPassword, role: newAdminRole, phone: newAdminPhone }),
                         });
                         if (!res.ok) { const d = await res.json(); setAdminError(d.error || "Something went wrong. Please try again."); return; }
-                        setNewAdminName(""); setNewAdminEmail(""); setNewAdminPassword(""); setNewAdminRole("admin");
+                        setNewAdminName(""); setNewAdminEmail(""); setNewAdminPassword(""); setNewAdminRole("admin"); setNewAdminPhone("");
                         setShowAddAdmin(false);
                         fetchAdmins();
                       } catch { setAdminError("A connection issue occurred. Please try again."); }
@@ -1238,7 +1245,7 @@ export default function AdminDashboard() {
                             {a.role.replace("_", " ")}
                           </span>
                         </div>
-                        <p className="text-xs text-muted">{a.email}</p>
+                        <p className="text-xs text-muted">{a.email}{a.phone ? ` · ${a.phone}` : ""}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
@@ -1271,7 +1278,7 @@ export default function AdminDashboard() {
                     </div>
                     {editingAdmin?.id === a.id && (
                       <div className="mt-3 border-t border-gray-200 pt-3">
-                        <div className="grid gap-3 sm:grid-cols-4">
+                  <div className="grid gap-3 sm:grid-cols-5">
                           <div>
                             <label className="mb-1 block text-xs font-bold text-muted">Name</label>
                             <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)}

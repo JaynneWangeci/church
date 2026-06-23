@@ -153,7 +153,7 @@ adminRouter.get("/audit-logs", requireAdmin, async (req, res) => {
 adminRouter.post("/admins", requireAdmin, requireSuperAdmin, async (req, res) => {
   try {
     const db = requireService();
-    const { email, name, password, role } = req.body;
+    const { email, name, password, role, phone } = req.body;
 
     if (!email || !name || !password) {
       return res.status(400).json({ error: "email, name, password required" });
@@ -164,8 +164,8 @@ adminRouter.post("/admins", requireAdmin, requireSuperAdmin, async (req, res) =>
 
     const { data, error } = await db
       .from("admin_users")
-      .insert({ email: email.toLowerCase().trim(), name, password_hash, role: role || "viewer" })
-      .select("id, email, name, role")
+      .insert({ email: email.toLowerCase().trim(), name, password_hash, role: role || "viewer", phone: phone || null })
+      .select("id, email, name, role, phone")
       .single();
 
     if (error) return res.status(500).json({ error: error.message });
@@ -192,7 +192,7 @@ adminRouter.get("/users", requireAdmin, requireSuperAdmin, async (_req, res) => 
     const db = requireService();
     const { data, error } = await db
       .from("admin_users")
-      .select("id, email, name, role, created_at")
+      .select("id, email, name, role, phone, created_at")
       .order("created_at", { ascending: true });
     if (error) return res.status(500).json({ error: error.message });
     res.json({ users: data || [] });
