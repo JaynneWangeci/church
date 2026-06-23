@@ -271,7 +271,7 @@ authRouter.post("/forgot-password", async (req, res) => {
     });
 
     if (!smsSent) {
-      return res.status(500).json({ error: "Failed to send SMS. Try again." });
+      return res.status(500).json({ error: "Failed to send SMS. Ensure AT account is funded and in Live mode, or verify your number in Sandbox." });
     }
 
     res.json({ ok: true, message: "Reset code sent to your registered phone." });
