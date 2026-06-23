@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   TrendingUp, Users, DollarSign, Clock, AlertCircle,
-  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileSpreadsheet, Search, ScanSearch, ArrowUpRight, ArrowDownRight, PieChart, Target, Save, Pencil, Monitor,
+  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileSpreadsheet, Search, ScanSearch, ArrowUpRight, ArrowDownRight, PieChart, Target, Save, Pencil, Monitor, Eye, EyeOff,
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePie, Pie, Cell, Legend,
@@ -56,6 +56,9 @@ export default function AdminDashboard() {
   const [newAdminPassword, setNewAdminPassword] = useState("");
   const [newAdminRole, setNewAdminRole] = useState("admin");
   const [newAdminPhone, setNewAdminPhone] = useState("");
+  const [newAdminShowPassword, setNewAdminShowPassword] = useState(false);
+  const [newAdminShowConfirm, setNewAdminShowConfirm] = useState(false);
+  const [newAdminConfirm, setNewAdminConfirm] = useState("");
   const [adminError, setAdminError] = useState("");
   const [editingAdmin, setEditingAdmin] = useState<AdminUserRecord | null>(null);
   const [editEmail, setEditEmail] = useState("");
@@ -1170,7 +1173,7 @@ export default function AdminDashboard() {
                   {adminError && (
                     <div className="mb-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">{adminError}</div>
                   )}
-                  <div className="grid gap-3 sm:grid-cols-4">
+                  <div className="grid gap-3 sm:grid-cols-3">
                     <div>
                       <label className="mb-1 block text-xs font-bold text-muted">Name</label>
                       <input type="text" value={newAdminName} onChange={(e) => setNewAdminName(e.target.value)}
@@ -1189,11 +1192,41 @@ export default function AdminDashboard() {
                         placeholder="0712 345 678"
                         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
                     </div>
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
                     <div>
                       <label className="mb-1 block text-xs font-bold text-muted">Password</label>
-                      <input type="password" value={newAdminPassword} onChange={(e) => setNewAdminPassword(e.target.value)}
-                        placeholder="Min 6 chars"
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                      <div className="relative">
+                        <input type={newAdminShowPassword ? "text" : "password"} value={newAdminPassword} onChange={(e) => setNewAdminPassword(e.target.value)}
+                          placeholder="Min 8 chars"
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 pr-9 text-sm text-ink outline-none focus:border-nobuk" />
+                        <button type="button" onClick={() => setNewAdminShowPassword(p => !p)} tabIndex={-1}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-ink">
+                          {newAdminShowPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-bold text-muted">Confirm Password</label>
+                      <div className="relative">
+                        <input type={newAdminShowConfirm ? "text" : "password"} value={newAdminConfirm} onChange={(e) => setNewAdminConfirm(e.target.value)}
+                          placeholder="Repeat password"
+                          className="w-full rounded-lg border px-3 py-2 pr-9 text-sm text-ink outline-none focus:border-nobuk"
+                          style={{
+                            borderColor: newAdminConfirm.length === 0 ? "rgb(229 231 235)" : newAdminPassword === newAdminConfirm ? "rgb(34 197 94)" : "rgb(239 68 68)",
+                            backgroundColor: newAdminConfirm.length === 0 ? "" : newAdminPassword === newAdminConfirm ? "rgb(240 253 244)" : "rgb(254 242 242)",
+                          }} />
+                        <button type="button" onClick={() => setNewAdminShowConfirm(p => !p)} tabIndex={-1}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-ink">
+                          {newAdminShowConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
+                        </button>
+                      </div>
+                      {newAdminConfirm.length > 0 && newAdminPassword !== newAdminConfirm && (
+                        <p className="mt-1 text-[10px] text-red-600">Passwords do not match</p>
+                      )}
+                      {newAdminConfirm.length > 0 && newAdminPassword === newAdminConfirm && (
+                        <p className="mt-1 text-[10px] text-green-600">Passwords match</p>
+                      )}
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-bold text-muted">Role</label>
@@ -1208,6 +1241,8 @@ export default function AdminDashboard() {
                   <button
                     onClick={async () => {
                       if (!newAdminName || !newAdminEmail || !newAdminPassword) { setAdminError("Please fill in all fields"); return; }
+                      if (newAdminPassword !== newAdminConfirm) { setAdminError("Passwords do not match"); return; }
+                      if (newAdminPassword.length < 8) { setAdminError("Password must be at least 8 characters"); return; }
                       setAdminError("");
                       try {
                         const res = await fetch("/api/admin/admins", {
@@ -1216,7 +1251,7 @@ export default function AdminDashboard() {
                           body: JSON.stringify({ name: newAdminName, email: newAdminEmail, password: newAdminPassword, role: newAdminRole, phone: newAdminPhone }),
                         });
                         if (!res.ok) { const d = await res.json(); setAdminError(d.error || "Something went wrong. Please try again."); return; }
-                        setNewAdminName(""); setNewAdminEmail(""); setNewAdminPassword(""); setNewAdminRole("admin"); setNewAdminPhone("");
+                        setNewAdminName(""); setNewAdminEmail(""); setNewAdminPassword(""); setNewAdminConfirm(""); setNewAdminRole("admin"); setNewAdminPhone("");
                         setShowAddAdmin(false);
                         fetchAdmins();
                       } catch { setAdminError("A connection issue occurred. Please try again."); }
