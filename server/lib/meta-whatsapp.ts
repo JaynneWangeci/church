@@ -31,6 +31,12 @@ export async function sendWhatsApp(to: string, message: string): Promise<boolean
     if (!res.ok) {
       const errBody = await res.text();
       console.error("Meta WhatsApp API error:", res.status, errBody);
+      try {
+        const errJson = JSON.parse(errBody);
+        if (errJson?.error?.code === 131030) {
+          console.error("Add recipient number to Meta WhatsApp Allowed Recipients list");
+        }
+      } catch {}
       return false;
     }
     return true;
