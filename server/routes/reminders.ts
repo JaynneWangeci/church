@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
-import { sendWhatsApp } from "../lib/twilio.js";
+import { sendWhatsApp } from "../lib/meta-whatsapp.js";
 import { REMINDER_VERSES, pickVerse } from "./verses.js";
 
 export const remindersRouter = Router();

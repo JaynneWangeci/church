@@ -104,18 +104,10 @@ export function startReminderWorker() {
       ? `🔹 *AIPCA Bahati Cathedral* 🔹\n\n*Pledge Reminder*\nDear ${donorName},\n\nThis is a reminder of your pledge of KES ${Number(amount).toLocaleString()} for the ${campaign}.\n\n📖 *God's Word:*\n"${enVerse.text}" — ${enVerse.reference}`
       : `🔹 *AIPCA Bahati Cathedral* 🔹\n\n*Pledge Reminder*\nDear ${donorName}, ...`;
 
-    // Call Twilio API
-    const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
-    const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
-    if (!twilioAccountSid || !twilioAuthToken) return { sent: false, reason: "twilio_not_configured" };
-
-    const twilio = (await import("twilio")) as any;
-    const client = twilio(twilioAccountSid, twilioAuthToken);
-
-    const to = phone.startsWith("whatsapp:") ? phone : `whatsapp:${phone}`;
-    const from = process.env.TWILIO_WHATSAPP_NUMBER || "whatsapp:+14155238886";
-
-    await client.messages.create({ body: message, from, to });
+    // Send via Meta WhatsApp
+    const { sendWhatsApp } = await import("./meta-whatsapp.js");
+    const ok = await sendWhatsApp(phone, message);
+    if (!ok) return { sent: false, reason: "whatsapp_failed" };
 
     // Log reminder in DB
     await db.from("reminder_logs").insert({
@@ -160,15 +152,9 @@ export function startFollowUpWorker() {
       `📖 *${verse.ref}* — "${verse.text}"\n\n` +
       `_Tujenge Pamoja!_ 🇰🇪`;
 
-    const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
-    const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
-    if (!twilioAccountSid || !twilioAuthToken) return { sent: false, reason: "twilio_not_configured" };
-
-    const twilio = (await import("twilio")) as any;
-    const client = twilio(twilioAccountSid, twilioAuthToken);
-    const to = phone.startsWith("whatsapp:") ? phone : `whatsapp:${phone}`;
-    const from = process.env.TWILIO_WHATSAPP_NUMBER || "whatsapp:+14155238886";
-    await client.messages.create({ body: message, from, to });
+    const { sendWhatsApp } = await import("./meta-whatsapp.js");
+    const ok = await sendWhatsApp(phone, message);
+    if (!ok) return { sent: false, reason: "whatsapp_failed", context, donorName };
 
     return { sent: true, context, donorName };
   }, { connection: getConnection(), concurrency: 5 });

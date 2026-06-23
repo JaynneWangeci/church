@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
 import { requireAdmin, requireAdminOrAbove } from "../lib/admin.js";
-import { sendWhatsApp } from "../lib/twilio.js";
+import { sendWhatsApp } from "../lib/meta-whatsapp.js";
 import { PLEDGE_VERSES, pickVerse } from "./verses.js";
 import { enqueueFollowUp } from "../lib/queue.js";
 
