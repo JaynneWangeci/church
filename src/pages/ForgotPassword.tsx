@@ -31,7 +31,7 @@ export default function ForgotPassword() {
         return;
       }
 
-      setMessage(data.message || "Reset code sent to your phone.");
+      setMessage(data.message || "Reset code sent to your WhatsApp.");
       setSent(true);
       setLoading(false);
     } catch {
@@ -56,7 +56,7 @@ export default function ForgotPassword() {
               <Mail size={20} className="text-white" />
             </div>
             <h1 className="text-xl font-bold text-ink">Forgot Password</h1>
-            <p className="mt-1 text-sm text-muted">Enter your email to receive a reset code via SMS</p>
+            <p className="mt-1 text-sm text-muted">Enter your email to receive a reset code via WhatsApp</p>
           </div>
 
           {error && (
@@ -72,7 +72,7 @@ export default function ForgotPassword() {
                 <Smartphone size={16} className="mt-0.5 shrink-0" />
                 <div className="flex flex-col gap-1">
                   <span>{message}</span>
-                  <span className="text-xs text-blue-600">Check your phone for the 6-digit code.</span>
+                  <span className="text-xs text-blue-600">Check your WhatsApp for the 6-digit code.</span>
                 </div>
               </div>
               <button

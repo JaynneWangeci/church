@@ -8,6 +8,7 @@ import {
   checkLoginRateLimit, recordFailedAttempt, resetFailedAttempts, invalidateAllAdminSessions,
 } from "../lib/admin.js";
 import { sendSMS } from "../lib/africastalking.js";
+import { sendWhatsApp } from "../lib/meta-whatsapp.js";
 
 export const authRouter = Router();
 
@@ -261,8 +262,8 @@ authRouter.post("/forgot-password", async (req, res) => {
       expires_at: expiresAt,
     });
 
-    // Send code via SMS
-    const smsSent = await sendSMS(admin.phone, `AIPCA Bahati: Your password reset code is ${code}. It expires in 1 hour.`);
+    // Send code via WhatsApp
+    const waSent = await sendWhatsApp(admin.phone, `AIPCA Bahati Cathedral: Your password reset code is ${code}. It expires in 1 hour.`);
 
     await logAudit({
       adminId: admin.id,
@@ -270,11 +271,11 @@ authRouter.post("/forgot-password", async (req, res) => {
       ipAddress: getClientIp(req),
     });
 
-    if (!smsSent) {
-      return res.status(500).json({ error: "Failed to send SMS. Ensure AT account is funded and in Live mode, or verify your number in Sandbox." });
+    if (!waSent) {
+      return res.status(500).json({ error: "Failed to send reset code via WhatsApp. Try again." });
     }
 
-    res.json({ ok: true, message: "Reset code sent to your registered phone." });
+    res.json({ ok: true, message: "Reset code sent to your WhatsApp." });
   } catch (err) {
     console.error("forgot-password error:", err);
     res.status(500).json({ error: "Server error" });
