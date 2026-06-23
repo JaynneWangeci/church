@@ -1,18 +1,16 @@
 import { Router } from "express";
 import crypto from "crypto";
-import { requireService } from "../lib/supabase.js";
+import { requireService, requireAnon, createAuthUser, updateAuthUserPassword } from "../lib/supabase.js";
 import {
-  hashPassword, verifyPassword, signToken, verifyToken,
-  logAudit, requireAdmin, getClientIp,
+  verifyPassword, logAudit, requireAdmin, getClientIp,
   createSession, invalidateSession,
   checkLoginRateLimit, recordFailedAttempt, resetFailedAttempts, invalidateAllAdminSessions,
 } from "../lib/admin.js";
 import { sendSMS } from "../lib/africastalking.js";
 import { sendWhatsApp } from "../lib/meta-whatsapp.js";
+import { v4 as uuid } from "uuid";
 
 export const authRouter = Router();
-
-
 
 authRouter.get("/check-setup", async (_req, res) => {
   try {
@@ -47,16 +45,37 @@ authRouter.post("/setup", async (req, res) => {
     const { data: existing } = await db.from("admin_users").select("id").limit(1);
     const role = existing && existing.length > 0 ? "admin" : "super_admin";
 
-    const passwordHash = hashPassword(password);
+    const adminId = uuid();
+
+    const { user: authUser, error: authError } = await createAuthUser(email, password, adminId);
+    if (authError) {
+      return res.status(500).json({ error: authError.message || "Failed to create auth user" });
+    }
+
     const { data: admin, error } = await db
       .from("admin_users")
-      .insert({ email: email.toLowerCase().trim(), password_hash: passwordHash, name, role, phone })
+      .insert({
+        id: adminId,
+        email: email.toLowerCase().trim(),
+        name,
+        role,
+        phone,
+      })
       .select("id, email, name, role, phone")
       .single();
 
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) {
+      await db.from("admin_users").delete().eq("id", adminId).catch(() => {});
+      return res.status(500).json({ error: error.message });
+    }
 
-    const token = signToken({ id: admin.id, email: admin.email, role: admin.role });
+    const supabase = requireAnon();
+    const { data: signInData } = await (supabase.auth as any).signInWithPassword({
+      email: email.toLowerCase().trim(),
+      password,
+    });
+
+    const token = signInData?.session?.access_token || "";
 
     await logAudit({
       adminId: admin.id,
@@ -87,14 +106,20 @@ authRouter.post("/login", async (req, res) => {
       });
     }
 
-    const db = requireService();
-    const { data: user, error } = await db
-      .from("admin_users")
-      .select("*")
-      .eq("email", normalizedEmail)
-      .single();
+    const supabase = requireAnon();
+    const { data: signInData, error: signInError } = await (supabase.auth as any).signInWithPassword({
+      email: normalizedEmail,
+      password,
+    });
 
-    if (error || !user || !verifyPassword(password, user.password_hash)) {
+    if (signInError || !signInData?.session) {
+      const db = requireService();
+      const { data: user } = await db
+        .from("admin_users")
+        .select("id")
+        .eq("email", normalizedEmail)
+        .single();
+
       await recordFailedAttempt(normalizedEmail);
 
       if (user) {
@@ -110,7 +135,18 @@ authRouter.post("/login", async (req, res) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    const token = signToken({ id: user.id, email: user.email, role: user.role });
+    const db = requireService();
+    const { data: user } = await db
+      .from("admin_users")
+      .select("id, email, name, role, phone")
+      .eq("id", signInData.user.id)
+      .single();
+
+    if (!user) {
+      return res.status(401).json({ error: "Admin account not found" });
+    }
+
+    const token = signInData.session.access_token;
 
     await createSession(user.id, token, ip, ua);
     await resetFailedAttempts(normalizedEmail);
@@ -149,6 +185,12 @@ authRouter.post("/logout", requireAdmin, async (req, res) => {
     const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : "";
 
     await invalidateSession(token);
+
+    try {
+      const supabase = requireAnon();
+      await (supabase.auth as any).admin.signOut(admin.id);
+    } catch {}
+
     await logAudit({
       adminId: admin.id,
       action: "logout",
@@ -231,13 +273,13 @@ authRouter.post("/forgot-password", async (req, res) => {
     const db = requireService();
     const normalizedEmail = email.toLowerCase().trim();
 
-    const { data: admin } = await db
+    const { data: admin, error: lookupError } = await db
       .from("admin_users")
       .select("id, email, name, role, phone")
       .eq("email", normalizedEmail)
       .single();
 
-    if (!admin) {
+    if (lookupError || !admin) {
       return res.status(404).json({ error: "Email not found." });
     }
 
@@ -249,10 +291,8 @@ authRouter.post("/forgot-password", async (req, res) => {
       return res.status(400).json({ error: "No phone number registered. Contact support." });
     }
 
-    // Invalidate any existing unexpired tokens so we always generate a fresh code
     await db.from("password_reset_tokens").delete().eq("admin_id", admin.id);
 
-    // Generate 6-digit code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
@@ -262,7 +302,6 @@ authRouter.post("/forgot-password", async (req, res) => {
       expires_at: expiresAt,
     });
 
-    // Send code via WhatsApp
     console.log(`Sending reset code to phone: ${admin.phone}`);
     const waSent = await sendWhatsApp(admin.phone, `AIPCA Bahati Cathedral: Your password reset code is ${code}. It expires in 1 hour.`);
 
@@ -309,8 +348,11 @@ authRouter.post("/reset-password", async (req, res) => {
       return res.status(400).json({ error: "Reset code has expired" });
     }
 
-    const passwordHash = hashPassword(password);
-    await db.from("admin_users").update({ password_hash: passwordHash }).eq("id", stored.admin_id);
+    const { error: updateError } = await updateAuthUserPassword(stored.admin_id, password);
+    if (updateError) {
+      return res.status(500).json({ error: "Failed to update password" });
+    }
+
     await db.from("password_reset_tokens").delete().eq("id", stored.id);
     await invalidateAllAdminSessions(stored.admin_id);
 

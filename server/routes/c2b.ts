@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
+import { requireAdmin } from "../lib/admin.js";
 
 export const c2bRouter = Router();
 
@@ -131,7 +132,7 @@ c2bRouter.post("/confirmation", async (req, res) => {
   }
 });
 
-c2bRouter.post("/register", async (_req, res) => {
+c2bRouter.post("/register", requireAdmin, async (_req, res) => {
   try {
     const accessToken = await getAccessToken();
     const payload = {

@@ -1,5 +1,6 @@
 ﻿import { Router } from "express";
-import { requireService } from "../lib/supabase.js";
+import { v4 as uuid } from "uuid";
+import { requireService, requireAnon, createAuthUser, updateAuthUserPassword, deleteAuthUser } from "../lib/supabase.js";
 import {
   requireAdmin, requireAdminOrAbove, requireSuperAdmin, logAudit,
   filterDonationsByRole, verifyPassword, hashPassword, getClientIp,
@@ -159,15 +160,23 @@ adminRouter.post("/admins", requireAdmin, requireSuperAdmin, async (req, res) =>
       return res.status(400).json({ error: "email, name, password required" });
     }
 
-    const password_hash = hashPassword(password);
+    const adminId = uuid();
+
+    const { error: authError } = await createAuthUser(email, password, adminId);
+    if (authError) {
+      return res.status(500).json({ error: authError.message || "Failed to create auth user" });
+    }
 
     const { data, error } = await db
       .from("admin_users")
-      .insert({ email: email.toLowerCase().trim(), name, password_hash, role: role || "viewer", phone: phone || null })
+      .insert({ id: adminId, email: email.toLowerCase().trim(), name, role: role || "viewer", phone: phone || null })
       .select("id, email, name, role, phone")
       .single();
 
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) {
+      await db.from("admin_users").delete().eq("id", adminId).catch(() => {});
+      return res.status(500).json({ error: error.message });
+    }
 
     const superAdmin = (req as any).admin;
     await logAudit({
@@ -251,6 +260,7 @@ adminRouter.delete("/users/:id", requireAdmin, requireSuperAdmin, async (req, re
       return res.status(400).json({ error: "Cannot delete yourself" });
     }
 
+    await deleteAuthUser(req.params.id).catch(() => {});
     const { error } = await db.from("admin_users").delete().eq("id", req.params.id);
     if (error) return res.status(500).json({ error: error.message });
 
@@ -271,37 +281,38 @@ adminRouter.delete("/users/:id", requireAdmin, requireSuperAdmin, async (req, re
 
 adminRouter.put("/users/:id/password", requireAdmin, async (req, res) => {
   try {
-    const db = requireService();
     const admin = (req as any).admin;
     const { currentPassword, newPassword } = req.body;
 
-    if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({ error: "Password must be at least 6 characters" });
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters" });
+    }
+    if (!/[A-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      return res.status(400).json({ error: "Password must include at least one uppercase letter and one number" });
     }
 
     const isSelf = admin.id === req.params.id;
 
     if (isSelf) {
-      const { data: user } = await db
-        .from("admin_users")
-        .select("password_hash")
-        .eq("id", admin.id)
-        .single();
-
-      if (!user || !verifyPassword(currentPassword, user.password_hash)) {
+      if (!currentPassword) {
+        return res.status(400).json({ error: "Current password required" });
+      }
+      const supabase = requireAnon();
+      const { error: signInError } = await (supabase.auth as any).signInWithPassword({
+        email: admin.email,
+        password: currentPassword,
+      });
+      if (signInError) {
         return res.status(403).json({ error: "Current password is incorrect" });
       }
     } else if (admin.role !== "super_admin") {
       return res.status(403).json({ error: "Only super_admin can change other admins' passwords" });
     }
 
-    const hash = hashPassword(newPassword);
-    const { error } = await db
-      .from("admin_users")
-      .update({ password_hash: hash })
-      .eq("id", req.params.id);
-
-    if (error) return res.status(500).json({ error: error.message });
+    const { error: updateError } = await updateAuthUserPassword(req.params.id, newPassword);
+    if (updateError) {
+      return res.status(500).json({ error: updateError.message || "Failed to update password" });
+    }
 
     await logAudit({
       adminId: admin.id,
@@ -505,7 +516,7 @@ adminRouter.get("/audit-actions", requireAdmin, requireSuperAdmin, async (_req, 
 });
 
 // ── Migration v9: add honour_known_as column ──
-adminRouter.post("/migrate-v9", requireAdmin, requireAdminOrAbove, async (_req, res) => {
+adminRouter.post("/migrate-v9", requireAdmin, requireSuperAdmin, async (_req, res) => {
   try {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -562,7 +573,7 @@ adminRouter.post("/migrate-v9", requireAdmin, requireAdminOrAbove, async (_req, 
   }
 });
 
-adminRouter.post("/migrate-v10", requireAdmin, requireAdminOrAbove, async (_req, res) => {
+adminRouter.post("/migrate-v10", requireAdmin, requireSuperAdmin, async (_req, res) => {
   try {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -595,6 +606,43 @@ adminRouter.post("/migrate-v10", requireAdmin, requireAdminOrAbove, async (_req,
     // 4. /api/sql
     const sqlRes = await fetch(`${url}/api/sql`, { method: "POST", headers, body: JSON.stringify({ query: sql }) });
     if (sqlRes.ok) return res.json({ ok: true, message: "gender column added" });
+    results.push("sql: " + (await sqlRes.text().catch(() => "?")));
+
+    res.status(500).json({ error: "All endpoints failed", details: results });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+adminRouter.post("/migrate-v11", requireAdmin, requireSuperAdmin, async (_req, res) => {
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) return res.status(500).json({ error: "Supabase not configured" });
+    const sql = "ALTER TABLE admin_users ALTER COLUMN password_hash DROP NOT NULL;";
+    const ref = url.match(/https:\/\/(.+)\.supabase\.co/)?.[1];
+    const headers = { "Content-Type": "application/json", "apikey": key, "Authorization": `Bearer ${key}` };
+
+    const results: string[] = [];
+
+    if (ref) {
+      const mgmtRes = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
+        method: "POST", headers, body: JSON.stringify({ query: sql }),
+      });
+      if (mgmtRes.ok) return res.json({ ok: true, message: "password_hash nullable" });
+      results.push("mgmt: " + (await mgmtRes.text().catch(() => "?")));
+    }
+
+    const ddlRes = await fetch(`${url}/pg/ddl`, { method: "POST", headers, body: JSON.stringify({ query: sql }) });
+    if (ddlRes.ok) return res.json({ ok: true, message: "password_hash nullable" });
+    results.push("ddl: " + (await ddlRes.text().catch(() => "?")));
+
+    const queryRes = await fetch(`${url}/pg/query`, { method: "POST", headers, body: JSON.stringify({ query: sql }) });
+    if (queryRes.ok) return res.json({ ok: true, message: "password_hash nullable" });
+    results.push("query: " + (await queryRes.text().catch(() => "?")));
+
+    const sqlRes = await fetch(`${url}/api/sql`, { method: "POST", headers, body: JSON.stringify({ query: sql }) });
+    if (sqlRes.ok) return res.json({ ok: true, message: "password_hash nullable" });
     results.push("sql: " + (await sqlRes.text().catch(() => "?")));
 
     res.status(500).json({ error: "All endpoints failed", details: results });

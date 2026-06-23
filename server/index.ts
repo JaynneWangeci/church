@@ -21,7 +21,7 @@ import { settingsRouter } from "./routes/settings.js";
 import { translateRouter } from "./routes/translate.js";
 import { versesRouter } from "./routes/verses.js";
 import { fellowshipsRouter } from "./routes/fellowships.js";
-import { rateLimit } from "./lib/admin.js";
+import { rateLimit, requireAdmin, requireSuperAdmin } from "./lib/admin.js";
 import { startAllWorkers, stopAllWorkers } from "./lib/queue.js";
 
 if (!process.env.VERCEL) {
@@ -69,7 +69,7 @@ app.use("/api/fellowships", fellowshipsRouter);
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
-app.get("/api/debug", (_req, res) => {
+app.get("/api/debug", requireAdmin, requireSuperAdmin, (_req, res) => {
   const mask = (s: string) => s ? `${s.slice(0, 4)}...${s.slice(-4)}` : "not set";
   res.json({
     has_supabase_url: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -78,9 +78,9 @@ app.get("/api/debug", (_req, res) => {
     mpesa_env: process.env.MPESA_ENV || "not set",
     mpesa_consumer_key: mask(process.env.MPESA_CONSUMER_KEY),
     mpesa_consumer_secret: mask(process.env.MPESA_CONSUMER_SECRET),
-    mpesa_shortcode: process.env.MPESA_SHORTCODE || "not set",
+    mpesa_shortcode: mask(process.env.MPESA_SHORTCODE || "not set"),
     mpesa_passkey: mask(process.env.MPESA_PASSKEY),
-    mpesa_callback_url: process.env.MPESA_CALLBACK_URL || "not set",
+    mpesa_callback_url: mask(process.env.MPESA_CALLBACK_URL || "not set"),
   });
 });
 

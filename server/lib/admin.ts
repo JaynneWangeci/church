@@ -1,15 +1,32 @@
-import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import type { Request, Response, NextFunction } from "express";
-import { requireService } from "./supabase.js";
-import { logAudit as logAuditV2 } from "./audit.js";
+import { requireService, requireAnon, verifyAuth, createAuthUser, updateAuthUserPassword, deleteAuthUser } from "./supabase.js";
 import { hasPermission, DataType, Action } from "./permissions.js";
 import { cacheGet, cacheSet, cacheKey } from "./redis.js";
 import { v4 as uuid } from "uuid";
 
-const JWT_SECRET = process.env.JWT_SECRET || "change-me-in-production";
+if (!process.env.JWT_SECRET) {
+  if (process.env.VERCEL) {
+    console.warn("JWT_SECRET not set — Supabase Auth will be used for token verification");
+  } else {
+    throw new Error("JWT_SECRET environment variable is required");
+  }
+}
+
+const JWT_SECRET = process.env.JWT_SECRET || "";
 const JWT_EXPIRES = "24h";
+
+let jwtModule: any = null;
+async function getJwt() {
+  if (!jwtModule) jwtModule = await import("jsonwebtoken");
+  return jwtModule.default || jwtModule;
+}
+
+let bcryptModule: any = null;
+async function getBcrypt() {
+  if (!bcryptModule) bcryptModule = await import("bcryptjs");
+  return bcryptModule.default || bcryptModule;
+}
 
 // API rate limiting (per-IP)
 const RATE_LIMIT_WINDOW = 60 * 1000;
@@ -21,20 +38,50 @@ export { requirePermission } from "./permissions.js";
 export { DataType, Action } from "./permissions.js";
 export type { AuditAction, AuditResourceType } from "./audit.js";
 
-export function hashPassword(password: string) {
+// ----- Password hashing (legacy, for existing admin_users with bcrypt hashes) ----- //
+
+export async function hashPassword(password: string) {
+  const bcrypt = await getBcrypt();
   return bcrypt.hashSync(password, 10);
 }
 
-export function verifyPassword(password: string, hash: string) {
+export async function verifyPassword(password: string, hash: string) {
+  const bcrypt = await getBcrypt();
   return bcrypt.compareSync(password, hash);
 }
 
-export function signToken(payload: { id: string; email: string; role: string }) {
+// ----- JWT signing (legacy, used only as fallback) ----- //
+
+export async function signToken(payload: { id: string; email: string; role: string }) {
+  const jwt = await getJwt();
   return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES });
 }
 
-export function verifyToken(token: string) {
+export async function verifyToken(token: string) {
+  const jwt = await getJwt();
   return jwt.verify(token, JWT_SECRET) as { id: string; email: string; role: string };
+}
+
+// ----- Supabase Auth token verification ----- //
+
+let _verifyAuthTokenCache = new Map<string, { user: any; expiresAt: number }>();
+const AUTH_CACHE_TTL = 60_000;
+
+async function verifySupabaseToken(token: string) {
+  const cached = _verifyAuthTokenCache.get(token);
+  if (cached && Date.now() < cached.expiresAt) return cached.user;
+
+  const supabase = requireAnon();
+  const { data, error } = await (supabase.auth as any).getUser(token);
+  if (error || !data?.user) return null;
+
+  _verifyAuthTokenCache.set(token, { user: data.user, expiresAt: Date.now() + AUTH_CACHE_TTL });
+  if (_verifyAuthTokenCache.size > 1000) {
+    const key = _verifyAuthTokenCache.keys().next().value;
+    if (key) _verifyAuthTokenCache.delete(key);
+  }
+
+  return data.user;
 }
 
 // ----- IP & Context ----- //
@@ -102,7 +149,7 @@ export function rateLimit(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-// ----- Session Management ----- //
+// ----- Session Management (deprecated — Supabase Auth handles sessions) ----- //
 
 export function hashToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -112,7 +159,6 @@ export async function createSession(adminId: string, token: string, ipAddress?: 
   const db = requireService();
   const tokenHash = hashToken(token);
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
   const { error } = await db.from("admin_sessions").insert({
     admin_id: adminId,
     token_hash: tokenHash,
@@ -134,7 +180,7 @@ export async function invalidateAllAdminSessions(adminId: string) {
   await db.from("admin_sessions").delete().eq("admin_id", adminId);
 }
 
-// ----- Login Rate Limiting (per-email) ----- //
+// ----- Login Rate Limiting (per-email, supabase) ----- //
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
@@ -189,7 +235,7 @@ export async function resetFailedAttempts(email: string) {
     .eq("email", email.toLowerCase().trim());
 }
 
-// ----- Enhanced Audit Logging (v2) ----- //
+// ----- Audit Logging ----- //
 
 export async function logAudit(params: {
   adminId: string;
@@ -224,7 +270,6 @@ export async function logAudit(params: {
       immutable: true,
     };
 
-    // Write to audit table
     await db.from("audit_logs").insert(entry);
   } catch (e) {
     console.error("audit log exception:", e);
@@ -233,22 +278,53 @@ export async function logAudit(params: {
 
 // ----- Middleware ----- //
 
-export function requireAdmin(req: Request, res: Response, next: NextFunction) {
+export async function requireAdmin(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) {
     return res.status(401).json({ error: "Missing token" });
   }
 
+  const token = authHeader.slice(7);
+
   try {
-    const decoded = verifyToken(authHeader.slice(7));
-    (req as any).admin = decoded;
-    (req as any).adminIp = getClientIp(req);
-    (req as any).ipAddress = getClientIp(req);
-    (req as any).userAgent = getUserAgent(req);
-    (req as any).requestId = (req.headers["x-request-id"] as string) || uuid();
-    next();
-  } catch {
-    return res.status(401).json({ error: "Invalid or expired token" });
+    // Try Supabase Auth verification first
+    const authUser = await verifySupabaseToken(token);
+    if (authUser) {
+      const db = requireService();
+      const { data: admin } = await db
+        .from("admin_users")
+        .select("id, email, name, role, phone")
+        .eq("id", authUser.id)
+        .single();
+
+      if (!admin) {
+        return res.status(401).json({ error: "Admin account not found" });
+      }
+
+      (req as any).admin = { id: admin.id, email: admin.email, role: admin.role };
+      (req as any).adminIp = getClientIp(req);
+      (req as any).ipAddress = getClientIp(req);
+      (req as any).userAgent = getUserAgent(req);
+      (req as any).requestId = (req.headers["x-request-id"] as string) || uuid();
+      return next();
+    }
+
+    // Fallback: verify legacy JWT (for existing sessions before migration)
+    try {
+      const jwt = await getJwt();
+      const decoded = jwt.verify(token, JWT_SECRET) as { id: string; email: string; role: string };
+      (req as any).admin = decoded;
+      (req as any).adminIp = getClientIp(req);
+      (req as any).ipAddress = getClientIp(req);
+      (req as any).userAgent = getUserAgent(req);
+      (req as any).requestId = (req.headers["x-request-id"] as string) || uuid();
+      return next();
+    } catch {
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
+  } catch (err) {
+    console.error("requireAdmin error:", err);
+    return res.status(500).json({ error: "Server error" });
   }
 }
 

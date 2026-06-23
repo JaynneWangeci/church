@@ -298,7 +298,7 @@ pledgesRouter.post("/:id/pay-with-mpesa", async (req, res) => {
   }
 });
 
-pledgesRouter.post("/:id/adjust", async (req, res) => {
+pledgesRouter.post("/:id/adjust", requireAdmin, requireAdminOrAbove, async (req, res) => {
   try {
     const db = requireService();
     const { phone, new_amount } = req.body;
@@ -367,7 +367,7 @@ pledgesRouter.patch("/:id", requireAdmin, requireAdminOrAbove, async (req, res) 
   }
 });
 
-pledgesRouter.patch("/:id/pay", async (req, res) => {
+pledgesRouter.patch("/:id/pay", requireAdmin, requireAdminOrAbove, async (req, res) => {
   try {
     const db = requireService();
     const { amount, receipt_number } = req.body;
