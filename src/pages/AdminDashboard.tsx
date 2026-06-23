@@ -2636,11 +2636,16 @@ function SiteContentEditor() {
     fetch("/api/settings")
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (data?.settings?.site_content) {
-          try {
-            const parsed = JSON.parse(data.settings.site_content);
-            setContent(prev => ({ ...prev, ...parsed, cards: parsed.cards?.map((c: any) => ({ title_en: c.title_en, text_en: c.text_en })) || prev.cards }));
-          } catch {}
+        if (data?.settings) {
+          if (data.settings.church_phone) {
+            setContent(prev => ({ ...prev, church_phone: data.settings.church_phone }));
+          }
+          if (data.settings.site_content) {
+            try {
+              const parsed = JSON.parse(data.settings.site_content);
+              setContent(prev => ({ ...prev, ...parsed, cards: parsed.cards?.map((c: any) => ({ title_en: c.title_en, text_en: c.text_en })) || prev.cards }));
+            } catch {}
+          }
         }
         setLoading(false);
       })
