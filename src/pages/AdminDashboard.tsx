@@ -128,8 +128,11 @@ export default function AdminDashboard() {
 
   const fetchLogs = useCallback(async () => {
     if (admin?.role !== "super_admin") return;
+    const token = localStorage.getItem("token");
     try {
-      const res = await fetch("/api/admin/audit-logs?limit=20");
+      const res = await fetch("/api/admin/audit-logs?limit=20", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (res.ok) {
         const data = await res.json();
         setLogs(data.logs || []);

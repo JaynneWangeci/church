@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
-import { requireAdmin } from "../lib/admin.js";
+import { requireAdmin, requireAdminOrAbove } from "../lib/admin.js";
 import { sendWhatsApp } from "../lib/twilio.js";
 import { PLEDGE_VERSES, pickVerse } from "./verses.js";
 import { enqueueFollowUp } from "../lib/queue.js";
@@ -334,7 +334,7 @@ pledgesRouter.post("/:id/adjust", async (req, res) => {
   }
 });
 
-pledgesRouter.patch("/:id", requireAdmin, async (req, res) => {
+pledgesRouter.patch("/:id", requireAdmin, requireAdminOrAbove, async (req, res) => {
   try {
     const db = requireService();
     const { amount, reminder_freq, whatsapp_number } = req.body;
@@ -405,7 +405,7 @@ pledgesRouter.patch("/:id/pay", async (req, res) => {
   }
 });
 
-pledgesRouter.delete("/:id", requireAdmin, async (req, res) => {
+pledgesRouter.delete("/:id", requireAdmin, requireAdminOrAbove, async (req, res) => {
   try {
     const db = requireService();
     const { data: pledge } = await db.from("pledges").select("id").eq("id", req.params.id).single();

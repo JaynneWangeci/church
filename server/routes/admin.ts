@@ -1,7 +1,7 @@
 ﻿import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
 import {
-  requireAdmin, requireSuperAdmin, logAudit,
+  requireAdmin, requireAdminOrAbove, requireSuperAdmin, logAudit,
   filterDonationsByRole, verifyPassword, hashPassword, getClientIp,
 } from "../lib/admin.js";
 
@@ -505,7 +505,7 @@ adminRouter.get("/audit-actions", requireAdmin, requireSuperAdmin, async (_req, 
 });
 
 // ── Migration v9: add honour_known_as column ──
-adminRouter.post("/migrate-v9", async (_req, res) => {
+adminRouter.post("/migrate-v9", requireAdmin, requireAdminOrAbove, async (_req, res) => {
   try {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -562,7 +562,7 @@ adminRouter.post("/migrate-v9", async (_req, res) => {
   }
 });
 
-adminRouter.post("/migrate-v10", async (_req, res) => {
+adminRouter.post("/migrate-v10", requireAdmin, requireAdminOrAbove, async (_req, res) => {
   try {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;

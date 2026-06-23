@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
-import { requireAdmin, logAudit, maskSensitiveData } from "../lib/admin.js";
+import { requireAdmin, requireAdminOrAbove, logAudit, maskSensitiveData } from "../lib/admin.js";
 
 export const donationsRouter = Router();
 
@@ -120,7 +120,7 @@ donationsRouter.get("/lookup/phone/:phone", async (req, res) => {
   }
 });
 
-donationsRouter.patch("/:id/status", requireAdmin, async (req, res) => {
+donationsRouter.patch("/:id/status", requireAdmin, requireAdminOrAbove, async (req, res) => {
   try {
     const db = requireService();
     const { status, receipt_number } = req.body;
