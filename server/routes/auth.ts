@@ -263,6 +263,7 @@ authRouter.post("/forgot-password", async (req, res) => {
     });
 
     // Send code via WhatsApp
+    console.log(`Sending reset code to phone: ${admin.phone}`);
     const waSent = await sendWhatsApp(admin.phone, `AIPCA Bahati Cathedral: Your password reset code is ${code}. It expires in 1 hour.`);
 
     await logAudit({
