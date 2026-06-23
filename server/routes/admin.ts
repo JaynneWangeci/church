@@ -203,17 +203,18 @@ adminRouter.get("/users", requireAdmin, requireSuperAdmin, async (_req, res) => 
 adminRouter.put("/users/:id", requireAdmin, requireSuperAdmin, async (req, res) => {
   try {
     const db = requireService();
-    const { email, name, role } = req.body;
+    const { email, name, role, phone } = req.body;
     const updates: Record<string, string> = {};
     if (email) updates.email = email.toLowerCase().trim();
     if (name) updates.name = name;
     if (role) updates.role = role;
+    if (phone !== undefined) updates.phone = phone;
 
     const { data, error } = await db
       .from("admin_users")
       .update(updates)
       .eq("id", req.params.id)
-      .select("id, email, name, role")
+      .select("id, email, name, role, phone")
       .single();
 
     if (error) return res.status(500).json({ error: error.message });

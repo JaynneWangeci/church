@@ -64,6 +64,7 @@ export default function AdminDashboard() {
   const [editEmail, setEditEmail] = useState("");
   const [editName, setEditName] = useState("");
   const [editRole, setEditRole] = useState("");
+  const [editPhone, setEditPhone] = useState("");
   const [showChangePw, setShowChangePw] = useState(false);
   const [pwCurrent, setPwCurrent] = useState("");
   const [pwNew, setPwNew] = useState("");
@@ -1289,6 +1290,7 @@ export default function AdminDashboard() {
                             setEditEmail(a.email);
                             setEditName(a.name);
                             setEditRole(a.role);
+                            setEditPhone(a.phone || "");
                           }}
                           className="rounded-lg px-2 py-1 text-xs text-muted hover:bg-white hover:text-nobuk"
                         >
@@ -1333,6 +1335,11 @@ export default function AdminDashboard() {
                               <option value="viewer">Viewer</option>
                             </select>
                           </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-bold text-muted">Phone</label>
+                            <input type="tel" value={editPhone} onChange={(e) => setEditPhone(e.target.value)}
+                              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                          </div>
                           <div className="flex items-end gap-2">
                             <button
                               onClick={async () => {
@@ -1340,7 +1347,7 @@ export default function AdminDashboard() {
                                   const res = await fetch(`/api/admin/users/${a.id}`, {
                                     method: "PUT",
                                     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                                    body: JSON.stringify({ name: editName, email: editEmail, role: editRole }),
+                                    body: JSON.stringify({ name: editName, email: editEmail, role: editRole, phone: editPhone }),
                                   });
                                   if (res.ok) { setEditingAdmin(null); fetchAdmins(); }
                                 } catch {}
