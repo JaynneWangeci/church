@@ -4,6 +4,7 @@ import { useLang } from '../context/LanguageContext';
 import { useInView } from '../hooks/useInView';
 import SlideshowBackground from "../components/SlideshowBackground";
 import ChurchHero from "../components/ChurchHero";
+import HarambeeCountdown from "../components/HarambeeCountdown";
 import LiveProgress from "../components/LiveProgress";
 import AboutSection from "../components/AboutSection";
 import ContributeSection from "../components/ContributeSection";
@@ -88,6 +89,17 @@ export default function HomePage() {
       <SlideshowBackground />
       <div className="relative z-10 pt-10">
         <section id="hero"><ChurchHero /></section>
+
+        <section className="relative z-10 -mt-6 mb-6 px-4">
+          <div className="mx-auto max-w-lg rounded-2xl border border-blue-400/20 bg-white/5 p-5 text-center backdrop-blur-sm">
+            <div className="mb-3 flex items-center justify-center gap-2">
+              <Clock size={14} className="text-amber" />
+              <span className="text-xs font-bold uppercase tracking-wider text-amber">Harambee Countdown</span>
+            </div>
+            <HarambeeCountdown />
+          </div>
+        </section>
+
         <section id="register"><MemberRegistration /></section>
         <ContributeSection />
         <section id="pledge-board"><PledgeBoard /></section>
