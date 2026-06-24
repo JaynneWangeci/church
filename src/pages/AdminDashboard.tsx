@@ -73,6 +73,9 @@ export default function AdminDashboard() {
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
   const [deduping, setDeduping] = useState(false);
   const [dedupResult, setDedupResult] = useState("");
+  const [historyName, setHistoryName] = useState("");
+  const [historyResult, setHistoryResult] = useState<any>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [analyticsRange, setAnalyticsRange] = useState<"7d" | "30d" | "90d" | "1y" | "all">("30d");
   const [chartPeriod, setChartPeriod] = useState<"daily" | "weekly" | "monthly">("daily");
@@ -437,6 +440,21 @@ export default function AdminDashboard() {
       if (data.deduped > 0) { fetchMembers(); fetchStats(); fetchAnalytics(); fetchFellowshipReport(); fetchPledges(); }
     } catch { setDedupResult("Something went wrong. Please try again."); }
     finally { setDeduping(false); }
+  }
+
+  async function handleHistorySearch() {
+    const q = historyName.trim();
+    if (!q || q.length < 2) return;
+    setHistoryLoading(true);
+    setHistoryResult(null);
+    try {
+      const res = await fetch(`/api/members/history?name=${encodeURIComponent(q)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setHistoryResult(await res.json());
+      else setHistoryResult({ summary: { total_donated: 0, total_donations: 0, completed_donations: 0, failed_donations: 0, pending_donations: 0, total_pledged: 0, total_paid: 0, pledge_count: 0 }, donations: [], pledges: [], members: [] });
+    } catch { setHistoryResult({ summary: { total_donated: 0, total_donations: 0, completed_donations: 0, failed_donations: 0, pending_donations: 0, total_pledged: 0, total_paid: 0, pledge_count: 0 }, donations: [], pledges: [], members: [] }); }
+    finally { setHistoryLoading(false); }
   }
 
   async function handleUpdateMember(id: string) {
@@ -809,6 +827,30 @@ export default function AdminDashboard() {
         )}
 
         {tab === "members" && (
+          <>
+          {/* Member history search */}
+          <div className="mb-6 rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+                <input
+                  type="text"
+                  placeholder="Search full member history by name..."
+                  value={historyName}
+                  onChange={e => setHistoryName(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") handleHistorySearch(); }}
+                  className="w-full rounded-lg border border-gray-200 py-3 pl-9 pr-3 text-sm text-ink outline-none focus:border-nobuk"
+                />
+              </div>
+              <button onClick={handleHistorySearch} disabled={!historyName.trim() || historyLoading}
+                className="flex items-center gap-1.5 rounded-lg bg-nobuk px-4 py-3 text-sm font-bold text-white hover:bg-nobuk-light disabled:opacity-40 transition">
+                {historyLoading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <Users size={16} />}
+                Search History
+              </button>
+            </div>
+            <p className="mt-1.5 text-[11px] text-muted">Type a name to see all donations (including failed), pledges, and full history with timestamps.</p>
+          </div>
+
           <div className="grid gap-8 lg:grid-cols-3">
             {/* Add member form */}
             <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm lg:col-span-1">
@@ -1000,6 +1042,137 @@ export default function AdminDashboard() {
 
             {/* Members list */}
             <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm lg:col-span-3">
+              {historyResult && (
+                <div className="mb-4 rounded-xl border border-gray-100 bg-white p-5 shadow-sm lg:col-span-3">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-ink">Member History: {historyName}</h3>
+                    <button onClick={() => setHistoryResult(null)}
+                      className="text-xs text-muted hover:text-ink">&times; Close</button>
+                  </div>
+                  {(() => {
+                    const h = historyResult;
+                    return (
+                      <div className="space-y-4">
+                        {/* Summary cards */}
+                        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                          <div className="rounded-lg border border-gray-100 bg-cream p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Total Donated</p>
+                            <p className="text-lg font-bold text-green-700 tabular-nums">KES {h.summary.total_donated.toLocaleString("en-KE")}</p>
+                          </div>
+                          <div className="rounded-lg border border-gray-100 bg-cream p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Donations</p>
+                            <p className="text-lg font-bold text-ink tabular-nums">{h.summary.completed_donations} ok &middot; {h.summary.failed_donations} failed &middot; {h.summary.pending_donations} pending</p>
+                          </div>
+                          <div className="rounded-lg border border-gray-100 bg-cream p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Total Pledged</p>
+                            <p className="text-lg font-bold text-nobuk tabular-nums">KES {h.summary.total_pledged.toLocaleString("en-KE")}</p>
+                          </div>
+                          <div className="rounded-lg border border-gray-100 bg-cream p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Pledge Paid</p>
+                            <p className="text-lg font-bold text-emerald-600 tabular-nums">KES {h.summary.total_paid.toLocaleString("en-KE")}</p>
+                          </div>
+                        </div>
+
+                        {/* Member profiles */}
+                        {h.members?.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {h.members.map((m: any) => (
+                              <span key={m.id} className="rounded-full bg-nobuk-muted px-3 py-1 text-xs font-medium text-nobuk">
+                                {m.name} &middot; {m.council.replace(/_/g, " ")}{m.gender ? ` · ${m.gender}` : ""}{!m.is_active ? " (inactive)" : ""}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* All donations */}
+                        {h.donations?.length > 0 && (
+                          <div>
+                            <p className="mb-1.5 text-xs font-bold uppercase tracking-wider text-muted">
+                              All Transactions ({h.donations.length})
+                            </p>
+                            <div className="max-h-[300px] overflow-y-auto rounded-lg border border-gray-100">
+                              <table className="w-full text-left text-xs">
+                                <thead className="sticky top-0 bg-gray-50">
+                                  <tr className="border-b border-gray-100">
+                                    <th className="px-2 py-1.5 font-bold text-muted">Date & Time</th>
+                                    <th className="px-2 py-1.5 font-bold text-muted">Amount</th>
+                                    <th className="px-2 py-1.5 font-bold text-muted">Status</th>
+                                    <th className="px-2 py-1.5 font-bold text-muted">Method</th>
+                                    <th className="px-2 py-1.5 font-bold text-muted">Receipt</th>
+                                    <th className="px-2 py-1.5 font-bold text-muted">Phone</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {h.donations.map((d: any) => (
+                                    <tr key={d.id} className="border-b border-gray-50 last:border-0 hover:bg-cream">
+                                      <td className="px-2 py-1.5 tabular-nums text-muted whitespace-nowrap">
+                                        {new Date(d.created_at).toLocaleDateString("en-KE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                                      </td>
+                                      <td className="px-2 py-1.5 tabular-nums font-bold text-ink">KES {Number(d.amount).toLocaleString("en-KE")}</td>
+                                      <td className="px-2 py-1.5">
+                                        <span className={`rounded-full px-2 py-0.5 font-semibold ${
+                                          d.status === "completed" ? "bg-green-100 text-green-700" :
+                                          d.status === "failed" ? "bg-red-100 text-red-700" :
+                                          "bg-amber-100 text-amber-700"
+                                        }`}>{d.status}</span>
+                                      </td>
+                                      <td className="px-2 py-1.5 capitalize text-muted">{d.method}</td>
+                                      <td className="px-2 py-1.5 text-muted font-mono">{d.receipt_number || "—"}</td>
+                                      <td className="px-2 py-1.5 text-muted">{d.phone || "—"}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* All pledges */}
+                        {h.pledges?.length > 0 && (
+                          <div>
+                            <p className="mb-1.5 text-xs font-bold uppercase tracking-wider text-muted">
+                              Pledges ({h.pledges.length})
+                            </p>
+                            <div className="max-h-[250px] overflow-y-auto rounded-lg border border-gray-100">
+                              <table className="w-full text-left text-xs">
+                                <thead className="sticky top-0 bg-gray-50">
+                                  <tr className="border-b border-gray-100">
+                                    <th className="px-2 py-1.5 font-bold text-muted">Date</th>
+                                    <th className="px-2 py-1.5 font-bold text-muted">Amount</th>
+                                    <th className="px-2 py-1.5 font-bold text-muted">Paid</th>
+                                    <th className="px-2 py-1.5 font-bold text-muted">Remaining</th>
+                                    <th className="px-2 py-1.5 font-bold text-muted">Status</th>
+                                    <th className="px-2 py-1.5 font-bold text-muted">Phone</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {h.pledges.map((p: any) => (
+                                    <tr key={p.id} className="border-b border-gray-50 last:border-0 hover:bg-cream">
+                                      <td className="px-2 py-1.5 tabular-nums text-muted whitespace-nowrap">
+                                        {new Date(p.created_at).toLocaleDateString("en-KE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                                      </td>
+                                      <td className="px-2 py-1.5 tabular-nums font-bold text-ink">KES {Number(p.amount).toLocaleString("en-KE")}</td>
+                                      <td className="px-2 py-1.5 tabular-nums text-emerald-700 font-semibold">KES {Number(p.paid).toLocaleString("en-KE")}</td>
+                                      <td className="px-2 py-1.5 tabular-nums text-amber-700 font-semibold">KES {Number(p.remaining).toLocaleString("en-KE")}</td>
+                                      <td className="px-2 py-1.5 capitalize text-muted">{p.status}</td>
+                                      <td className="px-2 py-1.5 text-muted">{p.phone || "—"}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+
+                        {!h.donations?.length && !h.pledges?.length && (
+                          <p className="py-4 text-center text-sm text-muted">No records found for this name.</p>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
               <div className="mb-4 flex items-center gap-2">
                 <Users size={16} className="text-nobuk" />
                 <h2 className="text-sm font-bold text-ink">Church Members</h2>
@@ -1150,6 +1323,7 @@ export default function AdminDashboard() {
               )}
             </div>
           </div>
+          </>
         )}
 
         {tab === "admins" && (
@@ -2108,6 +2282,37 @@ export default function AdminDashboard() {
                               </div>
                             </div>
 
+                            {/* Members list */}
+                            <div className="mb-4">
+                              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted">
+                                Members ({f.members?.length || 0})
+                              </p>
+                              {f.members?.length > 0 ? (
+                                <div className="max-h-[200px] overflow-y-auto rounded-lg border border-gray-100">
+                                  <table className="w-full text-left text-xs">
+                                    <thead className="sticky top-0 bg-gray-50">
+                                      <tr className="border-b border-gray-100">
+                                        <th className="px-2 py-1.5 font-bold text-muted">#</th>
+                                        <th className="px-2 py-1.5 font-bold text-muted">Name</th>
+                                        <th className="px-2 py-1.5 font-bold text-muted">Fellowship</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {f.members.map((m: any, i: number) => (
+                                        <tr key={m.id} className="border-b border-gray-50 last:border-0 hover:bg-cream">
+                                          <td className="px-2 py-1.5 text-muted tabular-nums w-6">{i + 1}</td>
+                                          <td className="px-2 py-1.5 font-medium text-ink">{m.name}</td>
+                                          <td className="px-2 py-1.5 capitalize text-muted">{f.council.replace(/_/g, " ")}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              ) : (
+                                <p className="text-xs text-muted italic">No members in this fellowship.</p>
+                              )}
+                            </div>
+
                             {/* Two-column layout for top donors + methods */}
                             <div className="grid gap-4 md:grid-cols-2">
                               {/* Top donors */}
@@ -2468,6 +2673,37 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
+                  {/* ── Recent Transactions ── */}
+                  {dashboardData.recent_transactions?.length > 0 && (
+                    <div className="rounded-lg border border-gray-100 bg-white p-4">
+                      <h3 className="mb-3 text-sm font-bold text-ink">Recent Transactions</h3>
+                      <div className="overflow-x-auto max-h-[300px] overflow-y-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="border-b border-gray-100">
+                              <th className="pb-2 pr-2 font-bold text-muted">Date & Time</th>
+                              <th className="pb-2 pr-2 font-bold text-muted">Donor</th>
+                              <th className="pb-2 pr-2 font-bold text-muted text-right">Amount</th>
+                              <th className="pb-2 font-bold text-muted">Method</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {dashboardData.recent_transactions.slice(0, 30).map((t: any, i: number, arr: any[]) => (
+                              <tr key={i} className={i < arr.length - 1 ? "border-b border-gray-50" : ""}>
+                                <td className="py-2 pr-2 tabular-nums text-muted whitespace-nowrap">
+                                  {new Date(t.created_at).toLocaleDateString("en-KE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                                </td>
+                                <td className="py-2 pr-2 font-medium text-ink truncate max-w-[140px]">{t.donor_name}</td>
+                                <td className="py-2 pr-2 text-right tabular-nums font-bold text-nobuk">KES {t.amount.toLocaleString("en-KE")}</td>
+                                <td className="py-2 capitalize text-muted">{t.method}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
                   {/* ── Member + Campaign Stats ── */}
                   <div className="mt-6 grid gap-6 lg:grid-cols-2">
                     <div className="rounded-lg border border-gray-100 bg-cream p-4">
@@ -2617,6 +2853,7 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
       </main>
     </div>
   );

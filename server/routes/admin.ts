@@ -47,7 +47,7 @@ adminRouter.get("/stats", requireAdmin, async (req, res) => {
 
     const donors = new Set(
       (completedDonations || [])
-        .map((d) => d.donor_name)
+        .map((d) => d.donor_name?.toLowerCase().trim())
         .filter(Boolean)
     );
 
@@ -429,13 +429,17 @@ adminRouter.get("/fellowship-report", requireAdmin, async (req, res) => {
       const recentTotal = recentDonations.reduce((s, d) => s + Number(d.amount), 0);
 
       // Top donors in this fellowship
-      const donorMap: Record<string, number> = {};
+      const donorMap = new Map<string, { name: string; total: number }>();
       for (const d of donations) {
-        const name = d.donor_name || "Anonymous";
-        donorMap[name] = (donorMap[name] || 0) + Number(d.amount);
+        const rawName = d.donor_name || "Anonymous";
+        const key = rawName.toLowerCase().trim();
+        if (donorMap.has(key)) {
+          donorMap.get(key)!.total += Number(d.amount);
+        } else {
+          donorMap.set(key, { name: rawName, total: Number(d.amount) });
+        }
       }
-      const topDonors = Object.entries(donorMap)
-        .map(([name, total]) => ({ name, total }))
+      const topDonors = Array.from(donorMap.values())
         .sort((a, b) => b.total - a.total)
         .slice(0, 10);
 
@@ -474,7 +478,7 @@ adminRouter.get("/fellowship-report", requireAdmin, async (req, res) => {
       });
     }
 
-    report.sort((a, b) => b.donation.total - a.donation.total);
+    report.sort((a, b) => a.council.localeCompare(b.council));
 
     // Unlinked donations (donor not matched to any member)
     const unlinkedTotal = donationNoMember.reduce((s, d) => s + Number(d.amount), 0);

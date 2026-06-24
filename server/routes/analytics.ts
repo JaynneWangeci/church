@@ -158,15 +158,20 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
     const countChange = previousCount > 0 ? ((cur30Count - previousCount) / previousCount) * 100 : 0;
 
     // ── Top donors ──
-    const donorMap: Record<string, number> = {};
+    const donorMap = new Map<string, { name: string; total: number }>();
     for (const d of topDonors.data || []) {
-      const name = d.donor_name || "Anonymous";
-      donorMap[name] = (donorMap[name] || 0) + Number(d.amount);
+      const rawName = d.donor_name || "Anonymous";
+      const key = rawName.toLowerCase().trim();
+      if (donorMap.has(key)) {
+        donorMap.get(key)!.total += Number(d.amount);
+      } else {
+        donorMap.set(key, { name: rawName, total: Number(d.amount) });
+      }
     }
-    const topDonorsList = Object.entries(donorMap)
-      .map(([name, amount]) => ({ name, amount }))
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, 20);
+    const topDonorsList = Array.from(donorMap.values())
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 20)
+      .map(d => ({ name: d.name, amount: d.total }));
 
     // ── Per-fellowship member counts ──
     const { data: fellowshipMembers } = await db
@@ -228,6 +233,16 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
     const pledgeActive = pledges.filter(p => p.status === "pending").length;
     const pledgeFulfillmentRate = pledgeTotal > 0 ? (pledgePaid / pledgeTotal) * 100 : 0;
 
+    // ── Recent transactions ──
+    let recentQuery = db.from("donations")
+      .select("donor_name, amount, method, created_at, receipt_number")
+      .eq("status", "completed")
+      .not("donor_name", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (campaignId) recentQuery = recentQuery.eq("campaign_id", campaignId);
+    const { data: recentDonations } = await recentQuery;
+
     // ── Payment method breakdown ──
     let methodQuery = db.from("donations").select("method, amount").eq("status", "completed");
     if (campaignId) methodQuery = methodQuery.eq("campaign_id", campaignId);
@@ -275,6 +290,12 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
         method: methodBreakdown,
         top_donors: topDonorsList,
       },
+      recent_transactions: (recentDonations || []).map((d: any) => ({
+        donor_name: d.donor_name,
+        amount: Number(d.amount),
+        method: d.method,
+        created_at: d.created_at,
+      })),
       members: {
         total: memberCount.count || 0,
         new_30d: newMembers.count || 0,

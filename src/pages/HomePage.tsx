@@ -7,12 +7,14 @@ import ChurchHero from "../components/ChurchHero";
 import LiveProgress from "../components/LiveProgress";
 import AboutSection from "../components/AboutSection";
 import ContributeSection from "../components/ContributeSection";
+import MemberRegistration from "../components/MemberRegistration";
 import PledgeBoard from "../components/PledgeBoard";
 import Footer from "../components/Footer";
 import FellowshipProgress from "../components/FellowshipProgress";
 
 const SECTIONS = [
   { id: 'hero', label: 'Hero' },
+  { id: 'register', label: 'Register' },
   { id: 'contribute', label: 'Honour' },
   { id: 'pledge-board', label: 'Pledge' },
   { id: 'live-progress', label: 'Progress' },
@@ -86,6 +88,7 @@ export default function HomePage() {
       <SlideshowBackground />
       <div className="relative z-10 pt-10">
         <section id="hero"><ChurchHero /></section>
+        <section id="register"><MemberRegistration /></section>
         <ContributeSection />
         <section id="pledge-board"><PledgeBoard /></section>
         <section id="live-progress"><LiveProgress /></section>

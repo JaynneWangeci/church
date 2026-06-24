@@ -70,7 +70,8 @@ export type AuditAction =
   | "view_audit_logs"
   | "create_council" | "update_council" | "delete_council"
   | "update_settings"
-  | "create_admin" | "update_admin" | "delete_admin" | "update_self_password";
+  | "create_admin" | "update_admin" | "delete_admin" | "update_self_password"
+  | "view_member_history";
 
 export interface AuditLog {
   id: string;

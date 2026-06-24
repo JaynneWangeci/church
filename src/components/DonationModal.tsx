@@ -63,7 +63,8 @@ const presets = [500, 1000, 2500, 5000, 10000];
 interface Member {
   id: string;
   name: string;
-  council?: string;
+  council: string;
+  gender: string | null;
 }
 
 function formatPhone(value: string): string {
@@ -103,7 +104,17 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
   const [memberList, setMemberList] = useState<Member[]>([]);
   const [showNameDropdown, setShowNameDropdown] = useState(false);
   const [nameSearch, setNameSearch] = useState('');
+  const [selectedFellowship, setSelectedFellowship] = useState('');
+  const [selectedGender, setSelectedGender] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const match = memberList.find(m => m.name.toLowerCase() === name.trim().toLowerCase());
+    if (match) {
+      setSelectedFellowship(match.council);
+      setSelectedGender(match.gender || '');
+    }
+  }, [name, memberList]);
 
   useEffect(() => {
     fetch('/api/members')
@@ -199,7 +210,7 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
         const res = await fetch('/api/members/auto-add', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: name.trim(), council: 'general_member' }),
+          body: JSON.stringify({ name: name.trim(), council: selectedFellowship || 'general_member', gender: selectedGender || undefined }),
         });
         if (res.ok) {
           const data = await res.json();
@@ -222,6 +233,8 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
       const campData = await campRes.json();
       if (!campData?.id) { setError("We're setting up the campaign. Please try again shortly."); setStep('form'); return; }
 
+      const idempotencyKey = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+
       const donRes = await fetch('/api/donations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -234,6 +247,7 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
           honored_member_id: isGeneral ? null : member.id,
           church_member_id: donorMemberId,
           honour_known_as: knownAs.trim() || null,
+          idempotency_key: idempotencyKey,
         }),
       });
       const donData = await donRes.json();
@@ -330,7 +344,7 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
                 </label>
                 <div className="relative">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#5B6F88]" />
-                  <input type="text" value={name} onChange={e => { setName(e.target.value); setNameSearch(e.target.value); setShowNameDropdown(true); }}
+                  <input type="text" value={name} onChange={e => { setName(e.target.value); setNameSearch(e.target.value); setSelectedFellowship(''); setSelectedGender(''); setShowNameDropdown(true); }}
                     onFocus={() => setShowNameDropdown(true)}
                     placeholder="Type your name or select from list..."
                     className="w-full rounded-xl border border-[#2C4056]/20 bg-white py-3 pl-9 pr-3 text-sm text-[#1B2838] outline-none transition focus:border-[#1E6F9F] placeholder:text-[#5B6F88]/40" />
@@ -350,9 +364,9 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
                               <Icon size={12} className="text-[#1E6F9F]" />
                               <span className="text-xs font-bold text-[#1E6F9F] uppercase tracking-wider">{meta.label}</span>
                             </div>
-                            {councilMembers.map(m => (
+                              {councilMembers.map(m => (
                               <button key={m.id} type="button"
-                                onClick={() => { setName(m.name); setShowNameDropdown(false); }}
+                                onClick={() => { setName(m.name); setSelectedFellowship(m.council); setSelectedGender(m.gender || ''); setShowNameDropdown(false); }}
                                 className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-all hover:bg-[#5B9BD5]/5 ${
                                   name === m.name ? 'bg-[#5B9BD5]/10 font-bold' : ''
                                 }`}>
@@ -375,6 +389,38 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
                     </div>
                   </div>
                 )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-[#1B2838]">
+                    <Church size={14} className="text-[#5B9BD5]" /> Fellowship
+                  </label>
+                  <select value={selectedFellowship} onChange={e => setSelectedFellowship(e.target.value)}
+                    className="w-full rounded-xl border border-[#2C4056]/20 bg-white px-4 py-3 text-sm text-[#1B2838] outline-none transition focus:border-[#1E6F9F]">
+                    <option value="">Select fellowship...</option>
+                    <option value="maranatha_fellowship">Maranatha Fellowship</option>
+                    <option value="bethlehem_fellowship">Bethlehem Fellowship</option>
+                    <option value="jerusalem_fellowship">Jerusalem Fellowship</option>
+                    <option value="aefeso_fellowship">Aefeso Fellowship</option>
+                    <option value="galilee_fellowship">Galilee Fellowship</option>
+                    <option value="bethel_fellowship">Bethel Fellowship</option>
+                    <option value="berea_fellowship">Berea Fellowship</option>
+                    <option value="judea_fellowship">Judea Fellowship</option>
+                    <option value="general_member">General Member</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-[#1B2838]">
+                    <Users size={14} className="text-[#5B9BD5]" /> Gender
+                  </label>
+                  <select value={selectedGender} onChange={e => setSelectedGender(e.target.value)}
+                    className="w-full rounded-xl border border-[#2C4056]/20 bg-white px-4 py-3 text-sm text-[#1B2838] outline-none transition focus:border-[#1E6F9F]">
+                    <option value="">Not set</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
+                </div>
               </div>
 
               {!isGeneral && (

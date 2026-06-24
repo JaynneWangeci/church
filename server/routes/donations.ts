@@ -58,13 +58,26 @@ donationsRouter.get("/", async (req, res) => {
 donationsRouter.post("/", async (req, res) => {
   try {
     const db = requireService();
-    const { campaign_id, donor_name, amount, phone, honored_member_id, church_member_id, message, honour_known_as } = req.body;
+    const { campaign_id, donor_name, amount, phone, honored_member_id, church_member_id, message, honour_known_as, idempotency_key } = req.body;
 
     if (!campaign_id || !amount || !phone) {
       return res.status(400).json({ error: "campaign_id, amount, and phone required" });
     }
 
     if (amount < 10) return res.status(400).json({ error: "Minimum donation is KES 10" });
+
+    // Idempotency: if key provided, check for existing donation
+    if (idempotency_key) {
+      const { data: existing } = await db
+        .from("donations")
+        .select("*")
+        .eq("idempotency_key", idempotency_key)
+        .maybeSingle();
+
+      if (existing) {
+        return res.status(200).json({ donation: existing, idempotent: true });
+      }
+    }
 
     const normalizedPhone = phone.replace(/^0+/, "254").replace(/^\+/, "");
 
@@ -74,24 +87,38 @@ donationsRouter.post("/", async (req, res) => {
       resolvedMemberId = await resolveMemberId(db, donor_name);
     }
 
+    const insertData: Record<string, unknown> = {
+      campaign_id,
+      donor_name: donor_name || null,
+      amount: Number(amount),
+      method: "mpesa",
+      status: "pending",
+      phone: normalizedPhone,
+      honored_member_id: honored_member_id || null,
+      church_member_id: resolvedMemberId,
+      message: message || null,
+      honour_known_as: honour_known_as || null,
+    };
+    if (idempotency_key) insertData.idempotency_key = idempotency_key;
+
     const { data, error } = await db
       .from("donations")
-      .insert({
-        campaign_id,
-        donor_name: donor_name || null,
-        amount: Number(amount),
-        method: "mpesa",
-        status: "pending",
-        phone: normalizedPhone,
-        honored_member_id: honored_member_id || null,
-        church_member_id: resolvedMemberId,
-        message: message || null,
-        honour_known_as: honour_known_as || null,
-      })
+      .insert(insertData)
       .select()
       .single();
 
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) {
+      // If unique constraint violation on idempotency_key, try fetching existing
+      if (idempotency_key && error.message?.includes("idempotency_key")) {
+        const { data: existing } = await db
+          .from("donations")
+          .select("*")
+          .eq("idempotency_key", idempotency_key)
+          .maybeSingle();
+        if (existing) return res.status(200).json({ donation: existing, idempotent: true });
+      }
+      return res.status(500).json({ error: error.message });
+    }
     res.status(201).json({ donation: data });
   } catch (err) {
     console.error("donation create error:", err);

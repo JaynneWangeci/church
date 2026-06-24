@@ -462,7 +462,7 @@ contributionsRouter.get("/export/xlsx", requireAdmin, async (req, res) => {
 
     const metrics = [
       ["Total Raised", `KES ${totalRaised.toLocaleString("en-KE")}`, "Total Transactions", donationCount.toString()],
-      ["Average Gift", `KES ${avgGift.toLocaleString("en-KE")}`, "Unique Donors", new Set(completed.map(d => d.donor_name).filter(Boolean)).size.toString()],
+      ["Average Gift", `KES ${avgGift.toLocaleString("en-KE")}`, "Unique Donors", new Set(completed.map(d => d.donor_name?.toLowerCase().trim()).filter(Boolean)).size.toString()],
       ["Total Pledged", `KES ${totalPledges.toLocaleString("en-KE")}`, "Pledge Fulfillment", `${totalPledges > 0 ? ((paidPledges / totalPledges) * 100).toFixed(1) : "0.0"}%`],
       ["Paid on Pledges", `KES ${paidPledges.toLocaleString("en-KE")}`, "Outstanding Pledges", `KES ${(totalPledges - paidPledges).toLocaleString("en-KE")}`],
       ["Church Members", memberCount.toString(), "Active Fellowships", (councilData || []).length.toString()],
@@ -636,7 +636,7 @@ contributionsRouter.get("/export/xlsx", requireAdmin, async (req, res) => {
         }
         honourByMember[key].total += Number(d.amount);
         honourByMember[key].count += 1;
-        if (d.donor_name) honourByMember[key].donors.add(d.donor_name);
+        if (d.donor_name) honourByMember[key].donors.add(d.donor_name.trim());
         const dDate = d.created_at ? new Date(d.created_at).toLocaleDateString("en-KE") : "";
         if (dDate > honourByMember[key].lastDate) honourByMember[key].lastDate = dDate;
       }

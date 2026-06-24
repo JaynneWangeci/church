@@ -17,7 +17,8 @@ export type AuditAction =
   | "permission_change"
   | "data_access"
   | "settings_change"
-  | "reminder_sent";
+  | "reminder_sent"
+  | "view_member_history";
 
 export type AuditResourceType =
   | "member" | "donation" | "pledge" | "campaign"

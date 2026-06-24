@@ -80,7 +80,7 @@ membersRouter.get("/", async (_req, res) => {
 membersRouter.post("/auto-add", rateLimit, async (req, res) => {
   try {
     const db = requireService();
-    let { name, council } = req.body;
+    let { name, council, gender } = req.body;
     name = sanitizeName(name || "");
     council = (council || "general_member").toLowerCase();
 
@@ -89,7 +89,7 @@ membersRouter.post("/auto-add", rateLimit, async (req, res) => {
 
     const { data: existing } = await db
       .from("church_members")
-      .select("id, name, council")
+      .select("id, name, council, gender")
       .eq("is_active", true)
       .ilike("name", name);
 
@@ -97,9 +97,11 @@ membersRouter.post("/auto-add", rateLimit, async (req, res) => {
       return res.json({ member: existing[0], existed: true });
     }
 
+    const insertData: Record<string, unknown> = { name, council };
+    if (gender === "male" || gender === "female") insertData.gender = gender;
     const { data, error } = await db
       .from("church_members")
-      .insert({ name, council })
+      .insert(insertData)
       .select()
       .single();
 
@@ -320,6 +322,82 @@ membersRouter.patch("/:id", requireAdmin, requireAdminOrAbove, async (req, res) 
     res.json({ member: data });
   } catch (err) {
     console.error("member update error:", err);
+    res.status(500).json({ error: "Something went wrong. Please try again." });
+  }
+});
+
+membersRouter.get("/history", requireAdmin, async (req, res) => {
+  try {
+    const db = requireService();
+    const name = (req.query.name as string || "").trim();
+
+    if (!name || name.length < 2) {
+      return res.status(400).json({ error: "Name must be at least 2 characters" });
+    }
+
+    // Find matching members by name
+    const { data: members } = await db
+      .from("church_members")
+      .select("id, name, council, gender, is_active, created_at")
+      .ilike("name", `%${name}%`)
+      .order("name");
+
+    const memberIds = (members || []).map(m => m.id);
+
+    // Fetch all donations linked to these members (by church_member_id or donor_name)
+    const { data: donations } = await db
+      .from("donations")
+      .select("id, amount, method, status, receipt_number, phone, message, donor_name, checkout_request_id, church_member_id, created_at")
+      .or(memberIds.length
+        ? `church_member_id.in.(${memberIds.join(",")}),donor_name.ilike.%${name}%`
+        : `donor_name.ilike.%${name}%`
+      )
+      .order("created_at", { ascending: false });
+
+    // Fetch all pledges linked to this donor name
+    const { data: pledges } = await db
+      .from("pledges")
+      .select("id, donor_name, amount, paid, remaining, status, message, phone, reminder_freq, created_at")
+      .ilike("donor_name", `%${name}%`)
+      .order("created_at", { ascending: false });
+
+    // Compute summary
+    const allDonations = donations || [];
+    const completedDons = allDonations.filter(d => d.status === "completed");
+    const failedDons = allDonations.filter(d => d.status === "failed");
+    const pendingDons = allDonations.filter(d => d.status === "pending");
+
+    const allPledges = pledges || [];
+
+    const summary = {
+      total_donated: completedDons.reduce((s, d) => s + Number(d.amount), 0),
+      total_donations: allDonations.length,
+      completed_donations: completedDons.length,
+      failed_donations: failedDons.length,
+      pending_donations: pendingDons.length,
+      total_pledged: allPledges.reduce((s, p) => s + Number(p.amount), 0),
+      total_paid: allPledges.reduce((s, p) => s + Number(p.paid), 0),
+      pledge_count: allPledges.length,
+    };
+
+    // Audit log
+    const admin = (req as any).admin;
+    await logAudit({
+      adminId: admin.id,
+      action: "view_member_history" as AuditAction,
+      resourceType: "member",
+      resourceId: memberIds.join(",") || name,
+      ipAddress: (req as any).adminIp,
+    });
+
+    res.json({
+      members,
+      donations: allDonations,
+      pledges: allPledges,
+      summary,
+    });
+  } catch (err) {
+    console.error("member history error:", err);
     res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });
