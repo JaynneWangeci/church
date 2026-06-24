@@ -4,6 +4,17 @@ import { sendWhatsApp } from "../lib/meta-whatsapp.js";
 import { requireAdmin } from "../lib/admin.js";
 import { PAYMENT_VERSES, pickVerse } from "./verses.js";
 import { enqueueFollowUp } from "../lib/queue.js";
+import {
+  checkPhoneStkRateLimit,
+  validateDonationAmount,
+  isCallbackAlreadyProcessed,
+  logCallback,
+  markCallbackProcessed,
+  getCallbackIp,
+  withRetry,
+  checkSuspiciousActivity,
+  logSuspiciousActivity,
+} from "../lib/financial-safety.js";
 
 export const mpesaRouter = Router();
 
@@ -21,7 +32,6 @@ const BASE_URL =
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
-// Pre-cache access token on startup for instant STK Push
 getAccessToken().catch(() => {});
 setInterval(() => getAccessToken().catch(() => {}), 55 * 60 * 1000);
 
@@ -75,9 +85,10 @@ function whatsAppConfirmation(donation: any): void {
 
   sendWhatsApp(donation.phone, msg).catch(() => {});
 
-  // Follow-up in 5 minutes
   enqueueFollowUp("payment", donation.phone, name, donation.amount).catch(() => {});
 }
+
+// ── STK Push (public, rate-limited) ── //
 
 mpesaRouter.post("/stkpush", async (req, res) => {
   try {
@@ -87,6 +98,15 @@ mpesaRouter.post("/stkpush", async (req, res) => {
       return res.status(400).json({ error: "phone and amount required" });
     }
 
+    const numericAmount = Math.round(Number(amount));
+
+    // Safety check 1: validate amount
+    const amountCheck = validateDonationAmount(numericAmount);
+    if (!amountCheck.valid) {
+      return res.status(400).json({ error: amountCheck.error });
+    }
+
+    // Normalize phone
     let normalizedPhone = phone.replace(/[\s\-\(\)]/g, "");
     if (normalizedPhone.startsWith("0")) {
       normalizedPhone = "254" + normalizedPhone.slice(1);
@@ -98,6 +118,20 @@ mpesaRouter.post("/stkpush", async (req, res) => {
       return res.status(400).json({ error: "Invalid phone number" });
     }
 
+    // Safety check 2: per-phone rate limiting (max 3 STK Push per hour per phone)
+    const phoneCheck = checkPhoneStkRateLimit(normalizedPhone);
+    if (!phoneCheck.allowed) {
+      return res.status(429).json({
+        error: `Too many requests to this phone. Try again in ${phoneCheck.retryAfterMinutes} minutes.`,
+      });
+    }
+
+    // Safety check 3: flag suspicious activity (non-blocking)
+    const flags = checkSuspiciousActivity(normalizedPhone, numericAmount, null);
+    if (flags.length) {
+      logSuspiciousActivity(flags, donation_id);
+    }
+
     const accessToken = await getAccessToken();
     const ts = timestamp();
     const password = Buffer.from(`${SHORTCODE}${PASSKEY}${ts}`).toString("base64");
@@ -107,7 +141,7 @@ mpesaRouter.post("/stkpush", async (req, res) => {
       Password: password,
       Timestamp: ts,
       TransactionType: "CustomerPayBillOnline",
-      Amount: Math.round(Number(amount)),
+      Amount: numericAmount,
       PartyA: normalizedPhone,
       PartyB: SHORTCODE,
       PhoneNumber: normalizedPhone,
@@ -143,18 +177,20 @@ mpesaRouter.post("/stkpush", async (req, res) => {
           .single();
 
         if (donation) {
-          await db
-            .from("donations")
-            .update({
-              status: "completed",
-              receipt_number: `SANDBOX-${Date.now()}`,
-            })
-            .eq("id", donation.id);
+          await withRetry(async () => {
+            await db
+              .from("donations")
+              .update({
+                status: "completed",
+                receipt_number: `SANDBOX-${Date.now()}`,
+              })
+              .eq("id", donation.id);
 
-          await db.rpc("increment_campaign_raised", {
-            campaign_id: donation.campaign_id,
-            amount: Number(donation.amount),
-          });
+            await db.rpc("increment_campaign_raised", {
+              campaign_id: donation.campaign_id,
+              amount: Number(donation.amount),
+            });
+          }, "stkpush sandbox complete");
 
           whatsAppConfirmation({ ...donation, receipt_number: `SANDBOX-${Date.now()}` });
         }
@@ -171,12 +207,22 @@ mpesaRouter.post("/stkpush", async (req, res) => {
   }
 });
 
+// ── M-Pesa Callback (Safaricom calls this after user enters PIN) ── //
+
 mpesaRouter.post("/callback", async (req, res) => {
   try {
     const { Body } = req.body;
     if (!Body?.stkCallback) return res.status(200).json({ ok: true });
 
     const { ResultCode, CheckoutRequestID, CallbackMetadata } = Body.stkCallback;
+
+    // Safety check 1: log every callback for audit trail
+    await logCallback(CheckoutRequestID, req.body, false);
+
+    // Safety check 2: idempotency — skip if already processed
+    if (await isCallbackAlreadyProcessed(CheckoutRequestID)) {
+      return res.status(200).json({ ok: true });
+    }
 
     const db = requireService();
     const { data: donations } = await db
@@ -199,36 +245,44 @@ mpesaRouter.post("/callback", async (req, res) => {
         if (item.Name === "MpesaReceiptNumber") receiptNumber = item.Value;
       }
 
-      await db
-        .from("donations")
-        .update({
-          status: "completed",
-          receipt_number: receiptNumber || `TXN-${Date.now()}`,
-        })
-        .eq("id", donation.id);
+      // Safety check 3: deadlock-safe update with retry
+      await withRetry(async () => {
+        await db
+          .from("donations")
+          .update({
+            status: "completed",
+            receipt_number: receiptNumber || `TXN-${Date.now()}`,
+          })
+          .eq("id", donation.id);
 
-      await db.rpc("increment_campaign_raised", {
-        campaign_id: donation.campaign_id,
-        amount: Number(donation.amount),
-      });
+        await db.rpc("increment_campaign_raised", {
+          campaign_id: donation.campaign_id,
+          amount: Number(donation.amount),
+        });
+      }, "callback complete donation");
 
       // If this donation is linked to a pledge, update the pledge
       if (donation.account_reference && String(donation.account_reference).startsWith("PLD:")) {
         const pledgeId = String(donation.account_reference).replace("PLD:", "");
-        const { data: pledge } = await db.from("pledges").select("*").eq("id", pledgeId).single();
-        if (pledge) {
-          const payAmount = Number(donation.amount);
-          const newPaid = Number(pledge.paid) + payAmount;
-          const newRemaining = Math.max(0, Number(pledge.amount) - newPaid);
-          const newStatus = newRemaining <= 0 ? "fulfilled" : "pending";
-          await db.from("pledges").update({ paid: newPaid, remaining: newRemaining, status: newStatus }).eq("id", pledgeId);
-          await db.from("pledge_payments").insert({
-            pledge_id: pledgeId,
-            amount: payAmount,
-            receipt_number: receiptNumber || `MPESA-${Date.now()}`,
-          });
-        }
+        await withRetry(async () => {
+          const { data: pledge } = await db.from("pledges").select("*").eq("id", pledgeId).single();
+          if (pledge) {
+            const payAmount = Number(donation.amount);
+            const newPaid = Number(pledge.paid) + payAmount;
+            const newRemaining = Math.max(0, Number(pledge.amount) - newPaid);
+            const newStatus = newRemaining <= 0 ? "fulfilled" : "pending";
+            await db.from("pledges").update({ paid: newPaid, remaining: newRemaining, status: newStatus }).eq("id", pledgeId);
+            await db.from("pledge_payments").insert({
+              pledge_id: pledgeId,
+              amount: payAmount,
+              receipt_number: receiptNumber || `MPESA-${Date.now()}`,
+            });
+          }
+        }, "callback update pledge");
       }
+
+      // Mark callback as processed (idempotency)
+      await markCallbackProcessed(CheckoutRequestID);
 
       whatsAppConfirmation({ ...donation, receipt_number: receiptNumber });
     } else {
@@ -245,7 +299,8 @@ mpesaRouter.post("/callback", async (req, res) => {
   }
 });
 
-// ── Resend WhatsApp for completed donations that missed it (admin only) ──
+// ── Resend WhatsApp (admin only) ──
+
 mpesaRouter.post("/resend-whatsapp/:id", requireAdmin, async (req, res) => {
   try {
     const db = requireService();
@@ -272,7 +327,6 @@ mpesaRouter.get("/status/:checkoutRequestId", async (req, res) => {
     const { checkoutRequestId } = req.params;
     const db = requireService();
 
-    // Always check DB first — callback may have already finalized it
     const { data: donation } = await db
       .from("donations")
       .select("id, campaign_id, amount, status, receipt_number, phone, donor_name")
@@ -287,7 +341,6 @@ mpesaRouter.get("/status/:checkoutRequestId", async (req, res) => {
       return res.json({ status: "pending" });
     }
 
-    // Query Safaricom for real-time status
     if (ENV !== "sandbox") {
       const accessToken = await getAccessToken();
       const ts = timestamp();
@@ -311,23 +364,24 @@ mpesaRouter.get("/status/:checkoutRequestId", async (req, res) => {
 
       const data = await statusRes.json();
 
-      // Only auto-complete if Safaricom confirms with a receipt number
       const receiptNumber = data.CallbackMetadata?.Item
         ?.find((item: any) => item.Name === "MpesaReceiptNumber")?.Value;
 
       if (String(data.ResultCode) === "0" && receiptNumber && donation) {
-        await db
-          .from("donations")
-          .update({
-            status: "completed",
-            receipt_number: receiptNumber,
-          })
-          .eq("id", donation.id);
+        await withRetry(async () => {
+          await db
+            .from("donations")
+            .update({
+              status: "completed",
+              receipt_number: receiptNumber,
+            })
+            .eq("id", donation.id);
 
-        await db.rpc("increment_campaign_raised", {
-          campaign_id: donation.campaign_id,
-          amount: Number(donation.amount),
-        });
+          await db.rpc("increment_campaign_raised", {
+            campaign_id: donation.campaign_id,
+            amount: Number(donation.amount),
+          });
+        }, "status query complete");
 
         whatsAppConfirmation({ ...donation, receipt_number: receiptNumber });
 
@@ -342,8 +396,8 @@ mpesaRouter.get("/status/:checkoutRequestId", async (req, res) => {
   }
 });
 
-// ── C2B (Paybill direct) – Shared handler ──
-// NOTE: Safaricom rejects URLs containing "mpesa" substring, so /paybill/ paths are used
+// ── C2B (Paybill direct) ──
+
 async function handleC2BConfirmation(req: any, res: any) {
   try {
     const body = req.body;
@@ -358,9 +412,27 @@ async function handleC2BConfirmation(req: any, res: any) {
     const amount = Number(body.TransAmount) || 0;
     if (amount < 10) { console.log("C2B skipped: amount too small"); return; }
 
+    // Safety check: cap max amount
+    const amountCheck = validateDonationAmount(amount);
+    if (!amountCheck.valid) {
+      console.log(`C2B skipped: ${amountCheck.error}`);
+      return;
+    }
+
     const phone = String(body.MSISDN || "");
     const receiptNumber = String(body.TransID || "");
+
+    // Safety check: idempotency — skip duplicate TransID
     const db = requireService();
+    const { data: duplicate } = await db
+      .from("donations")
+      .select("id")
+      .eq("receipt_number", receiptNumber)
+      .limit(1);
+    if (duplicate?.length) {
+      console.log(`C2B skipped: duplicate receipt ${receiptNumber}`);
+      return;
+    }
 
     const { data: existing } = await db
       .from("church_members").select("id").eq("is_active", true).ilike("name", donorName);
@@ -374,12 +446,14 @@ async function handleC2BConfirmation(req: any, res: any) {
     const { data: campaign } = await db
       .from("campaigns").select("id").eq("slug", "development-fund").single();
 
-    const { data: donation } = await db.from("donations").insert({
-      donor_name: donorName, amount, phone, status: "completed", method: "mpesa",
-      receipt_number: receiptNumber, church_member_id: memberId,
-      campaign_id: campaign?.id, account_reference: "C2B:" + receiptNumber,
-      transaction_desc: "Paybill Direct",
-    }).select().single();
+    const { data: donation } = await withRetry(async () => {
+      return await db.from("donations").insert({
+        donor_name: donorName, amount, phone, status: "completed", method: "mpesa",
+        receipt_number: receiptNumber, church_member_id: memberId,
+        campaign_id: campaign?.id, account_reference: "C2B:" + receiptNumber,
+        transaction_desc: "Paybill Direct",
+      }).select().single();
+    }, "c2b insert donation");
 
     if (donation && campaign?.id) {
       await db.rpc("increment_campaign_raised", { campaign_id: campaign.id, amount }).catch(() => {});
@@ -399,6 +473,7 @@ mpesaRouter.post("/c2b/confirmation", handleC2BConfirmation);
 mpesaRouter.post("/paybill/confirmation", handleC2BConfirmation);
 
 // ── C2B URL registration with Safaricom (admin only) ──
+
 mpesaRouter.post("/c2b/register", requireAdmin, async (_req, res) => {
   try {
     const accessToken = await getAccessToken();
@@ -423,8 +498,8 @@ mpesaRouter.post("/c2b/register", requireAdmin, async (_req, res) => {
     const data = await regRes.json();
     console.log("C2B register response:", JSON.stringify(data));
     res.json(data);
-  } catch (err: any) {
-    console.error("C2B register error:", err);
-    res.status(500).json({ error: err?.message || "C2B registration failed" });
+  } catch (e) {
+    console.error("C2B register error:", e);
+    res.status(500).json({ error: "C2B registration failed" });
   }
 });
