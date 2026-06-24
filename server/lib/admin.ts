@@ -5,16 +5,8 @@ import { hasPermission, DataType, Action } from "./permissions.js";
 import { cacheGet, cacheSet, cacheKey } from "./redis.js";
 import { v4 as uuid } from "uuid";
 
-if (!process.env.JWT_SECRET) {
-  if (process.env.VERCEL) {
-    console.warn("JWT_SECRET not set — Supabase Auth will be used for token verification");
-  } else {
-    throw new Error("JWT_SECRET environment variable is required");
-  }
-}
-
+// Keep JWT/bcrypt imports only for legacy password verification (existing admin_users)
 const JWT_SECRET = process.env.JWT_SECRET || "";
-const JWT_EXPIRES = "24h";
 
 let jwtModule: any = null;
 async function getJwt() {
@@ -32,6 +24,13 @@ async function getBcrypt() {
 const RATE_LIMIT_WINDOW = 60 * 1000;
 const RATE_LIMIT_MAX = 300;
 const reqCounts = new Map<string, { count: number; resetAt: number }>();
+// Periodic cleanup of expired rate limit entries (every 5 min)
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of reqCounts) {
+    if (now > entry.resetAt) reqCounts.delete(ip);
+  }
+}, 5 * 60 * 1000);
 
 export { hasPermission } from "./permissions.js";
 export { requirePermission } from "./permissions.js";
@@ -50,22 +49,10 @@ export async function verifyPassword(password: string, hash: string) {
   return bcrypt.compareSync(password, hash);
 }
 
-// ----- JWT signing (legacy, used only as fallback) ----- //
-
-export async function signToken(payload: { id: string; email: string; role: string }) {
-  const jwt = await getJwt();
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-}
-
-export async function verifyToken(token: string) {
-  const jwt = await getJwt();
-  return jwt.verify(token, JWT_SECRET) as { id: string; email: string; role: string };
-}
-
-// ----- Supabase Auth token verification ----- //
+// ----- Supabase Auth token verification (sole auth mechanism) ----- //
 
 let _verifyAuthTokenCache = new Map<string, { user: any; expiresAt: number }>();
-const AUTH_CACHE_TTL = 60_000;
+const AUTH_CACHE_TTL = 5_000;
 
 async function verifySupabaseToken(token: string) {
   const cached = _verifyAuthTokenCache.get(token);
@@ -77,8 +64,11 @@ async function verifySupabaseToken(token: string) {
 
   _verifyAuthTokenCache.set(token, { user: data.user, expiresAt: Date.now() + AUTH_CACHE_TTL });
   if (_verifyAuthTokenCache.size > 1000) {
-    const key = _verifyAuthTokenCache.keys().next().value;
-    if (key) _verifyAuthTokenCache.delete(key);
+    const now = Date.now();
+    for (const [key, entry] of _verifyAuthTokenCache) {
+      if (now >= entry.expiresAt) _verifyAuthTokenCache.delete(key);
+      if (_verifyAuthTokenCache.size <= 900) break;
+    }
   }
 
   return data.user;
@@ -111,6 +101,14 @@ interface CacheEntry { data: any; expiresAt: number; }
 const memCache = new Map<string, CacheEntry>();
 const MEM_CACHE_TTL = 30 * 1000;
 
+// Periodic cleanup of expired cache entries
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of memCache) {
+    if (now >= entry.expiresAt) memCache.delete(key);
+  }
+}, 60 * 1000);
+
 export function getCached(key: string): any | null {
   const entry = memCache.get(key);
   if (entry && Date.now() < entry.expiresAt) return entry.data;
@@ -120,10 +118,6 @@ export function getCached(key: string): any | null {
 
 export function setCache(key: string, data: any, ttl = MEM_CACHE_TTL) {
   memCache.set(key, { data, expiresAt: Date.now() + ttl });
-  if (memCache.size > 100) {
-    const first = memCache.keys().next().value;
-    if (first) memCache.delete(first);
-  }
 }
 
 // ----- API Rate Limiting ----- //
@@ -287,41 +281,28 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
   const token = authHeader.slice(7);
 
   try {
-    // Try Supabase Auth verification first
     const authUser = await verifySupabaseToken(token);
-    if (authUser) {
-      const db = requireService();
-      const { data: admin } = await db
-        .from("admin_users")
-        .select("id, email, name, role, phone")
-        .eq("id", authUser.id)
-        .single();
-
-      if (!admin) {
-        return res.status(401).json({ error: "Admin account not found" });
-      }
-
-      (req as any).admin = { id: admin.id, email: admin.email, role: admin.role };
-      (req as any).adminIp = getClientIp(req);
-      (req as any).ipAddress = getClientIp(req);
-      (req as any).userAgent = getUserAgent(req);
-      (req as any).requestId = (req.headers["x-request-id"] as string) || uuid();
-      return next();
-    }
-
-    // Fallback: verify legacy JWT (for existing sessions before migration)
-    try {
-      const jwt = await getJwt();
-      const decoded = jwt.verify(token, JWT_SECRET) as { id: string; email: string; role: string };
-      (req as any).admin = decoded;
-      (req as any).adminIp = getClientIp(req);
-      (req as any).ipAddress = getClientIp(req);
-      (req as any).userAgent = getUserAgent(req);
-      (req as any).requestId = (req.headers["x-request-id"] as string) || uuid();
-      return next();
-    } catch {
+    if (!authUser) {
       return res.status(401).json({ error: "Invalid or expired token" });
     }
+
+    const db = requireService();
+    const { data: admin } = await db
+      .from("admin_users")
+      .select("id, email, name, role, phone")
+      .eq("id", authUser.id)
+      .single();
+
+    if (!admin) {
+      return res.status(401).json({ error: "Admin account not found" });
+    }
+
+    (req as any).admin = { id: admin.id, email: admin.email, role: admin.role };
+    (req as any).adminIp = getClientIp(req);
+    (req as any).ipAddress = getClientIp(req);
+    (req as any).userAgent = getUserAgent(req);
+    (req as any).requestId = (req.headers["x-request-id"] as string) || uuid();
+    return next();
   } catch (err) {
     console.error("requireAdmin error:", err);
     return res.status(500).json({ error: "Server error" });
@@ -352,6 +333,7 @@ export function maskSensitiveData(donation: Record<string, unknown>): Record<str
     const phone = masked.phone as string;
     masked.phone = phone.slice(0, 6) + "****";
   }
+  delete masked.checkout_request_id;
   return masked;
 }
 

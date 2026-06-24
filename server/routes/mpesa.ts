@@ -162,11 +162,11 @@ mpesaRouter.post("/stkpush", async (req, res) => {
     }
 
     res.json(stkData);
-  } catch (err: any) {
-    console.error("mpesa stkpush error:", err);
+  } catch (e) {
+    console.error("mpesa stkpush error:", e);
     res.status(200).json({
       errorCode: "500",
-      errorMessage: err?.message || "M-Pesa request failed",
+      errorMessage: "M-Pesa request failed",
     });
   }
 });
@@ -245,8 +245,8 @@ mpesaRouter.post("/callback", async (req, res) => {
   }
 });
 
-// ── Resend WhatsApp for completed donations that missed it ──
-mpesaRouter.post("/resend-whatsapp/:id", async (req, res) => {
+// ── Resend WhatsApp for completed donations that missed it (admin only) ──
+mpesaRouter.post("/resend-whatsapp/:id", requireAdmin, async (req, res) => {
   try {
     const db = requireService();
     const { data } = await db

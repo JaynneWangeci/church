@@ -126,7 +126,7 @@ donationsRouter.post("/", async (req, res) => {
   }
 });
 
-donationsRouter.get("/lookup/phone/:phone", async (req, res) => {
+donationsRouter.get("/lookup/phone/:phone", requireAdmin, async (req, res) => {
   try {
     const db = requireService();
     const phone = req.params.phone.replace(/\D/g, "");

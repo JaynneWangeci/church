@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
-import { requireAdmin, requireAdminOrAbove, logAudit, rateLimit } from "../lib/admin.js";
+import { requireAdmin, requireAdminOrAbove, logAudit, rateLimit, filterDonationsByRole, maskSensitiveData } from "../lib/admin.js";
 import { invalidateOnChange } from "../lib/redis.js";
 import type { AuditAction } from "../lib/admin.js";
 
@@ -58,7 +58,7 @@ membersRouter.get("/template", async (_req, res) => {
   }
 });
 
-membersRouter.get("/", async (_req, res) => {
+membersRouter.get("/", requireAdmin, async (_req, res) => {
   try {
     const db = requireService();
     const { data, error } = await db
@@ -329,7 +329,9 @@ membersRouter.patch("/:id", requireAdmin, requireAdminOrAbove, async (req, res) 
 membersRouter.get("/history", requireAdmin, async (req, res) => {
   try {
     const db = requireService();
-    const name = (req.query.name as string || "").trim();
+    const raw = (req.query.name as string || "").trim();
+    // Only allow alphanumeric, spaces, hyphens, apostrophes, periods, underscores
+    const name = raw.replace(/[^a-zA-Z0-9\s\-'._]/g, "").slice(0, 100);
 
     if (!name || name.length < 2) {
       return res.status(400).json({ error: "Name must be at least 2 characters" });
@@ -345,14 +347,21 @@ membersRouter.get("/history", requireAdmin, async (req, res) => {
     const memberIds = (members || []).map(m => m.id);
 
     // Fetch all donations linked to these members (by church_member_id or donor_name)
-    const { data: donations } = await db
+    // Using parameterized ilike instead of string interpolation
+    let query = db
       .from("donations")
       .select("id, amount, method, status, receipt_number, phone, message, donor_name, checkout_request_id, church_member_id, created_at")
-      .or(memberIds.length
-        ? `church_member_id.in.(${memberIds.join(",")}),donor_name.ilike.%${name}%`
-        : `donor_name.ilike.%${name}%`
-      )
       .order("created_at", { ascending: false });
+
+    if (memberIds.length) {
+      query = query.or(
+        `church_member_id.in.(${memberIds.join(",")}),donor_name.ilike.%${name}%`
+      );
+    } else {
+      query = query.ilike("donor_name", `%${name}%`);
+    }
+
+    const { data: donations } = await query;
 
     // Fetch all pledges linked to this donor name
     const { data: pledges } = await db
@@ -361,8 +370,15 @@ membersRouter.get("/history", requireAdmin, async (req, res) => {
       .ilike("donor_name", `%${name}%`)
       .order("created_at", { ascending: false });
 
-    // Compute summary
-    const allDonations = donations || [];
+    // Apply role-based data masking on donation results
+    const admin = (req as any).admin;
+    let allDonations = (donations || []) as any[];
+    if (admin?.role === "viewer") {
+      allDonations = allDonations.filter((d: any) => d.status === "completed").map((d: any) => maskSensitiveData(d));
+    } else if (admin?.role === "admin") {
+      allDonations = allDonations.map((d: any) => maskSensitiveData(d));
+    }
+
     const completedDons = allDonations.filter(d => d.status === "completed");
     const failedDons = allDonations.filter(d => d.status === "failed");
     const pendingDons = allDonations.filter(d => d.status === "pending");
@@ -381,7 +397,6 @@ membersRouter.get("/history", requireAdmin, async (req, res) => {
     };
 
     // Audit log
-    const admin = (req as any).admin;
     await logAudit({
       adminId: admin.id,
       action: "view_member_history" as AuditAction,

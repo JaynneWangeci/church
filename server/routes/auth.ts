@@ -279,16 +279,17 @@ authRouter.post("/forgot-password", async (req, res) => {
       .eq("email", normalizedEmail)
       .single();
 
+    // Always return the same message to prevent email enumeration
     if (lookupError || !admin) {
-      return res.status(404).json({ error: "Email not found." });
+      return res.json({ ok: true, message: "If the email exists, a reset code has been sent." });
     }
 
     if (admin.role !== "super_admin") {
-      return res.status(403).json({ error: "Only super admins can reset their password." });
+      return res.json({ ok: true, message: "If the email exists, a reset code has been sent." });
     }
 
     if (!admin.phone) {
-      return res.status(400).json({ error: "No phone number registered. Contact support." });
+      return res.json({ ok: true, message: "If the email exists, a reset code has been sent." });
     }
 
     await db.from("password_reset_tokens").delete().eq("admin_id", admin.id);
@@ -302,8 +303,7 @@ authRouter.post("/forgot-password", async (req, res) => {
       expires_at: expiresAt,
     });
 
-    console.log(`Sending reset code to phone: ${admin.phone}`);
-    const waSent = await sendWhatsApp(admin.phone, `AIPCA Bahati Cathedral: Your password reset code is ${code}. It expires in 1 hour.`);
+    await sendWhatsApp(admin.phone, `AIPCA Bahati Cathedral: Your password reset code is ${code}. It expires in 1 hour.`);
 
     await logAudit({
       adminId: admin.id,
@@ -311,11 +311,7 @@ authRouter.post("/forgot-password", async (req, res) => {
       ipAddress: getClientIp(req),
     });
 
-    if (!waSent) {
-      return res.status(500).json({ error: "Failed to send reset code via WhatsApp. Try again." });
-    }
-
-    res.json({ ok: true, message: "Reset code sent to your WhatsApp." });
+    res.json({ ok: true, message: "If the email exists, a reset code has been sent." });
   } catch (err) {
     console.error("forgot-password error:", err);
     res.status(500).json({ error: "Server error" });

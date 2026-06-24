@@ -48,7 +48,7 @@ app.use((req, _res, next) => {
   next();
 });
 
-app.use("/api/auth", authRouter);
+app.use("/api/auth", rateLimit, authRouter);
 app.use("/api/campaigns", campaignsRouter);
 app.use("/api/committee", committeeRouter);
 app.use("/api/councils", councilsRouter);
