@@ -21,7 +21,7 @@ export default function MemberRegistration() {
     fetch('/api/councils')
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (data?.length) setCouncils(data);
+        if (data?.councils?.length) setCouncils(data.councils);
       })
       .catch(() => {});
   }, []);

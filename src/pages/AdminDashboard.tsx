@@ -76,6 +76,8 @@ export default function AdminDashboard() {
   const [historyName, setHistoryName] = useState("");
   const [historyResult, setHistoryResult] = useState<any>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [showHistoryDropdown, setShowHistoryDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [analyticsRange, setAnalyticsRange] = useState<"7d" | "30d" | "90d" | "1y" | "all">("30d");
   const [chartPeriod, setChartPeriod] = useState<"daily" | "weekly" | "monthly">("daily");
@@ -831,24 +833,46 @@ export default function AdminDashboard() {
           {/* Member history search */}
           <div className="mb-6 rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
-              <div className="relative flex-1">
+              <div ref={dropdownRef} className="relative flex-1">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
                 <input
                   type="text"
-                  placeholder="Search full member history by name..."
+                  placeholder="Type a name and select, then press Enter or click Search"
                   value={historyName}
-                  onChange={e => setHistoryName(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter") handleHistorySearch(); }}
+                  onChange={e => { setHistoryName(e.target.value); setShowHistoryDropdown(true); }}
+                  onFocus={() => setShowHistoryDropdown(true)}
+                  onKeyDown={e => { if (e.key === "Enter") { setShowHistoryDropdown(false); handleHistorySearch(); } }}
                   className="w-full rounded-lg border border-gray-200 py-3 pl-9 pr-3 text-sm text-ink outline-none focus:border-nobuk"
                 />
+                {showHistoryDropdown && churchMembers.length > 0 && historyName.trim() && (
+                  <div className="absolute top-full left-0 right-0 z-30 mt-1 max-h-48 overflow-y-auto rounded-xl border border-gray-100 bg-white shadow-lg">
+                    {churchMembers
+                      .filter(m => m.name.toLowerCase().includes(historyName.toLowerCase()))
+                      .slice(0, 20)
+                      .map(m => (
+                        <button key={m.id} type="button"
+                          onClick={() => { setHistoryName(m.name); setShowHistoryDropdown(false); handleHistorySearch(); }}
+                          className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-cream">
+                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-nobuk-muted text-[10px] font-bold text-nobuk">
+                            {m.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}
+                          </div>
+                          <span className="text-sm font-medium text-ink">{m.name}</span>
+                          <span className="ml-auto text-[10px] text-muted capitalize">{m.council.replace(/_/g, " ")}</span>
+                        </button>
+                      ))}
+                    {churchMembers.filter(m => m.name.toLowerCase().includes(historyName.toLowerCase())).length === 0 && (
+                      <div className="px-4 py-3 text-xs text-muted">No matching members. Press Enter to search all records.</div>
+                    )}
+                  </div>
+                )}
               </div>
-              <button onClick={handleHistorySearch} disabled={!historyName.trim() || historyLoading}
+              <button onClick={() => { setShowHistoryDropdown(false); handleHistorySearch(); }} disabled={!historyName.trim() || historyLoading}
                 className="flex items-center gap-1.5 rounded-lg bg-nobuk px-4 py-3 text-sm font-bold text-white hover:bg-nobuk-light disabled:opacity-40 transition">
                 {historyLoading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <Users size={16} />}
                 Search History
               </button>
             </div>
-            <p className="mt-1.5 text-[11px] text-muted">Type a name to see all donations (including failed), pledges, and full history with timestamps.</p>
+            <p className="mt-1.5 text-[11px] text-muted">Click a name from the dropdown or type any name and press Enter to see all donations (including failed), pledges, and full history.</p>
           </div>
 
           <div className="grid gap-8 lg:grid-cols-3">
