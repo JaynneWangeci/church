@@ -257,6 +257,27 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
       .map(([method, total]) => ({ method, total }))
       .sort((a, b) => b.total - a.total);
 
+    // ── Page views ──
+    const { data: pageViews7d } = await db
+      .from("page_views")
+      .select("id", { count: "exact", head: false })
+      .gte("created_at", periods["7d"].toISOString());
+    const { data: pageViews30d } = await db
+      .from("page_views")
+      .select("id", { count: "exact", head: false })
+      .gte("created_at", periods["30d"].toISOString());
+    const { data: pageViewsLive } = await db
+      .from("page_views")
+      .select("id, path, page_title, created_at")
+      .gte("created_at", periods["7d"].toISOString())
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    // ── Audit log count ──
+    const { count: auditCount } = await db
+      .from("audit_logs")
+      .select("id", { count: "exact", head: false });
+
     await logAudit({
       adminId: (req as any).admin.id,
       action: "view_dashboard_analytics",
@@ -271,6 +292,16 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
     const harambeeDaysRemaining = Math.max(0, Math.ceil(harambeeDiffMs / (1000 * 60 * 60 * 24)));
 
     const result = {
+      system: {
+        audit_logs_total: auditCount || 0,
+        page_views_7d: pageViews7d?.count || 0,
+        page_views_30d: pageViews30d?.count || 0,
+        page_views_live: (pageViewsLive?.data || []).map((v: any) => ({
+          path: v.path,
+          title: v.page_title,
+          viewed_at: v.created_at,
+        })),
+      },
       kpis: {
         current30d_total: cur30Total,
         current30d_count: cur30Count,

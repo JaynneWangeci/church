@@ -4,6 +4,7 @@ import {
   TrendingUp, Users, DollarSign, Clock, AlertCircle,
   Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileSpreadsheet, Search, ScanSearch, ArrowUpRight, ArrowDownRight, PieChart, Target, Save, Pencil, Monitor, Eye, EyeOff,
 } from "lucide-react";
+import MemberHistoryPanel from "../components/MemberHistoryPanel";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePie, Pie, Cell, Legend,
 } from "recharts";
@@ -667,6 +668,81 @@ export default function AdminDashboard() {
           )}
         </div>
 
+        {/* Global member search — visible from every tab */}
+        <div className="mb-4">
+          <div className="flex items-center gap-2">
+            <div ref={dropdownRef} className="relative flex-1">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+              <input
+                type="text"
+                placeholder="Search any member's full history (donations, pledges, failed attempts)..."
+                value={historyName}
+                onChange={e => { setHistoryName(e.target.value); setShowHistoryDropdown(true); }}
+                onFocus={() => setShowHistoryDropdown(true)}
+                onKeyDown={e => { if (e.key === "Enter") { setShowHistoryDropdown(false); handleHistorySearch(); } }}
+                className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-9 pr-3 text-sm text-ink outline-none focus:border-nobuk shadow-sm"
+              />
+              {showHistoryDropdown && historyName.trim() && (
+                <div className="absolute top-full left-0 right-0 z-30 mt-1 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg">
+                  <div className="max-h-56 overflow-y-auto divide-y divide-gray-50">
+                    {COUNCIL_ORDER && Object.keys(COUNCIL_ORDER).filter(council => {
+                      const filtered = churchMembers.filter(m =>
+                        m.council === council &&
+                        m.name.toLowerCase().includes(historyName.toLowerCase())
+                      );
+                      return filtered.length > 0;
+                    }).sort((a, b) => (COUNCIL_ORDER[a] || 99) - (COUNCIL_ORDER[b] || 99)).map(council => {
+                      const councilMembers = churchMembers.filter(m =>
+                        m.council === council &&
+                        m.name.toLowerCase().includes(historyName.toLowerCase())
+                      );
+                      if (!councilMembers.length) return null;
+                      return (
+                        <div key={council}>
+                          <div className="sticky top-0 flex items-center gap-2 bg-blue-50 px-4 py-1.5">
+                            <Church size={12} className="text-nobuk" />
+                            <span className="text-[10px] font-bold text-nobuk uppercase tracking-wider">{councilLabels[council] || council.replace(/_/g, " ")}</span>
+                          </div>
+                          {councilMembers.map(m => (
+                            <button key={m.id} type="button"
+                              onClick={() => { setHistoryName(m.name); setShowHistoryDropdown(false); handleHistorySearch(); }}
+                              className={`flex w-full items-center gap-3 px-4 py-2 text-left transition-all hover:bg-cream ${
+                                historyName === m.name ? "bg-blue-50 font-bold" : ""
+                              }`}>
+                              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                                historyName === m.name ? "bg-nobuk text-white" : "bg-nobuk-muted text-nobuk"
+                              }`}>
+                                {m.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}
+                              </div>
+                              <p className={`text-sm ${historyName === m.name ? "text-nobuk" : "text-ink font-medium"}`}>{m.name}</p>
+                              {m.gender && <span className={`text-[10px] font-bold ${m.gender === "male" ? "text-blue-500" : "text-pink-500"}`}>{m.gender === "male" ? "M" : "F"}</span>}
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })}
+                    {churchMembers.filter(m => m.name.toLowerCase().includes(historyName.toLowerCase())).length === 0 && (
+                      <div className="px-4 py-4 text-center text-xs text-muted">
+                        No matching members. Press <span className="font-bold text-ink">Enter</span> to search all records.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            <button onClick={() => { setShowHistoryDropdown(false); handleHistorySearch(); }} disabled={!historyName.trim() || historyLoading}
+              className="flex items-center gap-1.5 rounded-xl bg-nobuk px-5 py-3 text-sm font-bold text-white hover:bg-nobuk-light disabled:opacity-40 transition shadow-sm">
+              {historyLoading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <Search size={16} />}
+              Search
+            </button>
+          </div>
+          <p className="mt-1.5 text-[11px] text-muted">Shows all donations (completed, failed, pending), pledges, and payment attempts with timestamps. Type a name and press Enter or click Search.</p>
+        </div>
+
+        {historyResult && (
+          <MemberHistoryPanel result={historyResult} name={historyName} onClose={() => setHistoryResult(null)} adminRole={admin?.role} />
+        )}
+
         {tab === "overview" && (
           <>
             <div className="mb-8 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
@@ -1092,137 +1168,6 @@ export default function AdminDashboard() {
 
             {/* Members list */}
             <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm lg:col-span-3">
-              {historyResult && (
-                <div className="mb-4 rounded-xl border border-gray-100 bg-white p-5 shadow-sm lg:col-span-3">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-ink">Member History: {historyName}</h3>
-                    <button onClick={() => setHistoryResult(null)}
-                      className="text-xs text-muted hover:text-ink">&times; Close</button>
-                  </div>
-                  {(() => {
-                    const h = historyResult;
-                    return (
-                      <div className="space-y-4">
-                        {/* Summary cards */}
-                        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                          <div className="rounded-lg border border-gray-100 bg-cream p-3">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Total Donated</p>
-                            <p className="text-lg font-bold text-green-700 tabular-nums">KES {h.summary.total_donated.toLocaleString("en-KE")}</p>
-                          </div>
-                          <div className="rounded-lg border border-gray-100 bg-cream p-3">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Donations</p>
-                            <p className="text-lg font-bold text-ink tabular-nums">{h.summary.completed_donations} ok &middot; {h.summary.failed_donations} failed &middot; {h.summary.pending_donations} pending</p>
-                          </div>
-                          <div className="rounded-lg border border-gray-100 bg-cream p-3">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Total Pledged</p>
-                            <p className="text-lg font-bold text-nobuk tabular-nums">KES {h.summary.total_pledged.toLocaleString("en-KE")}</p>
-                          </div>
-                          <div className="rounded-lg border border-gray-100 bg-cream p-3">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Pledge Paid</p>
-                            <p className="text-lg font-bold text-emerald-600 tabular-nums">KES {h.summary.total_paid.toLocaleString("en-KE")}</p>
-                          </div>
-                        </div>
-
-                        {/* Member profiles */}
-                        {h.members?.length > 0 && (
-                          <div className="flex flex-wrap gap-2">
-                            {h.members.map((m: any) => (
-                              <span key={m.id} className="rounded-full bg-nobuk-muted px-3 py-1 text-xs font-medium text-nobuk">
-                                {m.name} &middot; {m.council.replace(/_/g, " ")}{m.gender ? ` · ${m.gender}` : ""}{!m.is_active ? " (inactive)" : ""}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* All donations */}
-                        {h.donations?.length > 0 && (
-                          <div>
-                            <p className="mb-1.5 text-xs font-bold uppercase tracking-wider text-muted">
-                              All Transactions ({h.donations.length})
-                            </p>
-                            <div className="max-h-[300px] overflow-y-auto rounded-lg border border-gray-100">
-                              <table className="w-full text-left text-xs">
-                                <thead className="sticky top-0 bg-gray-50">
-                                  <tr className="border-b border-gray-100">
-                                    <th className="px-2 py-1.5 font-bold text-muted">Date & Time</th>
-                                    <th className="px-2 py-1.5 font-bold text-muted">Amount</th>
-                                    <th className="px-2 py-1.5 font-bold text-muted">Status</th>
-                                    <th className="px-2 py-1.5 font-bold text-muted">Method</th>
-                                    <th className="px-2 py-1.5 font-bold text-muted">Receipt</th>
-                                    <th className="px-2 py-1.5 font-bold text-muted">Phone</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {h.donations.map((d: any) => (
-                                    <tr key={d.id} className="border-b border-gray-50 last:border-0 hover:bg-cream">
-                                      <td className="px-2 py-1.5 tabular-nums text-muted whitespace-nowrap">
-                                        {new Date(d.created_at).toLocaleDateString("en-KE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                                      </td>
-                                      <td className="px-2 py-1.5 tabular-nums font-bold text-ink">KES {Number(d.amount).toLocaleString("en-KE")}</td>
-                                      <td className="px-2 py-1.5">
-                                        <span className={`rounded-full px-2 py-0.5 font-semibold ${
-                                          d.status === "completed" ? "bg-green-100 text-green-700" :
-                                          d.status === "failed" ? "bg-red-100 text-red-700" :
-                                          "bg-amber-100 text-amber-700"
-                                        }`}>{d.status}</span>
-                                      </td>
-                                      <td className="px-2 py-1.5 capitalize text-muted">{d.method}</td>
-                                      <td className="px-2 py-1.5 text-muted font-mono">{d.receipt_number || "—"}</td>
-                                      <td className="px-2 py-1.5 text-muted">{d.phone || "—"}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* All pledges */}
-                        {h.pledges?.length > 0 && (
-                          <div>
-                            <p className="mb-1.5 text-xs font-bold uppercase tracking-wider text-muted">
-                              Pledges ({h.pledges.length})
-                            </p>
-                            <div className="max-h-[250px] overflow-y-auto rounded-lg border border-gray-100">
-                              <table className="w-full text-left text-xs">
-                                <thead className="sticky top-0 bg-gray-50">
-                                  <tr className="border-b border-gray-100">
-                                    <th className="px-2 py-1.5 font-bold text-muted">Date</th>
-                                    <th className="px-2 py-1.5 font-bold text-muted">Amount</th>
-                                    <th className="px-2 py-1.5 font-bold text-muted">Paid</th>
-                                    <th className="px-2 py-1.5 font-bold text-muted">Remaining</th>
-                                    <th className="px-2 py-1.5 font-bold text-muted">Status</th>
-                                    <th className="px-2 py-1.5 font-bold text-muted">Phone</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {h.pledges.map((p: any) => (
-                                    <tr key={p.id} className="border-b border-gray-50 last:border-0 hover:bg-cream">
-                                      <td className="px-2 py-1.5 tabular-nums text-muted whitespace-nowrap">
-                                        {new Date(p.created_at).toLocaleDateString("en-KE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                                      </td>
-                                      <td className="px-2 py-1.5 tabular-nums font-bold text-ink">KES {Number(p.amount).toLocaleString("en-KE")}</td>
-                                      <td className="px-2 py-1.5 tabular-nums text-emerald-700 font-semibold">KES {Number(p.paid).toLocaleString("en-KE")}</td>
-                                      <td className="px-2 py-1.5 tabular-nums text-amber-700 font-semibold">KES {Number(p.remaining).toLocaleString("en-KE")}</td>
-                                      <td className="px-2 py-1.5 capitalize text-muted">{p.status}</td>
-                                      <td className="px-2 py-1.5 text-muted">{p.phone || "—"}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        )}
-
-                        {!h.donations?.length && !h.pledges?.length && (
-                          <p className="py-4 text-center text-sm text-muted">No records found for this name.</p>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-
               <div className="mb-4 flex items-center gap-2">
                 <Users size={16} className="text-nobuk" />
                 <h2 className="text-sm font-bold text-ink">Church Members</h2>
@@ -2844,6 +2789,85 @@ export default function AdminDashboard() {
                             </div>
                           </div>
                         </div>
+                      </div>
+                    )}
+
+                    {/* ── System Metrics ── */}
+                    <div className="mt-6 rounded-lg border border-gray-100 bg-white p-4">
+                      <div className="mb-3 flex items-center gap-2">
+                        <BarChart3 size={16} className="text-nobuk" />
+                        <h3 className="text-sm font-bold text-ink">System Activity</h3>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-3 mb-4">
+                        <div className="rounded-lg bg-blue-50 p-3 text-center">
+                          <p className="text-xs font-medium text-blue-700">Total Audit Events</p>
+                          <p className="mt-1 text-lg font-bold text-blue-900">{dashboardData.system?.audit_logs_total || 0}</p>
+                        </div>
+                        <div className="rounded-lg bg-violet-50 p-3 text-center">
+                          <p className="text-xs font-medium text-violet-700">Page Views (7d)</p>
+                          <p className="mt-1 text-lg font-bold text-violet-900">{dashboardData.system?.page_views_7d || 0}</p>
+                        </div>
+                        <div className="rounded-lg bg-emerald-50 p-3 text-center">
+                          <p className="text-xs font-medium text-emerald-700">Page Views (30d)</p>
+                          <p className="mt-1 text-lg font-bold text-emerald-900">{dashboardData.system?.page_views_30d || 0}</p>
+                        </div>
+                      </div>
+                      {dashboardData.system?.page_views_live?.length > 0 && (
+                        <div className="mt-2">
+                          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted">Recent Page Views</p>
+                          <div className="max-h-[160px] overflow-y-auto rounded-lg border border-gray-100">
+                            <table className="w-full text-left text-[10px]">
+                              <thead className="sticky top-0 bg-gray-50">
+                                <tr className="border-b border-gray-100">
+                                  <th className="px-2 py-1 font-bold text-muted">Path</th>
+                                  <th className="px-2 py-1 font-bold text-muted">When</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {dashboardData.system.page_views_live.slice(0, 10).map((v: any, i: number) => (
+                                  <tr key={i} className="border-b border-gray-50 last:border-0 hover:bg-cream">
+                                    <td className="px-2 py-1 text-ink font-medium truncate max-w-[200px]">{v.path}</td>
+                                    <td className="px-2 py-1 text-muted tabular-nums whitespace-nowrap">{new Date(v.viewed_at).toLocaleDateString("en-KE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ── Audit Log ── */}
+                    {admin.role === "super_admin" && (
+                      <div className="mt-6 rounded-lg border border-gray-100 bg-white p-4">
+                        <div className="mb-3 flex items-center gap-2">
+                          <Shield size={16} className="text-nobuk" />
+                          <h3 className="text-sm font-bold text-ink">Audit Log ({dashboardData.system?.audit_logs_total || 0})</h3>
+                        </div>
+                        {logs.length > 0 ? (
+                          <div className="max-h-[400px] overflow-y-auto rounded-lg border border-gray-100">
+                            <table className="w-full text-left text-xs">
+                              <thead className="sticky top-0 bg-gray-50">
+                                <tr className="border-b border-gray-100">
+                                  <th className="px-2 py-1.5 font-bold text-muted">Admin</th>
+                                  <th className="px-2 py-1.5 font-bold text-muted">Action</th>
+                                  <th className="px-2 py-1.5 font-bold text-muted">When</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {logs.map((log: any) => (
+                                  <tr key={log.id} className="border-b border-gray-50 last:border-0 hover:bg-cream">
+                                    <td className="px-2 py-1.5 font-medium text-ink">{log.admin_name || log.admin_id?.slice(0, 8)}</td>
+                                    <td className="px-2 py-1.5 text-muted capitalize">{log.action.replace(/_/g, " ")}</td>
+                                    <td className="px-2 py-1.5 text-muted tabular-nums whitespace-nowrap">{new Date(log.created_at).toLocaleDateString("en-KE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted py-2">No audit events recorded yet. Audit events are generated as you use the admin panel.</p>
+                        )}
                       </div>
                     )}
                   </div>
