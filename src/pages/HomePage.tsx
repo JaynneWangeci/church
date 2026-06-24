@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Globe, MapPin, Heart, HandHeart, Phone, Share2 } from 'lucide-react';
+import { Globe, MapPin, Clock, Heart, HandHeart, Phone, Share2 } from 'lucide-react';
 import { useLang } from '../context/LanguageContext';
 import { useInView } from '../hooks/useInView';
 import SlideshowBackground from "../components/SlideshowBackground";
