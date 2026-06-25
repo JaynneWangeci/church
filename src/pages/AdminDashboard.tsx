@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   TrendingUp, Users, DollarSign, Clock, AlertCircle,
-  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileSpreadsheet, Search, ScanSearch, ArrowUpRight, ArrowDownRight, PieChart, Target, Save, Pencil, Monitor, Eye, EyeOff, GitMerge,
+  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileSpreadsheet, Search, ScanSearch, ArrowUpRight, ArrowDownRight, PieChart, Target, Save, Pencil, Monitor, Eye,   EyeOff, GitMerge, Send,
 } from "lucide-react";
 import MemberHistoryPanel from "../components/MemberHistoryPanel";
 import {
@@ -3538,6 +3538,7 @@ function SiteContentEditor() {
   const [content, setContent] = useState({
     goal_amount: 30000000,
     church_phone: "0727278577",
+    whatsapp_phone: "0728066733",
     cards: [
       { title_en: "Our Goal", text_en: "" },
       { title_en: "Our Community", text_en: "" },
@@ -3554,6 +3555,9 @@ function SiteContentEditor() {
         if (data?.settings) {
           if (data.settings.church_phone) {
             setContent(prev => ({ ...prev, church_phone: data.settings.church_phone }));
+          }
+          if (data.settings.whatsapp_phone) {
+            setContent(prev => ({ ...prev, whatsapp_phone: data.settings.whatsapp_phone }));
           }
           if (data.settings.site_content) {
             try {
@@ -3617,12 +3621,32 @@ function SiteContentEditor() {
       const res = await fetch("/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ site_content: JSON.stringify(payload), church_phone: content.church_phone }),
+        body: JSON.stringify({ site_content: JSON.stringify(payload), church_phone: content.church_phone, whatsapp_phone: content.whatsapp_phone }),
       });
       if (res.ok) setMsg("Saved successfully!");
       else setMsg("Failed to save");
     } catch { setMsg("Network error"); }
     setSaving(false); setTranslating(false);
+  }
+
+  const [waTestMsg, setWaTestMsg] = useState("");
+  const [waTesting, setWaTesting] = useState(false);
+
+  async function handleTestWhatsApp() {
+    const num = content.whatsapp_phone.trim();
+    if (!num) return;
+    setWaTesting(true); setWaTestMsg("Sending...");
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/mpesa/test-whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ phone: num }),
+      });
+      const data = await res.json();
+      setWaTestMsg(data.ok ? "Test message sent successfully!" : data.error || "Failed");
+    } catch { setWaTestMsg("Network error"); }
+    setWaTesting(false);
   }
 
   if (loading) return <div className="flex justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-2 border-nobuk border-t-transparent" /></div>;
@@ -3648,10 +3672,26 @@ function SiteContentEditor() {
         )}
 
         {/* Church Phone */}
-        <div className="mb-6">
-          <label className="mb-1.5 block text-sm font-bold text-ink">Church Phone</label>
+        <div className="mb-4">
+          <label className="mb-1.5 block text-sm font-bold text-ink">Church Phone (displayed on site)</label>
           <input type="text" value={content.church_phone} onChange={e => setContent({...content, church_phone: e.target.value})}
             className="w-full max-w-xs rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" />
+        </div>
+
+        {/* WhatsApp Phone */}
+        <div className="mb-6">
+          <label className="mb-1.5 block text-sm font-bold text-ink">WhatsApp Number (for sending messages)</label>
+          <div className="flex items-center gap-2">
+            <input type="text" value={content.whatsapp_phone} onChange={e => setContent({...content, whatsapp_phone: e.target.value})}
+              className="w-full max-w-xs rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" />
+            <button onClick={handleTestWhatsApp} disabled={waTesting || !content.whatsapp_phone.trim()}
+              className="btn-lift flex items-center gap-1.5 rounded-xl bg-green-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-green-700 disabled:opacity-40">
+              <Send size={14} /> {waTesting ? "Sending..." : "Send Test"}
+            </button>
+          </div>
+          {waTestMsg && (
+            <p className={`mt-1 text-xs ${waTestMsg.includes("success") ? "text-green-600" : "text-red-600"}`}>{waTestMsg}</p>
+          )}
         </div>
 
         {/* Goal */}

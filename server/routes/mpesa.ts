@@ -503,3 +503,16 @@ mpesaRouter.post("/c2b/register", requireAdmin, async (_req, res) => {
     res.status(500).json({ error: "C2B registration failed" });
   }
 });
+
+mpesaRouter.post("/test-whatsapp", requireAdmin, async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ error: "Phone number required" });
+
+    const ok = await sendWhatsApp(phone, "This is a test message from AIPCA Bahati Cathedral admin. If you receive this, WhatsApp is working correctly.");
+    res.json({ ok, message: ok ? "Test message sent" : "Failed to send. Check META_PHONE_NUMBER_ID and META_WHATSAPP_TOKEN environment variables." });
+  } catch (err) {
+    console.error("test-whatsapp error:", err);
+    res.status(500).json({ error: "Failed" });
+  }
+});
