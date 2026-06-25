@@ -6,7 +6,7 @@ import {
   createSession, invalidateSession,
   checkLoginRateLimit, recordFailedAttempt, resetFailedAttempts, invalidateAllAdminSessions,
 } from "../lib/admin.js";
-import { sendSMS } from "../lib/africastalking.js";
+import { sendSMS } from "../lib/sajsoft.js";
 import { sendWhatsApp } from "../lib/meta-whatsapp.js";
 import { v4 as uuid } from "uuid";
 
