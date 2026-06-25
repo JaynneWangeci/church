@@ -26,7 +26,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [logs, setLogs] = useState<unknown[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"overview" | "members" | "admins" | "analytics" | "council" | "pledges" | "fellowshipreports" | "sitecontent">("overview");
+  const [tab, setTab] = useState<"overview" | "members" | "admins" | "analytics" | "council" | "pledges" | "fellowshipreports" | "sitecontent" | "security">("overview");
   const [churchMembers, setChurchMembers] = useState<ChurchMember[]>([]);
   const [newName, setNewName] = useState("");
   const [newCouncil, setNewCouncil] = useState("maranatha_fellowship");
@@ -133,6 +133,11 @@ export default function AdminDashboard() {
   const [payingPledge, setPayingPledge] = useState<string | null>(null);
   const [payAmount, setPayAmount] = useState("");
   const [payReceipt, setPayReceipt] = useState("");
+  const [secEvents, setSecEvents] = useState<any[]>([]);
+  const [secSummary, setSecSummary] = useState<Record<string, number>>({});
+  const [secLoading, setSecLoading] = useState(false);
+  const secTimerRef = useRef<ReturnType<typeof setInterval>>();
+  const [secFilter, setSecFilter] = useState("");
 
   const hourlyBarColors = Array.from({ length: 24 }, (_, i) => {
     const hue = i < 6 ? 250 : i < 12 ? 270 : i < 18 ? 240 : 260;
@@ -224,6 +229,21 @@ export default function AdminDashboard() {
       }
     } catch { /* silent */ }
     finally { setLoadingSessions(false); }
+  }, [token]);
+
+  const fetchSecurityEvents = useCallback(async () => {
+    try {
+      setSecLoading(true);
+      const res = await fetch(`/api/admin/security/feed/critical?hours=24`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSecEvents(data.events || []);
+        setSecSummary(data.summary || {});
+      }
+    } catch { /* silent */ }
+    finally { setSecLoading(false); }
   }, [token]);
 
   const fetchAdmins = useCallback(async () => {
@@ -341,6 +361,14 @@ export default function AdminDashboard() {
     }, 400);
     return () => clearTimeout(timer);
   }, [donationDateFrom, donationDateTo, donationFilter, fetchDonations]);
+
+  // Security feed auto-refresh (30s when tab is active)
+  useEffect(() => {
+    if (tab !== "security") return;
+    fetchSecurityEvents();
+    const id = setInterval(fetchSecurityEvents, 30000);
+    return () => clearInterval(id);
+  }, [tab, fetchSecurityEvents]);
 
   async function addMember(e: React.FormEvent) {
     e.preventDefault();
@@ -747,6 +775,17 @@ export default function AdminDashboard() {
             <BarChart3 size={14} className="inline mr-1" />
             Analytics
           </button>
+          {(admin.role === "admin" || admin.role === "super_admin") && (
+            <button
+              onClick={() => setTab("security")}
+              className={`pb-3 text-sm font-bold transition border-b-2 ${
+                tab === "security" ? "border-nobuk text-nobuk" : "border-transparent text-muted hover:text-nobuk"
+              }`}
+            >
+              <Shield size={14} className="inline mr-1" />
+              Security
+            </button>
+          )}
           {(admin.role === "admin" || admin.role === "super_admin") && (
             <button
               onClick={() => setTab("sitecontent")}
@@ -3477,6 +3516,86 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {tab === "security" && (
+          <div className="rounded-2xl border border-gray-200 bg-white p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Shield size={20} className="text-nobuk" />
+                <h2 className="text-lg font-bold text-ink">Security Console</h2>
+              </div>
+              <div className="flex items-center gap-3">
+                <select value={secFilter} onChange={e => setSecFilter(e.target.value)}
+                  className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-muted">
+                  <option value="">All events</option>
+                  <option value="failed_login">Failed logins</option>
+                  <option value="suspicious_activity">Suspicious activity</option>
+                  <option value="rate_limit_blocked">Rate limited</option>
+                  <option value="stk_rate_limited">STK rate limited</option>
+                  <option value="password_reset">Password resets</option>
+                  <option value="login">Logins</option>
+                </select>
+                <button onClick={fetchSecurityEvents} className="rounded-lg p-2 text-muted transition hover:bg-cream" title="Refresh">
+                  <RefreshCw size={14} className={secLoading ? "animate-spin" : ""} />
+                </button>
+              </div>
+            </div>
+            <div className="mb-4 flex flex-wrap gap-3">
+              {[
+                { key: "failed_login", label: "Failed Logins", color: "bg-red-100 text-red-700" },
+                { key: "suspicious_activity", label: "Suspicious", color: "bg-orange-100 text-orange-700" },
+                { key: "rate_limit_blocked", label: "Rate Limited", color: "bg-yellow-100 text-yellow-700" },
+                { key: "stk_rate_limited", label: "STK Limited", color: "bg-yellow-100 text-yellow-700" },
+                { key: "ip_blocked", label: "IP Blocked", color: "bg-red-100 text-red-700" },
+              ].map(b => (
+                <div key={b.key} className={`rounded-lg px-3 py-1.5 text-xs font-bold ${b.color}`}>
+                  {b.label}: {secSummary[b.key] || 0}
+                  <span className="ml-1 text-[10px] opacity-60">/24h</span>
+                </div>
+              ))}
+            </div>
+            {secLoading && secEvents.length === 0 ? (
+              <div className="flex justify-center py-12">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-nobuk border-t-transparent" />
+              </div>
+            ) : secEvents.length === 0 ? (
+              <div className="py-12 text-center">
+                <Shield size={32} className="mx-auto mb-2 text-gray-300" />
+                <p className="text-sm text-muted">No security events in the last 24 hours. All clear.</p>
+              </div>
+            ) : (
+              <div className="max-h-[600px] space-y-1 overflow-y-auto">
+                {(secFilter ? secEvents.filter(e => e.action === secFilter) : secEvents).map((ev: any) => {
+                  let color = "border-gray-200 bg-gray-50";
+                  let dot = "bg-gray-400";
+                  if (ev.action === "failed_login" || ev.action === "ip_blocked") { color = "border-red-200 bg-red-50"; dot = "bg-red-500"; }
+                  else if (ev.action === "suspicious_activity") { color = "border-orange-200 bg-orange-50"; dot = "bg-orange-500"; }
+                  else if (ev.action === "rate_limit_blocked" || ev.action === "stk_rate_limited") { color = "border-yellow-200 bg-yellow-50"; dot = "bg-yellow-500"; }
+                  else if (ev.action === "login") { color = "border-green-200 bg-green-50"; dot = "bg-green-500"; }
+
+                  const details = ev.details ? (typeof ev.details === "string" ? JSON.parse(ev.details) : ev.details) : {};
+                  const ip = ev.ip_address || details?.ip || "-";
+
+                  return (
+                    <div key={ev.id} className={`flex items-start gap-3 rounded-lg border p-3 text-xs ${color}`}>
+                      <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${dot}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-ink">{ev.action.replace(/_/g, " ")}</p>
+                        <p className="mt-0.5 text-muted">
+                          {ip !== "-" && <span className="font-mono">{ip}</span>}
+                          {details?.reason && <span className="ml-2">· {details.reason}</span>}
+                          {ev.resource_id && <span className="ml-2">· ID: {ev.resource_id}</span>}
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-muted">{new Date(ev.created_at).toLocaleString("en-KE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <p className="mt-3 text-[10px] text-muted">Auto-refreshes every 30s · Events from last 24 hours</p>
           </div>
         )}
 

@@ -20,7 +20,10 @@ export type AuditAction =
   | "reminder_sent"
   | "view_member_history"
   | "dedup_church_members"
-  | "merge_church_members";
+  | "merge_church_members"
+  | "suspicious_activity"
+  | "stk_rate_limited"
+  | "ip_blocked";
 
 export type AuditResourceType =
   | "member" | "donation" | "pledge" | "campaign"
@@ -76,7 +79,7 @@ function ensureFlusher() {
 }
 
 export async function logAudit(params: {
-  actorId: string;
+  actorId?: string;
   actorName?: string | null;
   actorRole?: string | null;
   action: AuditAction;
@@ -90,7 +93,7 @@ export async function logAudit(params: {
   const entry: AuditEntry = {
     id: uuid(),
     timestamp: new Date().toISOString(),
-    actor_id: params.actorId,
+    actor_id: params.actorId || "system",
     actor_name: params.actorName || null,
     actor_role: params.actorRole || null,
     action: params.action,

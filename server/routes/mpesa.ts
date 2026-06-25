@@ -121,6 +121,8 @@ mpesaRouter.post("/stkpush", async (req, res) => {
     // Safety check 2: per-phone rate limiting (max 3 STK Push per hour per phone)
     const phoneCheck = checkPhoneStkRateLimit(normalizedPhone);
     if (!phoneCheck.allowed) {
+      const { logAudit } = await import("../lib/audit.js");
+      logAudit({ action: "stk_rate_limited" as any, details: { phone: normalizedPhone } }).catch(() => {});
       return res.status(429).json({
         error: `Too many requests to this phone. Try again in ${phoneCheck.retryAfterMinutes} minutes.`,
       });

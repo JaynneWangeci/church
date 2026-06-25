@@ -1,5 +1,6 @@
 import { requireService } from "./supabase.js";
 import { getClientIp } from "./admin.js";
+import { logAudit } from "./audit.js";
 import type { Request } from "express";
 
 // ── Constants ── //
@@ -206,6 +207,13 @@ export async function logSuspiciousActivity(flags: SuspiciousFlag[], donationId?
         `${donationId ? ` (donation: ${donationId})` : ""}` +
         ` ${JSON.stringify(flag.details)}`
       );
+      await logAudit({
+        action: "suspicious_activity" as any,
+        resourceType: donationId ? "donation" : null,
+        resourceId: donationId || null,
+        details: { reason: flag.reason, severity: flag.severity, ...flag.details },
+        ipAddress: null,
+      });
     }
   } catch {
     // non-critical

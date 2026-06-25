@@ -23,6 +23,7 @@ import { versesRouter } from "./routes/verses.js";
 import { fellowshipsRouter } from "./routes/fellowships.js";
 import { trackRouter } from "./routes/track.js";
 import { publicRouter } from "./routes/public.js";
+import { securityRouter } from "./routes/security.js";
 import { rateLimit, requireAdmin, requireSuperAdmin } from "./lib/admin.js";
 import { startAllWorkers, stopAllWorkers } from "./lib/queue.js";
 
@@ -56,6 +57,7 @@ app.use("/api/committee", committeeRouter);
 app.use("/api/councils", councilsRouter);
 app.use("/api/donations", donationsRouter);
 app.use("/api/admin", rateLimit, adminRouter);
+app.use("/api/admin/security", securityRouter);
 app.use("/api/mpesa", mpesaRouter);
 app.use("/api/c2b", c2bRouter);
 app.use("/api/ledger", rateLimit, ledgerRouter);

@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction } from "express";
 import { requireService, requireAnon, verifyAuth, createAuthUser, updateAuthUserPassword, deleteAuthUser } from "./supabase.js";
 import { hasPermission, DataType, Action } from "./permissions.js";
 import { cacheGet, cacheSet, cacheKey } from "./redis.js";
+import { logAudit } from "./audit.js";
 import { v4 as uuid } from "uuid";
 
 // Keep JWT/bcrypt imports only for legacy password verification (existing admin_users)
@@ -137,6 +138,11 @@ export function rateLimit(req: Request, res: Response, next: NextFunction) {
   res.setHeader("X-RateLimit-Remaining", Math.max(0, RATE_LIMIT_MAX - entry.count).toString());
 
   if (entry.count > RATE_LIMIT_MAX) {
+    logAudit({
+      action: "rate_limit_blocked",
+      details: { ip, count: entry.count, path: req.path },
+      ipAddress: ip,
+    }).catch(() => {});
     return res.status(429).json({ error: "Too many requests. Try again later." });
   }
 
