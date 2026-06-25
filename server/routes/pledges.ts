@@ -57,7 +57,8 @@ pledgesRouter.post("/", async (req, res) => {
           `*EN* — Thank you for building His house. May the Lord bless you abundantly.\n` +
           `*SW* — Asante kwa kujenga Nyumba Yake. Mungu akubariki sana, na tujenge pamoja!`;
 
-        sendWhatsApp(data.whatsapp_number, msg).catch(() => {});
+        const msgSent = await sendWhatsApp(data.whatsapp_number, msg);
+        if (!msgSent) console.warn("Pledge update message failed for", data.donor_name);
       }
 
       return res.status(200).json({ pledge: data, updated: true });
@@ -105,7 +106,8 @@ pledgesRouter.post("/", async (req, res) => {
         `*EN* — Thank you for building His house. May the Lord bless you abundantly.\n` +
         `*SW* — Asante kwa kujenga Nyumba Yake. Mungu akubariki sana, na tujenge pamoja!`;
 
-      sendWhatsApp(data.whatsapp_number, msg).catch(() => {});
+      const msgSent = await sendWhatsApp(data.whatsapp_number, msg);
+      if (!msgSent) console.warn("Pledge confirmation message failed for", data.donor_name);
 
       // Follow-up in 3 days
       enqueueFollowUp("pledge", data.whatsapp_number, data.donor_name, data.amount);
