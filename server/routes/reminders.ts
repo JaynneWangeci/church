@@ -36,13 +36,19 @@ remindersRouter.post("/send", async (req, res) => {
     const { data: due } = await db
       .from("pledges")
       .select("id, donor_name, whatsapp_number, reminder_freq, amount, paid, remaining, created_at")
-      .not("whatsapp_number", "is", null)
       .neq("status", "fulfilled");
 
     let sent = 0;
     let skipped = 0;
     for (const pledge of due || []) {
-      if (!pledge.whatsapp_number) continue;
+      // Look up latest WhatsApp number from donor_whatsapp, fall back to pledge's stored number
+      const { data: dw } = await db
+        .from("donor_whatsapp")
+        .select("whatsapp_number")
+        .eq("donor_name", pledge.donor_name)
+        .maybeSingle();
+      const phone = dw?.whatsapp_number || pledge.whatsapp_number;
+      if (!phone) { skipped++; continue; }
 
       const freq = parseFreq(pledge.reminder_freq);
       if (!shouldSendNow(pledge.created_at, freq)) { skipped++; continue; }
@@ -61,7 +67,7 @@ remindersRouter.post("/send", async (req, res) => {
 
       const message = `⛪ AIPCA Bahati Cathedral\n\nHabari ${pledge.donor_name}!\n\nYour Pledge Summary:\n• Pledged: KES ${pledge.amount.toLocaleString()}\n• Paid: KES ${pledge.paid.toLocaleString()} (${pct}%)\n• Remaining: KES ${remaining.toLocaleString()}\n\nEncouragement:\n"${enV.text}" — ${enV.ref}\n\n"${swV.text}" — ${swV.ref}${milestone}\n\nMungu akubariki! AIPCA Bahati Cathedral`;
 
-      const ok = await sendWhatsApp(pledge.whatsapp_number, message);
+      const ok = await sendWhatsApp(phone, message);
       if (ok) sent++;
     }
 
@@ -74,17 +80,14 @@ remindersRouter.post("/send", async (req, res) => {
 
     let followUpSent = 0;
     for (const n of pending || []) {
-      let msg = "";
-      if (n.type === "donation_thanks") {
-        const v = pickVerse(PAYMENT_VERSES);
-        msg = `⛪ AIPCA Bahati Cathedral\n\nAsante sana ${n.donor_name}! Your gift of KES ${Number(n.amount).toLocaleString("en-KE")} has been received. ${n.receipt ? `Receipt: ${n.receipt}` : ""}\n\n"${v.text}" — ${v.ref}\n\nMungu akubariki!`;
-      } else if (n.type === "pledge_followup") {
-        const enV = pickVerse(REMINDER_VERSES, "en");
-        const swV = pickVerse(REMINDER_VERSES, "sw");
-        msg = `⛪ AIPCA Bahati Cathedral\n\nHabari ${n.donor_name}! Just checking in on your pledge of KES ${Number(n.amount).toLocaleString("en-KE")}.\n\nYou can pay via M-Pesa Paybill 835872, Account: Your Name.\n\n"${enV.text}" — ${enV.ref}\n\n"${swV.text}" — ${swV.ref}\n\nMungu akubariki!`;
-      } else continue;
-
-      const ok = await sendWhatsApp(n.phone, msg);
+      // Look up latest number from donor_whatsapp, fall back to queued phone
+      const { data: dw } = await db
+        .from("donor_whatsapp")
+        .select("whatsapp_number")
+        .eq("donor_name", n.donor_name)
+        .maybeSingle();
+      const phone = dw?.whatsapp_number || n.phone;
+      if (!phone) continue;
       if (ok) {
         await db.from("pending_notifications").delete().eq("id", n.id);
         followUpSent++;

@@ -60,5 +60,6 @@ supabase/.temp/
 next-env.d.ts
 .env.example
 
+CRON_SECRET.txt
 samplereport.xlsx
 member-template.pdf
