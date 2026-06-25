@@ -3,7 +3,7 @@ import type { Request, Response, NextFunction } from "express";
 import { requireService, requireAnon, verifyAuth, createAuthUser, updateAuthUserPassword, deleteAuthUser } from "./supabase.js";
 import { hasPermission, DataType, Action } from "./permissions.js";
 import { cacheGet, cacheSet, cacheKey } from "./redis.js";
-import { logAudit } from "./audit.js";
+import { logAudit as auditLogAudit } from "./audit.js";
 import { v4 as uuid } from "uuid";
 
 // Keep JWT/bcrypt imports only for legacy password verification (existing admin_users)
@@ -37,6 +37,41 @@ export { hasPermission } from "./permissions.js";
 export { requirePermission } from "./permissions.js";
 export { DataType, Action } from "./permissions.js";
 export type { AuditAction, AuditResourceType } from "./audit.js";
+
+// Wrapper: accepts old `adminId` param name, looks up admin name/role, delegates to audit.ts
+export async function logAudit(params: {
+  adminId: string;
+  action: string;
+  resourceType?: string | null;
+  resourceId?: string | null;
+  details?: Record<string, unknown> | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+}) {
+  let actorName: string | null = null;
+  let actorRole: string | null = null;
+  try {
+    const db = requireService();
+    const { data: admin } = await db
+      .from("admin_users")
+      .select("name, role")
+      .eq("id", params.adminId)
+      .single();
+    actorName = admin?.name || null;
+    actorRole = admin?.role || null;
+  } catch {}
+  return auditLogAudit({
+    actorId: params.adminId,
+    actorName,
+    actorRole,
+    action: params.action as any,
+    resourceType: params.resourceType as any,
+    resourceId: params.resourceId,
+    details: params.details,
+    ipAddress: params.ipAddress,
+    userAgent: params.userAgent,
+  });
+}
 
 // ----- Password hashing (legacy, for existing admin_users with bcrypt hashes) ----- //
 
