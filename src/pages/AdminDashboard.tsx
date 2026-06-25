@@ -11,10 +11,6 @@ import {
 import { COUNCIL_ORDER } from "../types";
 import type { DashboardStats, AdminUser, ChurchMember, CommitteeMember, Council } from "../types";
 import { fetchCouncils, getCouncilLabel, clearCouncilCache } from "../lib/councils";
-import * as pdfjs from "pdfjs-dist";
-import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-
-pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 interface AdminUserRecord {
   id: string;
@@ -1312,7 +1308,10 @@ export default function AdminDashboard() {
                       try {
                         setBulkError("");
                         const buffer = await file.arrayBuffer();
-                        const pdf = await pdfjs.getDocument(buffer).promise;
+                        const pdfjsMod = await import("pdfjs-dist");
+                        const workerMod = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
+                        pdfjsMod.GlobalWorkerOptions.workerSrc = workerMod.default;
+                        const pdf = await pdfjsMod.getDocument(buffer).promise;
                         const lines: string[] = [];
                         for (let i = 1; i <= pdf.numPages; i++) {
                           const page = await pdf.getPage(i);
