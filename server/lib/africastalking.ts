@@ -28,7 +28,7 @@ export async function sendSMS(to: string, message: string): Promise<boolean> {
     }
     const clean = to.replace(/\D/g, "");
     const formatted = clean.startsWith("0") ? "+254" + clean.slice(1) : clean.startsWith("254") ? "+" + clean : "+254" + clean;
-    const resp = await sms.send({ to: [formatted], message });
+    const resp = await sms.send({ to: [formatted], message, from: "AIPCA" });
     const entries: any[] = resp?.SMSMessageData?.Recipients || [];
     if (entries.length > 0) {
       if (entries[0].status !== "Success") {
