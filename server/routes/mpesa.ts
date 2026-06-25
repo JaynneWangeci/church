@@ -509,10 +509,50 @@ mpesaRouter.post("/test-whatsapp", requireAdmin, async (req, res) => {
     const { phone } = req.body;
     if (!phone) return res.status(400).json({ error: "Phone number required" });
 
-    const ok = await sendWhatsApp(phone, "This is a test message from AIPCA Bahati Cathedral admin. If you receive this, WhatsApp is working correctly.");
-    res.json({ ok, message: ok ? "Test message sent" : "Failed to send. Check META_PHONE_NUMBER_ID and META_WHATSAPP_TOKEN environment variables." });
-  } catch (err) {
+    const PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || "";
+    const ACCESS_TOKEN = process.env.META_WHATSAPP_TOKEN || "";
+
+    if (!PHONE_NUMBER_ID || !ACCESS_TOKEN) {
+      return res.json({ ok: false, error: "META_PHONE_NUMBER_ID or META_WHATSAPP_TOKEN not set. Add them in Vercel project settings → Environment Variables." });
+    }
+
+    const clean = phone.replace(/\D/g, "");
+    const formatted = clean.startsWith("0") ? "254" + clean.slice(1) : clean.startsWith("254") ? clean : "254" + clean;
+
+    const apiRes = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${ACCESS_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: formatted,
+        type: "text",
+        text: { body: "Test message from AIPCA Bahati Cathedral admin. WhatsApp is working! 🎉" },
+      }),
+    });
+
+    const body = await apiRes.text();
+    let parsed: any;
+    try { parsed = JSON.parse(body); } catch { parsed = body; }
+
+    if (!apiRes.ok) {
+      const code = parsed?.error?.code;
+      const msg = parsed?.error?.message || body;
+      if (code === 131030) {
+        return res.json({ ok: false, error: `Add ${phone} (${formatted}) to your Meta WhatsApp Allowed Recipients list in the Meta Developer dashboard.`, meta_error: msg });
+      }
+      if (code === 131048) {
+        return res.json({ ok: false, error: `The phone number ${phone} is not registered on WhatsApp. Ask them to register first.`, meta_error: msg });
+      }
+      if (code === 100) {
+        return res.json({ ok: false, error: `META_PHONE_NUMBER_ID is invalid. Get the correct Phone Number ID from Meta Developer dashboard → WhatsApp → API Setup.`, meta_error: msg });
+      }
+      return res.json({ ok: false, error: `Meta API error (${apiRes.status}): ${msg}`, meta_error: msg });
+    }
+
+    res.json({ ok: true, message: "Test message sent successfully!", response: parsed });
+  } catch (err: any) {
     console.error("test-whatsapp error:", err);
-    res.status(500).json({ error: "Failed" });
+    res.status(500).json({ error: err?.message || "Failed" });
   }
 });
