@@ -88,6 +88,7 @@ pledgesRouter.post("/", async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
 
+    let msgSent = false;
     if (data?.whatsapp_number) {
       // Store in donor_whatsapp for all future messaging tasks
       db.from("donor_whatsapp").upsert({
@@ -106,14 +107,14 @@ pledgesRouter.post("/", async (req, res) => {
         `*EN* — Thank you for building His house. May the Lord bless you abundantly.\n` +
         `*SW* — Asante kwa kujenga Nyumba Yake. Mungu akubariki sana, na tujenge pamoja!`;
 
-      const msgSent = await sendWhatsApp(data.whatsapp_number, msg);
+      msgSent = await sendWhatsApp(data.whatsapp_number, msg);
       if (!msgSent) console.warn("Pledge confirmation message failed for", data.donor_name);
 
       // Follow-up in 3 days
       enqueueFollowUp("pledge", data.whatsapp_number, data.donor_name, data.amount);
     }
 
-    res.status(201).json({ pledge: data, updated: false });
+    res.status(201).json({ pledge: data, updated: false, message_sent: msgSent });
   } catch (err) {
     console.error("pledge create error:", err);
     res.status(500).json({ error: "Server error" });

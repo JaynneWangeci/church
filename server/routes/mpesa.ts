@@ -83,7 +83,7 @@ function whatsAppConfirmation(donation: any): void {
     `*EN* — Thank you for building His house. Your generosity is building the Kingdom of God in Bahati and beyond. May the Lord bless you abundantly.\n` +
     `*SW* — Asante kwa kujenga Nyumba Yake. Mungu akubariki sana, na tujenge pamoja!`;
 
-  sendWhatsApp(donation.phone, msg).catch(() => {});
+  sendWhatsApp(donation.phone, msg).catch((err) => console.error("Donation message failed:", err));
 
   enqueueFollowUp("payment", donation.phone, name, donation.amount, donation.receipt_number);
 }

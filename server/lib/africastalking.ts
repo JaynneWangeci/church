@@ -30,8 +30,14 @@ export async function sendSMS(to: string, message: string): Promise<boolean> {
     const formatted = clean.startsWith("0") ? "+254" + clean.slice(1) : clean.startsWith("254") ? "+" + clean : "+254" + clean;
     const resp = await sms.send({ to: [formatted], message });
     const entries: any[] = resp?.SMSMessageData?.Recipients || [];
-    if (entries.length > 0 && entries[0].status !== "Success") {
-      console.error("AT SMS delivery failed:", JSON.stringify(entries[0]));
+    if (entries.length > 0) {
+      if (entries[0].status !== "Success") {
+        console.error("AT SMS delivery failed:", JSON.stringify(entries[0]));
+        return false;
+      }
+    } else if (!resp?.SMSMessageData?.Message) {
+      console.error("AT SMS returned unexpected response:", JSON.stringify(resp));
+      return false;
     }
     return true;
   } catch (err: any) {
