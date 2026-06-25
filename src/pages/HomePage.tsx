@@ -111,24 +111,51 @@ export default function HomePage() {
         <GenderCompetition />
         <AboutSection />
 
-        {/* Google Maps pin */}
-        <section ref={mapRef} className={`px-4 py-16 transition-all duration-700 ${mapInView ? "animate-fade-in" : "opacity-0"}`}
-          style={{ background: 'linear-gradient(180deg, rgba(15,40,71,0.95) 0%, rgba(10,22,40,0.98) 100%)' }}>
-          <div className="mx-auto max-w-4xl text-center">
+        {/* Map section — static OpenStreetMap tile with directions CTA */}
+        <section ref={mapRef} className={`relative overflow-hidden px-4 py-16 transition-all duration-700 ${mapInView ? "animate-fade-in" : "opacity-0"}`}>
+          {/* Map background as image (no iframe, works on all devices) */}
+          <div className="pointer-events-none absolute inset-0 -z-10">
+            <img
+              src="https://staticmap.openstreetmap.de/staticmap.php?center=-1.29098,36.85438&zoom=16&size=1200x600&maptype=mapnik&markers=-1.29098,36.85438,red-pushpin"
+              alt=""
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-[#0a1628]/92 via-[#0a1628]/70 to-[#0a1628]/92" />
+          </div>
+
+          <div className="relative z-10 mx-auto max-w-3xl text-center">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-blue-500/20 px-4 py-1.5 backdrop-blur-sm">
               <MapPin size={14} className="text-blue-300" />
               <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">{t('Find Us', 'Tupate')}</span>
             </div>
             <h2 className="mb-2 text-2xl font-bold text-white">{t('Visit AIPCA Bahati Cathedral', 'Tembelea AIPCA Bahati Cathedral')}</h2>
-            <p className="mb-6 text-sm text-blue-200/70">
-              {t('We welcome you to worship with us. Use the map below for directions.', 'Tunakukaribisha kuabudu pamoja nasi. Tumia ramani hapa chini kwa maelekezo.')}
+            <p className="mb-2 text-sm text-blue-200/70">
+              {t('We welcome you to worship with us.', 'Tunakukaribisha kuabudu pamoja nasi.')}
             </p>
-            <div className="mx-auto max-w-3xl overflow-hidden rounded-2xl border border-blue-400/20 shadow-lg shadow-blue-900/30">
-              <iframe
-                src="https://www.google.com/maps?q=-1.29098,36.85438+(AIPCA+Bahati+Cathedral)&z=18&output=embed"
-                width="100%" height="400" style={{ border: 0 }} allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade"
-                title="AIPCA Bahati Cathedral Location"
-              />
+            <p className="mb-6 font-mono text-xs text-blue-300/60">
+              1.29098°S 36.85438°E &middot; Bahati, Nakuru County
+            </p>
+
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <a
+                href="https://maps.google.com/maps?daddr=-1.29098,36.85438"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-900/40 transition-all hover:bg-blue-500 active:scale-95"
+              >
+                <MapPin size={16} />
+                {t('Open in Google Maps', 'Fungua kwenye Google Maps')}
+              </a>
+              <a
+                href="https://maps.google.com/maps?q=-1.29098,36.85438+(AIPCA+Bahati+Cathedral)"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white/80 backdrop-blur-sm transition-all hover:bg-white/10 active:scale-95"
+              >
+                <Globe size={16} />
+                {t('View on Web', 'Tazama kwenye Tovuti')}
+              </a>
             </div>
           </div>
         </section>
