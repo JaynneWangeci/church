@@ -71,14 +71,25 @@ export async function enqueueFollowUp(
   phone: string,
   donorName: string,
   amount: number,
+  receipt?: string,
 ) {
-  const delayMs = context === "pledge" ? 3 * 24 * 60 * 60 * 1000 : 5 * 60 * 1000;
-  return followUpQueue.add("send_follow_up", { context, phone, donorName, amount }, {
-    delay: delayMs,
-    attempts: 3,
-    backoff: { type: "exponential", delay: 60000 },
-    removeOnComplete: { age: 7 * 86400 },
-  });
+  // Use DB-based approach so it works on Vercel (serverless)
+  try {
+    const db = requireService();
+    const delayMs = context === "pledge" ? 3 * 24 * 60 * 60 * 1000 : 5 * 60 * 1000;
+    const sendAt = new Date(Date.now() + delayMs).toISOString();
+    const type = context === "pledge" ? "pledge_followup" : "donation_thanks";
+    await db.from("pending_notifications").insert({
+      type,
+      phone,
+      donor_name: donorName,
+      amount,
+      receipt: receipt || null,
+      send_at: sendAt,
+    });
+  } catch (err) {
+    console.error("enqueueFollowUp error:", err);
+  }
 }
 
 // ── Worker: Reminders ──

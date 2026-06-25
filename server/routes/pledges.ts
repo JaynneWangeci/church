@@ -96,7 +96,7 @@ pledgesRouter.post("/", async (req, res) => {
       sendWhatsApp(data.whatsapp_number, msg).catch(() => {});
 
       // Follow-up in 3 days
-      enqueueFollowUp("pledge", data.whatsapp_number, data.donor_name, data.amount).catch(() => {});
+      enqueueFollowUp("pledge", data.whatsapp_number, data.donor_name, data.amount);
     }
 
     res.status(201).json({ pledge: data, updated: false });

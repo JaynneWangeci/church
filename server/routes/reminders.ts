@@ -1,12 +1,34 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
 import { sendWhatsApp } from "../lib/meta-whatsapp.js";
-import { REMINDER_VERSES, pickVerse } from "./verses.js";
+import { REMINDER_VERSES, PAYMENT_VERSES, pickVerse } from "./verses.js";
 
 export const remindersRouter = Router();
 
+function parseFreq(freq: string | null): "daily" | "weekly" | "monthly" {
+  if (freq === "daily" || freq === "weekly" || freq === "monthly") return freq;
+  return "weekly";
+}
+
+function shouldSendNow(createdAt: string, freq: "daily" | "weekly" | "monthly"): boolean {
+  const created = new Date(createdAt);
+  const now = new Date();
+  const diffMs = now.getTime() - created.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays < 1) return true; // always send at least once
+  if (freq === "daily") return true;
+  if (freq === "weekly") return diffDays % 7 === 0;
+  if (freq === "monthly") return diffDays % 30 === 0;
+  return true;
+}
+
 // ── Send pending reminders (callable by cron every hour) ──
-remindersRouter.post("/send", async (_req, res) => {
+remindersRouter.post("/send", async (req, res) => {
+  // Verify cron secret if provided (Vercel Cron sends x-cron-secret header)
+  const cronSecret = req.headers["x-cron-secret"] as string || req.headers.authorization?.replace("Bearer ", "");
+  if (process.env.CRON_SECRET && cronSecret !== process.env.CRON_SECRET) {
+    if (process.env.CRON_SECRET) return res.status(401).json({ error: "Unauthorized" });
+  }
   try {
     const db = requireService();
     const now = new Date().toISOString();
@@ -18,20 +40,58 @@ remindersRouter.post("/send", async (_req, res) => {
       .neq("status", "fulfilled");
 
     let sent = 0;
+    let skipped = 0;
     for (const pledge of due || []) {
       if (!pledge.whatsapp_number) continue;
+
+      const freq = parseFreq(pledge.reminder_freq);
+      if (!shouldSendNow(pledge.created_at, freq)) { skipped++; continue; }
 
       const enV = pickVerse(REMINDER_VERSES, "en");
       const swV = pickVerse(REMINDER_VERSES, "sw");
       const pct = pledge.amount > 0 ? Math.round((pledge.paid / pledge.amount) * 100) : 0;
+      const remaining = Math.max(0, pledge.amount - pledge.paid);
 
-      const message = `Hi ${pledge.donor_name}! ⛪\n\nYour pledge reminder:\n• Pledged: KES ${pledge.amount.toLocaleString()}\n• Paid: KES ${pledge.paid.toLocaleString()} (${pct}%)\n• Remaining: KES ${pledge.remaining.toLocaleString()}\n\nEncouragement:\n"${enV.text}" — ${enV.ref}\n\nHabari ${pledge.donor_name}! ⛪\n\nUkumbusho wa ahadi yako:\n• Umeahidi: KES ${pledge.amount.toLocaleString()}\n• Umalipa: KES ${pledge.paid.toLocaleString()} (${pct}%)\n• Inabaki: KES ${pledge.remaining.toLocaleString()}\n\nNeno la kutia moyo:\n"${swV.text}" — ${swV.ref}\n\nMungu akubariki! AIPCA Bahati Cathedral`;
+      let milestone = "";
+      if (remaining === 0 && pledge.amount > 0) {
+        milestone = `\n\n🎉 CONGRATULATIONS! You have fully paid your pledge! Thank you for your faithfulness! Mungu akubariki sana! 🎉`;
+      } else if (pct >= 50 && pct < 100) {
+        milestone = `\n\n🌟 You're over halfway there! Keep going — every shilling builds His house!`;
+      }
+
+      const message = `⛪ AIPCA Bahati Cathedral\n\nHabari ${pledge.donor_name}!\n\nYour Pledge Summary:\n• Pledged: KES ${pledge.amount.toLocaleString()}\n• Paid: KES ${pledge.paid.toLocaleString()} (${pct}%)\n• Remaining: KES ${remaining.toLocaleString()}\n\nEncouragement:\n"${enV.text}" — ${enV.ref}\n\n"${swV.text}" — ${swV.ref}${milestone}\n\nMungu akubariki! AIPCA Bahati Cathedral`;
 
       const ok = await sendWhatsApp(pledge.whatsapp_number, message);
       if (ok) sent++;
     }
 
-    res.json({ ok: true, sent, total: due?.length || 0 });
+    // Process pending follow-ups (donation thank-yous, etc.)
+    const { data: pending } = await db
+      .from("pending_notifications")
+      .select("*")
+      .lte("send_at", now)
+      .limit(50);
+
+    let followUpSent = 0;
+    for (const n of pending || []) {
+      let msg = "";
+      if (n.type === "donation_thanks") {
+        const v = pickVerse(PAYMENT_VERSES);
+        msg = `⛪ AIPCA Bahati Cathedral\n\nAsante sana ${n.donor_name}! Your gift of KES ${Number(n.amount).toLocaleString("en-KE")} has been received. ${n.receipt ? `Receipt: ${n.receipt}` : ""}\n\n"${v.text}" — ${v.ref}\n\nMungu akubariki!`;
+      } else if (n.type === "pledge_followup") {
+        const enV = pickVerse(REMINDER_VERSES, "en");
+        const swV = pickVerse(REMINDER_VERSES, "sw");
+        msg = `⛪ AIPCA Bahati Cathedral\n\nHabari ${n.donor_name}! Just checking in on your pledge of KES ${Number(n.amount).toLocaleString("en-KE")}.\n\nYou can pay via M-Pesa Paybill 835872, Account: Your Name.\n\n"${enV.text}" — ${enV.ref}\n\n"${swV.text}" — ${swV.ref}\n\nMungu akubariki!`;
+      } else continue;
+
+      const ok = await sendWhatsApp(n.phone, msg);
+      if (ok) {
+        await db.from("pending_notifications").delete().eq("id", n.id);
+        followUpSent++;
+      }
+    }
+
+    res.json({ ok: true, sent, skipped, follow_up_sent: followUpSent, total: due?.length || 0 });
   } catch (err) {
     console.error("reminder send error:", err);
     res.status(500).json({ error: "Failed to send reminders" });

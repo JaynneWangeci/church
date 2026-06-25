@@ -85,7 +85,7 @@ function whatsAppConfirmation(donation: any): void {
 
   sendWhatsApp(donation.phone, msg).catch(() => {});
 
-  enqueueFollowUp("payment", donation.phone, name, donation.amount).catch(() => {});
+  enqueueFollowUp("payment", donation.phone, name, donation.amount, donation.receipt_number);
 }
 
 // ── STK Push (public, rate-limited) ── //
