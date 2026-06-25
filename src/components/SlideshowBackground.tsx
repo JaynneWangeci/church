@@ -24,7 +24,7 @@ export default function SlideshowBackground() {
 
   useEffect(() => {
     if (loaded.every(Boolean)) {
-      const interval = setInterval(() => setCurrent(prev => (prev + 1) % IMAGES.length), 6000);
+      const interval = setInterval(() => setCurrent(prev => (prev + 1) % IMAGES.length), 15000);
       return () => clearInterval(interval);
     }
   }, [loaded]);
@@ -32,17 +32,19 @@ export default function SlideshowBackground() {
   return (
     <>
       {IMAGES.map((src, i) => (
-        <div
-          key={src}
-          className="fixed inset-0 bg-cover bg-center transition-all duration-1000"
-          style={{
-            backgroundImage: `url(${src})`,
-            backgroundSize: 'cover',
-            opacity: i === current ? 1 : 0,
-          }}
-        >
+        <div key={src} className="fixed inset-0">
           <div
-            className="absolute inset-0 animate-ken-burns"
+            className={`absolute inset-0 bg-cover bg-center transition-all duration-[1500ms] ${
+              i === current ? 'opacity-100 scale-100 blur-none' : 'opacity-0 scale-110 blur-sm'
+            }`}
+            style={{
+              backgroundImage: `url(${src})`,
+            }}
+          />
+          <div
+            className={`absolute inset-0 transition-all duration-[1500ms] ${
+              i === current ? 'opacity-100' : 'opacity-0'
+            }`}
             style={{
               backgroundImage: `url(${src})`,
               backgroundSize: 'cover',

@@ -48,7 +48,7 @@ function stars(paid: number, amount: number) {
   const rating = pct >= 100 ? 5 : pct >= 75 ? 4 : pct >= 50 ? 3 : pct >= 25 ? 2 : pct > 0 ? 1 : 0;
   const colors = ['#EF4444', '#F97316', '#EAB308', '#22C55E', '#3B82F6'];
   return (
-    <div className="flex gap-0.5" title={`${pct.toFixed(1)}% fulfilled`}>
+    <div className="flex gap-0.5" title={`${pct.toFixed(2)}% fulfilled`}>
       {[1, 2, 3, 4, 5].map(i => (
         <span key={i} style={{ color: i <= rating ? colors[rating - 1] : '#D1D5DB', fontSize: 10 }}>★</span>
       ))}

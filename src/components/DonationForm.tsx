@@ -687,7 +687,7 @@ export default function DonationForm() {
                     </label>
                     <div className="relative">
                       <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-                      <input type="text" value={honName} onChange={e => { setHonName(e.target.value); setHonNameOpen(true); }}
+                      <input type="text" value={honName} onChange={e => { setHonName(e.target.value); setHonNameSearch(e.target.value); setHonNameOpen(true); }}
                         onFocus={() => setHonNameOpen(true)}
                         placeholder="Type your name or select from list..."
                         className="w-full rounded-xl border-2 border-gray-200 bg-white py-3 pl-9 pr-3 text-sm text-nobuk outline-none transition focus:border-nobuk placeholder:text-muted/60" />

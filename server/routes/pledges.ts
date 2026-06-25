@@ -14,7 +14,7 @@ pledgesRouter.post("/", async (req, res) => {
     if (!donor_name || !amount) return res.status(400).json({ error: "donor_name and amount required" });
 
     const newAmount = Number(amount);
-    const name = donor_name.trim();
+    const name = donor_name.trim().replace(/[%_<>]/g, "").slice(0, 100);
 
     // Check if this person already has a pending pledge
     const { data: existing } = await db
@@ -125,10 +125,11 @@ pledgesRouter.get("/", async (_req, res) => {
 pledgesRouter.get("/:name", async (req, res) => {
   try {
     const db = requireService();
+    const name = String(req.params.name || "").trim().replace(/[%_<>]/g, "").slice(0, 100);
     const { data: pledges, error } = await db
       .from("pledges")
       .select("id, donor_name, amount, paid, remaining, status, rating, created_at")
-      .ilike("donor_name", `%${req.params.name}%`)
+      .ilike("donor_name", `%${name}%`)
       .order("created_at", { ascending: false });
 
     if (error) return res.status(500).json({ error: error.message });
@@ -136,7 +137,7 @@ pledgesRouter.get("/:name", async (req, res) => {
     const { data: honouredMembers } = await db
       .from("church_members")
       .select("id")
-      .ilike("name", `%${req.params.name}%`);
+      .ilike("name", `%${name}%`);
     const honouredIds = (honouredMembers || []).map(m => m.id);
 
     const { data: honoured } = honouredIds.length
@@ -153,7 +154,7 @@ pledgesRouter.get("/:name", async (req, res) => {
 pledgesRouter.get("/search/name", async (req, res) => {
   try {
     const db = requireService();
-    const q = String(req.query.q || "").trim();
+    const q = String(req.query.q || "").trim().replace(/[%_<>]/g, "").slice(0, 100);
     if (!q) return res.json({ pledges: [], donations: [], honoured: [] });
 
     const { data: pledges } = await db

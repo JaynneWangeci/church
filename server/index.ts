@@ -22,6 +22,7 @@ import { translateRouter } from "./routes/translate.js";
 import { versesRouter } from "./routes/verses.js";
 import { fellowshipsRouter } from "./routes/fellowships.js";
 import { trackRouter } from "./routes/track.js";
+import { publicRouter } from "./routes/public.js";
 import { rateLimit, requireAdmin, requireSuperAdmin } from "./lib/admin.js";
 import { startAllWorkers, stopAllWorkers } from "./lib/queue.js";
 
@@ -68,6 +69,7 @@ app.use("/api/translate", translateRouter);
 app.use("/api/verses", versesRouter);
 app.use("/api/track", trackRouter);
 app.use("/api/fellowships", fellowshipsRouter);
+app.use("/api/public", publicRouter);
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 

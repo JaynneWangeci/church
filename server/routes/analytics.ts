@@ -10,7 +10,7 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
     const db = requireService();
 
     // Try cache first
-    const cacheKeyStr = cacheKey("analytics", "dashboard");
+    const cacheKeyStr = cacheKey("analytics", "dashboard", "v2");
     const cached = await cacheGet<any>(cacheKeyStr);
     if (cached) return res.json(cached);
     const now = new Date();
@@ -243,6 +243,21 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
     if (campaignId) recentQuery = recentQuery.eq("campaign_id", campaignId);
     const { data: recentDonations } = await recentQuery;
 
+    // ── Donations by gender ──
+    const { data: genderDonations } = await db
+      .from("donations")
+      .select("amount, church_members!church_member_id!inner(gender)")
+      .eq("status", "completed")
+      .not("church_member_id", "is", null);
+    let maleContributions = 0, femaleContributions = 0, unsetContributions = 0;
+    for (const d of genderDonations || []) {
+      const gender = (d as any).church_members?.gender;
+      const amt = Number(d.amount);
+      if (gender === "male") maleContributions += amt;
+      else if (gender === "female") femaleContributions += amt;
+      else unsetContributions += amt;
+    }
+
     // ── Payment method breakdown ──
     let methodQuery = db.from("donations").select("method, amount").eq("status", "completed");
     if (campaignId) methodQuery = methodQuery.eq("campaign_id", campaignId);
@@ -269,6 +284,107 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
     const { data: pageViewsLive } = await db
       .from("page_views")
       .select("id, path, page_title, created_at")
+      .gte("created_at", periods["7d"].toISOString())
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    // ── Page views daily trend (last 30d) ──
+    const { data: pvTrend } = await db
+      .from("page_views")
+      .select("created_at")
+      .gte("created_at", periods["30d"].toISOString())
+      .order("created_at", { ascending: true });
+    const pvDailyMap: Record<string, number> = {};
+    for (const v of pvTrend || []) {
+      const day = (v.created_at as string).slice(0, 10);
+      pvDailyMap[day] = (pvDailyMap[day] || 0) + 1;
+    }
+    const pageViewsTrend = Object.entries(pvDailyMap)
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    // ── Top pages (last 30d) ──
+    const { data: topPagesRaw } = await db
+      .from("page_views")
+      .select("path, page_title")
+      .gte("created_at", periods["30d"].toISOString());
+    const pageCountMap: Record<string, { path: string; title: string; count: number }> = {};
+    for (const p of topPagesRaw || []) {
+      const key = p.path || "/";
+      if (!pageCountMap[key]) pageCountMap[key] = { path: key, title: p.page_title || key, count: 0 };
+      pageCountMap[key].count++;
+    }
+    const topPages = Object.values(pageCountMap)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    // ── Hourly breakdown (last 7d) ──
+    const { data: hourlyRaw } = await db
+      .from("page_views")
+      .select("created_at")
+      .gte("created_at", periods["7d"].toISOString());
+    const hourlyMap: Record<number, number> = {};
+    for (const v of hourlyRaw || []) {
+      const h = new Date(v.created_at).getHours();
+      hourlyMap[h] = (hourlyMap[h] || 0) + 1;
+    }
+    const hourlyBreakdown = Array.from({ length: 24 }, (_, i) => ({
+      hour: i,
+      count: hourlyMap[i] || 0,
+    }));
+
+    // ── Unique IPs ──
+    const { data: ips7d } = await db
+      .from("page_views")
+      .select("ip_address")
+      .gte("created_at", periods["7d"].toISOString())
+      .not("ip_address", "is", null);
+    const { data: ips30d } = await db
+      .from("page_views")
+      .select("ip_address")
+      .gte("created_at", periods["30d"].toISOString())
+      .not("ip_address", "is", null);
+    const uniqueIps7d = new Set((ips7d || []).map((r: any) => r.ip_address)).size;
+    const uniqueIps30d = new Set((ips30d || []).map((r: any) => r.ip_address)).size;
+
+    // ── Browser / device breakdown (last 7d) ──
+    const { data: uaRaw } = await db
+      .from("page_views")
+      .select("user_agent")
+      .gte("created_at", periods["7d"].toISOString())
+      .not("user_agent", "is", null);
+    let mobile = 0, desktop = 0, tablet = 0, unknown = 0;
+    for (const r of uaRaw || []) {
+      const ua = (r.user_agent || "").toLowerCase();
+      if (ua.includes("tablet") || ua.includes("ipad")) tablet++;
+      else if (ua.includes("mobile") || ua.includes("android") || ua.includes("iphone") || ua.includes("ipod")) mobile++;
+      else if (ua) desktop++;
+      else unknown++;
+    }
+
+    // ── Login activity (last 30d) ──
+    const { data: loginAudits } = await db
+      .from("audit_logs")
+      .select("action, created_at, admin_name, ip_address")
+      .in("action", ["login", "failed_login"])
+      .gte("created_at", periods["30d"].toISOString())
+      .order("created_at", { ascending: true });
+    const loginDailyMap: Record<string, { success: number; failed: number }> = {};
+    for (const a of loginAudits || []) {
+      const day = (a.created_at as string).slice(0, 10);
+      if (!loginDailyMap[day]) loginDailyMap[day] = { success: 0, failed: 0 };
+      if (a.action === "login") loginDailyMap[day].success++;
+      else loginDailyMap[day].failed++;
+    }
+    const loginTrend = Object.entries(loginDailyMap)
+      .map(([date, vals]) => ({ date, ...vals }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    // ── Recent logins ──
+    const { data: recentLogins } = await db
+      .from("audit_logs")
+      .select("action, created_at, admin_name, ip_address")
+      .in("action", ["login", "failed_login"])
       .gte("created_at", periods["7d"].toISOString())
       .order("created_at", { ascending: false })
       .limit(20);
@@ -300,6 +416,21 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
           path: v.path,
           title: v.page_title,
           viewed_at: v.created_at,
+        })),
+      },
+      usage: {
+        page_views_trend: pageViewsTrend,
+        top_pages: topPages,
+        hourly_breakdown: hourlyBreakdown,
+        unique_visitors_7d: uniqueIps7d,
+        unique_visitors_30d: uniqueIps30d,
+        browser_breakdown: { mobile, desktop, tablet, unknown },
+        login_trend: loginTrend,
+        recent_logins: (recentLogins || []).map((r: any) => ({
+          action: r.action,
+          admin_name: r.admin_name,
+          ip_address: r.ip_address,
+          created_at: r.created_at,
         })),
       },
       kpis: {
@@ -335,6 +466,11 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
           male: (genderCounts.data || []).filter((g: any) => g.gender === "male").length,
           female: (genderCounts.data || []).filter((g: any) => g.gender === "female").length,
           unset: (genderCounts.data || []).filter((g: any) => !g.gender).length,
+        },
+        gender_contributions: {
+          male: Math.round(maleContributions),
+          female: Math.round(femaleContributions),
+          unset: Math.round(unsetContributions),
         },
       },
       pledges: {

@@ -8,26 +8,31 @@ export const donationsRouter = Router();
 // Returns null if no match found.
 async function resolveMemberId(db: any, name: string | null): Promise<string | null> {
   if (!name || name.trim().length < 2) return null;
+  const safe = name.trim().replace(/[%_<>]/g, "").slice(0, 100);
   const { data } = await db
     .from("church_members")
     .select("id")
     .eq("is_active", true)
-    .ilike("name", name.trim());
+    .ilike("name", safe);
   return data?.[0]?.id || null;
 }
 
 donationsRouter.get("/", async (req, res) => {
   try {
     const db = requireService();
-    const { campaign_id, status, limit, offset } = req.query;
-    let query = db.from("donations").select("*").order("created_at", { ascending: false });
+    const { campaign_id, status, limit, offset, date_from, date_to, honoured } = req.query;
+    let query = db.from("donations").select("*, honoured:church_members!honored_member_id(name)", { count: "exact" }).order("created_at", { ascending: false });
 
     if (campaign_id) query = query.eq("campaign_id", campaign_id);
     if (status) query = query.eq("status", status);
-    if (limit) query = query.limit(Number(limit));
-    if (offset) query = query.range(Number(offset), Number(offset) + 49);
+    if (honoured === "false") query = query.is("honored_member_id", null);
+    if (honoured === "true") query = query.not("honored_member_id", "is", null);
+    if (date_from) query = query.gte("created_at", new Date(date_from as string).toISOString());
+    if (date_to) query = query.lte("created_at", new Date(date_to as string + "T23:59:59.999Z").toISOString());
+    if (limit) query = query.limit(Math.min(Number(limit), 5000));
+    if (offset) query = query.range(Number(offset), Number(offset) + (limit ? Math.min(Number(limit), 5000) - 1 : 499));
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
     if (error) return res.status(500).json({ error: error.message });
 
     const admin = (req as any).admin;
@@ -48,7 +53,7 @@ donationsRouter.get("/", async (req, res) => {
       donations = donations.map((d: any) => maskSensitiveData(d));
     }
 
-    res.json({ donations });
+    res.json({ donations, total: count });
   } catch (err) {
     console.error("donations error:", err);
     res.status(500).json({ error: "Server error" });
@@ -176,6 +181,47 @@ donationsRouter.patch("/:id/status", requireAdmin, requireAdminOrAbove, async (r
     res.json({ donation: data });
   } catch (err) {
     console.error("donation status error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+donationsRouter.patch("/:id/honour", requireAdmin, requireAdminOrAbove, async (req, res) => {
+  try {
+    const db = requireService();
+    const { honored_member_id, honour_known_as } = req.body;
+
+    if (!honored_member_id) {
+      return res.status(400).json({ error: "honored_member_id required" });
+    }
+
+    const updateData: Record<string, unknown> = {
+      honored_member_id,
+      honour_known_as: honour_known_as || null,
+    };
+
+    const { data, error } = await db
+      .from("donations")
+      .update(updateData)
+      .eq("id", req.params.id)
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    const admin = (req as any).admin;
+    await logAudit({
+      adminId: admin.id,
+      action: "update_donation",
+      resourceType: "donation",
+      resourceId: data.id,
+      details: { honoured: true, honored_member_id },
+      ipAddress: (req as any).adminIp,
+      userAgent: (req as any).userAgent,
+    });
+
+    res.json({ donation: data });
+  } catch (err) {
+    console.error("donation honour error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

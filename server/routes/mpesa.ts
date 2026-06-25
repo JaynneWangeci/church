@@ -403,7 +403,7 @@ async function handleC2BConfirmation(req: any, res: any) {
     const body = req.body;
     res.status(200).json({ ResultCode: 0, ResultDesc: "Success" });
 
-    const donorName = (body.BillRefNumber || "").trim();
+    const donorName = (body.BillRefNumber || "").trim().replace(/[%_<>]/g, "").slice(0, 100);
     if (!donorName || donorName.length < 2) {
       console.log("C2B skipped: no BillRefNumber");
       return;

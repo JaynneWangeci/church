@@ -1,16 +1,66 @@
-import { Search, Users, Medal, Church } from "lucide-react";
+import { useState } from "react";
+import { Search, Users, Medal, Church, Pencil, X, Check } from "lucide-react";
+
+const COUNCIL_LABELS: Record<string, string> = {
+  maranatha_fellowship: "Maranatha",
+  bethlehem_fellowship: "Bethlehem",
+  jerusalem_fellowship: "Jerusalem",
+  aefeso_fellowship: "Aefeso",
+  galilee_fellowship: "Galilee",
+  bethel_fellowship: "Bethel",
+  berea_fellowship: "Berea",
+  judea_fellowship: "Judea",
+  general_member: "General",
+};
+
+const COUNCIL_SLUGS = Object.keys(COUNCIL_LABELS);
 
 interface MemberHistoryPanelProps {
   result: any;
   name: string;
   onClose: () => void;
   adminRole?: string;
+  token?: string;
+  onRefresh?: () => void;
 }
 
-export default function MemberHistoryPanel({ result, name, onClose }: MemberHistoryPanelProps) {
+export default function MemberHistoryPanel({ result, name, onClose, adminRole, token, onRefresh }: MemberHistoryPanelProps) {
   const h = result;
+  const [editingMember, setEditingMember] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editCouncil, setEditCouncil] = useState("");
+  const [editGender, setEditGender] = useState("");
+  const [saving, setSaving] = useState(false);
 
   if (!h) return null;
+
+  const isAdmin = adminRole === "admin" || adminRole === "super_admin";
+
+  function startEdit(m: any) {
+    setEditingMember(m.id);
+    setEditName(m.name);
+    setEditCouncil(m.council);
+    setEditGender(m.gender || "");
+  }
+
+  async function saveEdit(id: string) {
+    if (!token) return;
+    setSaving(true);
+    try {
+      const body: any = { name: editName, council: editCouncil };
+      if (editGender) body.gender = editGender;
+      const res = await fetch(`/api/members/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        setEditingMember(null);
+        onRefresh?.();
+      }
+    } catch {}
+    setSaving(false);
+  }
 
   return (
     <div className="mb-6 rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
@@ -43,18 +93,57 @@ export default function MemberHistoryPanel({ result, name, onClose }: MemberHist
           </div>
         </div>
 
-        {/* Member profiles */}
+        {/* Member profiles — inline editable */}
         {h.members?.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {h.members.map((m: any) => (
-              <span key={m.id} className="rounded-full bg-nobuk-muted px-3 py-1 text-xs font-medium text-nobuk">
-                {m.name} &middot; {m.council.replace(/_/g, " ")}{m.gender ? ` · ${m.gender}` : ""}{!m.is_active ? " (inactive)" : ""}
-              </span>
+              <div key={m.id} className="group relative">
+                {editingMember === m.id ? (
+                  <div className="rounded-xl border border-nobuk/30 bg-blue-50 p-3 space-y-2 min-w-[240px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase text-nobuk">Edit Member</span>
+                      <div className="flex gap-1">
+                        <button onClick={() => setEditingMember(null)} className="rounded p-0.5 text-muted hover:text-red-600"><X size={14} /></button>
+                        <button onClick={() => saveEdit(m.id)} disabled={saving} className="rounded p-0.5 text-nobuk hover:text-green-700 disabled:opacity-40">
+                          {saving ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-nobuk border-t-transparent" /> : <Check size={14} />}
+                        </button>
+                      </div>
+                    </div>
+                    <input value={editName} onChange={e => setEditName(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm font-medium text-ink outline-none focus:border-nobuk" />
+                    <select value={editCouncil} onChange={e => setEditCouncil(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm text-ink outline-none focus:border-nobuk">
+                      {COUNCIL_SLUGS.map(s => <option key={s} value={s}>{COUNCIL_LABELS[s] || s.replace(/_/g, " ")}</option>)}
+                    </select>
+                    <div className="flex gap-2">
+                      {["male", "female"].map(g => (
+                        <label key={g} className="flex cursor-pointer items-center gap-1 text-xs text-muted">
+                          <input type="radio" name="gender" value={g} checked={editGender === g} onChange={() => setEditGender(g)} className="accent-nobuk" />
+                          {g.charAt(0).toUpperCase() + g.slice(1)}
+                        </label>
+                      ))}
+                      <label className="flex cursor-pointer items-center gap-1 text-xs text-muted">
+                        <input type="radio" name="gender" value="" checked={editGender === ""} onChange={() => setEditGender("")} className="accent-nobuk" />
+                        None
+                      </label>
+                    </div>
+                  </div>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-nobuk-muted px-3 py-1 text-xs font-medium text-nobuk">
+                    {m.name} &middot; {COUNCIL_LABELS[m.council] || m.council?.replace(/_/g, " ")}{m.gender ? ` · ${m.gender}` : ""}{!m.is_active ? " (inactive)" : ""}
+                    {isAdmin && (
+                      <button onClick={() => startEdit(m)} className="ml-0.5 rounded-full p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-nobuk/20">
+                        <Pencil size={10} />
+                      </button>
+                    )}
+                  </span>
+                )}
+              </div>
             ))}
           </div>
         )}
 
-        {/* All donations — including pending/failed */}
+        {/* All donations */}
         {h.donations?.length > 0 && (
           <div>
             <p className="mb-1.5 text-xs font-bold uppercase tracking-wider text-muted">

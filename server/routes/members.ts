@@ -5,7 +5,7 @@ import { invalidateOnChange } from "../lib/redis.js";
 import type { AuditAction } from "../lib/admin.js";
 
 function sanitizeName(name: string): string {
-  return name.replace(/<[^>]*>/g, "").trim().slice(0, 100);
+  return name.replace(/<[^>]*>/g, "").replace(/[%_]/g, "").trim().slice(0, 100);
 }
 
 let validCouncils: string[] = [];
@@ -58,7 +58,7 @@ membersRouter.get("/template", async (_req, res) => {
   }
 });
 
-membersRouter.get("/", requireAdmin, async (_req, res) => {
+membersRouter.get("/", rateLimit, async (_req, res) => {
   try {
     const db = requireService();
     const { data, error } = await db
@@ -76,7 +76,41 @@ membersRouter.get("/", requireAdmin, async (_req, res) => {
   }
 });
 
+// Member search autocomplete (admin only)
+membersRouter.get("/search", rateLimit, async (req, res) => {
+  try {
+    const db = requireService();
+    let q = ((req.query.q as string) || "").trim().replace(/[^a-zA-Z0-9\s\-'.]/g, "");
+    if (!q || q.length < 1) {
+      const { data, error } = await db
+        .from("church_members")
+        .select("id, name, council, gender, is_active, created_at")
+        .eq("is_active", true)
+        .order("name")
+        .limit(50);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json({ members: data || [] });
+    }
+
+    const { data, error } = await db
+      .from("church_members")
+      .select("id, name, council, gender, is_active, created_at")
+      .eq("is_active", true)
+      .ilike("name", `${q}%`)
+      .order("name")
+      .limit(50);
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ members: data || [] });
+  } catch (err) {
+    console.error("member search error:", err);
+    res.status(500).json({ error: "Something went wrong." });
+  }
+});
+
 // Public endpoint: auto-add a name when typing in a form (no auth required, rate-limited)
+// If member exists and council/gender differ, updates them in place.
+// Uses fuzzy matching: exact (case-insensitive) → prefix → token match.
 membersRouter.post("/auto-add", rateLimit, async (req, res) => {
   try {
     const db = requireService();
@@ -87,14 +121,55 @@ membersRouter.post("/auto-add", rateLimit, async (req, res) => {
     if (!name || name.length < 2) return res.status(400).json({ error: "Name must be at least 2 characters" });
     if (!validCouncils.includes(council)) council = "general_member";
 
-    const { data: existing } = await db
+    // Try to find existing member: exact → prefix → token match
+    let existingMember: { id: string; name: string; council: string; gender: string | null } | null = null;
+
+    // Exact case-insensitive
+    const { data: exact } = await db
       .from("church_members")
       .select("id, name, council, gender")
       .eq("is_active", true)
-      .ilike("name", name);
+      .ilike("name", name)
+      .maybeSingle();
+    if (exact) existingMember = exact;
 
-    if (existing?.length) {
-      return res.json({ member: existing[0], existed: true });
+    // Prefix match
+    if (!existingMember) {
+      const { data: prefix } = await db
+        .from("church_members")
+        .select("id, name, council, gender")
+        .eq("is_active", true)
+        .ilike("name", `${name}%`)
+        .limit(1);
+      if (prefix?.length) existingMember = prefix[0];
+    }
+
+    // Token match — try each word of the name
+    if (!existingMember) {
+      const tokens = name.split(/\s+/).filter(Boolean);
+      for (const token of tokens) {
+        if (token.length < 2) continue;
+        const { data: tokenMatch } = await db
+          .from("church_members")
+          .select("id, name, council, gender")
+          .eq("is_active", true)
+          .ilike("name", `%${token}%`)
+          .limit(1);
+        if (tokenMatch?.length) { existingMember = tokenMatch[0]; break; }
+      }
+    }
+
+    if (existingMember) {
+      const member = existingMember;
+      const updates: Record<string, unknown> = {};
+      if (member.council !== council) updates.council = council;
+      if (gender === "male" || gender === "female") {
+        if (member.gender !== gender) updates.gender = gender;
+      }
+      if (Object.keys(updates).length > 0) {
+        await db.from("church_members").update(updates).eq("id", member.id);
+      }
+      return res.json({ member: { ...member, ...updates }, existed: true });
     }
 
     const insertData: Record<string, unknown> = { name, council };
@@ -113,6 +188,39 @@ membersRouter.post("/auto-add", rateLimit, async (req, res) => {
   }
 });
 
+async function reassignDonations(db: any, survivorId: string, sourceIds: string[]): Promise<number> {
+  if (!sourceIds.length) return 0;
+  const { data, error } = await db
+    .from("donations")
+    .update({ church_member_id: survivorId })
+    .in("church_member_id", sourceIds)
+    .select("id");
+  if (error) { console.error("reassign donations error:", error); return 0; }
+  return data?.length || 0;
+}
+
+async function reassignHonours(db: any, survivorId: string, sourceIds: string[]): Promise<number> {
+  if (!sourceIds.length) return 0;
+  const { data, error } = await db
+    .from("donations")
+    .update({ honored_member_id: survivorId })
+    .in("honored_member_id", sourceIds)
+    .select("id");
+  if (error) { console.error("reassign honours error:", error); return 0; }
+  return data?.length || 0;
+}
+
+async function reassignPledges(db: any, survivorId: string, sourceIds: string[]): Promise<number> {
+  if (!sourceIds.length) return 0;
+  const { data, error } = await db
+    .from("pledges")
+    .update({ church_member_id: survivorId })
+    .in("church_member_id", sourceIds)
+    .select("id");
+  if (error) { console.error("reassign pledges error:", error); return 0; }
+  return data?.length || 0;
+}
+
 membersRouter.post("/dedup", requireAdmin, requireAdminOrAbove, async (_req, res) => {
   try {
     const db = requireService();
@@ -122,6 +230,7 @@ membersRouter.post("/dedup", requireAdmin, requireAdminOrAbove, async (_req, res
     const seen = new Map<string, typeof all[0]>();
     const toDeactivate: string[] = [];
     const toDelete: string[] = [];
+    const idMap = new Map<string, string>();
 
     for (const m of all) {
       const key = m.name.toLowerCase().trim();
@@ -129,9 +238,20 @@ membersRouter.post("/dedup", requireAdmin, requireAdminOrAbove, async (_req, res
         const prev = seen.get(key)!;
         toDeactivate.push(prev.id);
         toDelete.push(m.id);
+        idMap.set(m.id, prev.id);
       } else {
         seen.set(key, m);
       }
+    }
+
+    // Reassign donations, honours, and pledges before removing duplicates
+    let reassignedDonations = 0;
+    let reassignedHonours = 0;
+    let reassignedPledges = 0;
+    for (const [obsoleteId, survivorId] of idMap) {
+      reassignedDonations += await reassignDonations(db, survivorId, [obsoleteId]);
+      reassignedHonours += await reassignHonours(db, survivorId, [obsoleteId]);
+      reassignedPledges += await reassignPledges(db, survivorId, [obsoleteId]);
     }
 
     let deactivated = 0;
@@ -153,9 +273,84 @@ membersRouter.post("/dedup", requireAdmin, requireAdminOrAbove, async (_req, res
       ipAddress: (_req as any).adminIp,
     });
 
-    res.json({ deduped: deactivated, message: `${deactivated} duplicate record${deactivated !== 1 ? 's' : ''} removed.` });
+    res.json({
+      deduped: deactivated,
+      reassigned: { donations: reassignedDonations, honours: reassignedHonours, pledges: reassignedPledges },
+      message: `${deactivated} duplicate record${deactivated !== 1 ? 's' : ''} removed. ${reassignedDonations} donations, ${reassignedHonours} honours, ${reassignedPledges} pledges reassigned.`,
+    });
   } catch (err) {
     console.error("dedup error:", err);
+    res.status(500).json({ error: "Something went wrong. Please try again." });
+  }
+});
+
+membersRouter.post("/:id/merge", requireAdmin, requireAdminOrAbove, async (req, res) => {
+  try {
+    const db = requireService();
+    const survivorId = req.params.id;
+    const { source_ids } = req.body;
+
+    if (!Array.isArray(source_ids) || !source_ids.length) {
+      return res.status(400).json({ error: "source_ids array required" });
+    }
+
+    // Verify survivor exists
+    const { data: survivor } = await db.from("church_members").select("id, name").eq("id", survivorId).single();
+    if (!survivor) return res.status(404).json({ error: "Survivor member not found" });
+
+    // Verify source members exist
+    const { data: sources } = await db.from("church_members").select("id, name").in("id", source_ids);
+    if (!sources?.length) return res.status(404).json({ error: "No source members found" });
+
+    const validSourceIds = sources.map(s => s.id);
+
+    // Reassign all donations, honours, and pledges
+    const donations = await reassignDonations(db, survivorId, validSourceIds);
+    const honours = await reassignHonours(db, survivorId, validSourceIds);
+    const pledges = await reassignPledges(db, survivorId, validSourceIds);
+
+    // Reassign donations by donor_name match (for donations with null church_member_id)
+    let donorNameMatch = 0;
+    for (const src of sources) {
+      const { data: nameDons, error: nameErr } = await db
+        .from("donations")
+        .select("id")
+        .is("church_member_id", null)
+        .ilike("donor_name", src.name);
+      if (!nameErr && nameDons?.length) {
+        const ids = nameDons.map(d => d.id);
+        const { error: updErr } = await db
+          .from("donations")
+          .update({ church_member_id: survivorId })
+          .in("id", ids);
+        if (!updErr) donorNameMatch += ids.length;
+      }
+    }
+
+    // Deactivate source members
+    const { error: deactErr } = await db
+      .from("church_members")
+      .update({ is_active: false })
+      .in("id", validSourceIds);
+
+    const admin = (req as any).admin;
+    await logAudit({
+      adminId: admin.id,
+      action: "merge_church_members" as AuditAction,
+      resourceType: "church_member",
+      resourceId: `${survivorId} merged with ${validSourceIds.join(",")}`,
+      ipAddress: (req as any).adminIp,
+    });
+
+    res.json({
+      ok: true,
+      survivor: { id: survivor.id, name: survivor.name },
+      merged: sources.map(s => ({ id: s.id, name: s.name })),
+      reassigned: { donations, honours, pledges, donor_name_matches: donorNameMatch },
+      message: `${survivor.name} absorbed ${sources.length} member${sources.length > 1 ? 's' : ''}. ${donations} donations, ${honours} honours, ${pledges} pledges, ${donorNameMatch} additional donor-name matches reassigned.`,
+    });
+  } catch (err) {
+    console.error("merge error:", err);
     res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });
@@ -164,6 +359,7 @@ membersRouter.post("/", requireAdmin, requireAdminOrAbove, async (req, res) => {
   try {
     const db = requireService();
     let { name, council, gender } = req.body;
+    name = sanitizeName(name || "");
     if (!name) return res.status(400).json({ error: "name is required" });
     if (!council) council = "general_member";
 
@@ -212,7 +408,7 @@ membersRouter.post("/bulk-edit", requireAdmin, requireAdminOrAbove, async (req, 
     if (!Array.isArray(names) || !names.length) return res.status(400).json({ error: "Provide at least one name" });
     if (!council) council = "general_member";
 
-    names = names.map((n: string) => n.replace(/^\d+[\.\)]?\s*/, "").replace(/\.+$/, "").trim()).filter(Boolean);
+    names = names.map((n: string) => n.replace(/^\d+[\.\)]?\s*/, "").replace(/\.+$/, "").replace(/[%_<>]/g, "").trim()).filter(Boolean);
 
     const { data: all, error: fetchErr } = await db.from("church_members").select("id, name").eq("is_active", true);
     if (fetchErr) return res.status(500).json({ error: "Failed to fetch members: " + fetchErr.message });
@@ -331,7 +527,7 @@ membersRouter.get("/history", requireAdmin, async (req, res) => {
     const db = requireService();
     const raw = (req.query.name as string || "").trim();
     // Only allow alphanumeric, spaces, hyphens, apostrophes, periods, underscores
-    const name = raw.replace(/[^a-zA-Z0-9\s\-'._]/g, "").slice(0, 100);
+    const name = raw.replace(/[^a-zA-Z0-9\s\-'.]/g, "").slice(0, 100);
 
     if (!name || name.length < 2) {
       return res.status(400).json({ error: "Name must be at least 2 characters" });

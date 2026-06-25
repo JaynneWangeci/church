@@ -23,7 +23,7 @@ adminRouter.get("/stats", requireAdmin, async (req, res) => {
     const campaignId = campaign?.id;
 
     let query = db.from("donations")
-      .select("id, amount, donor_name, status, method, receipt_number, phone, message, created_at, campaign_id")
+      .select("id, amount, donor_name, status, method, receipt_number, phone, message, created_at, campaign_id, checkout_request_id, account_reference, transaction_id")
       .eq("status", "completed");
     if (campaignId) query = query.eq("campaign_id", campaignId);
     const { data: completedDonations } = await query.order("created_at", { ascending: false });
@@ -99,6 +99,9 @@ adminRouter.get("/stats", requireAdmin, async (req, res) => {
       .from("church_members")
       .select("*", { count: "exact", head: true });
 
+    const paybillCompleted = (completedDonations || []).filter(d => d.transaction_id || (d.account_reference && d.account_reference.startsWith("C2B:")));
+    const stkCompleted = (completedDonations || []).filter(d => !d.transaction_id && d.checkout_request_id);
+
     const stats = {
       goal,
       raised: totalRaised,
@@ -110,6 +113,10 @@ adminRouter.get("/stats", requireAdmin, async (req, res) => {
       member_count: memberCount || 0,
       recent_donations: maskedDonations,
       fellowship_stats: fellowshipStats,
+      paybill_count: paybillCompleted.length,
+      paybill_total: paybillCompleted.reduce((s, d) => s + Number(d.amount), 0),
+      stk_count: stkCompleted.length,
+      stk_total: stkCompleted.reduce((s, d) => s + Number(d.amount), 0),
     };
 
     res.json(stats);

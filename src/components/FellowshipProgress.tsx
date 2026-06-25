@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users, TrendingUp } from "lucide-react";
+import { Users, TrendingUp, Award } from "lucide-react";
 
 interface Fellowship {
   council: string;
@@ -34,10 +34,12 @@ export default function FellowshipProgress() {
 
   if (loading) return null;
 
+  const maxTotal = Math.max(...fellowships.map(f => f.total_amount), 1);
+
   return (
-    <section className="bg-white/5 backdrop-blur-sm px-4 py-20 md:py-28">
+    <section className="bg-white/5 backdrop-blur-sm px-4 py-16 md:py-24">
       <div className="mx-auto max-w-5xl">
-        <div className="mb-10 text-center">
+        <div className="mb-8 text-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-4 py-1.5 text-xs font-bold text-blue-300 uppercase tracking-widest">
             <Users size={12} />
             Fellowships
@@ -50,7 +52,40 @@ export default function FellowshipProgress() {
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        {/* Mobile: compact ranked list */}
+        <div className="space-y-1 md:hidden">
+          {fellowships.map((f, i) => (
+            <div key={f.council} className="flex items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2">
+              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold ${
+                i === 0 ? "bg-amber/20 text-amber" : i === 1 ? "bg-white/10 text-white/60" : i === 2 ? "bg-amber/10 text-amber/60" : "bg-white/5 text-white/40"
+              }`}>
+                {i + 1}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-1">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: f.color }} />
+                    <span className="text-xs font-bold text-white truncate">{f.label}</span>
+                  </div>
+                  <span className="text-xs font-bold text-white/80 tabular-nums shrink-0">KES {f.total_amount.toLocaleString()}</span>
+                </div>
+                <div className="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                  <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${(f.total_amount / maxTotal) * 100}%`, backgroundColor: f.color }} />
+                </div>
+                <div className="flex items-center gap-1.5 text-[9px] text-white/40 mt-0.5">
+                  <span>{f.member_count} members</span>
+                  <span>·</span>
+                  <span>{f.donation_count} donations</span>
+                  <span>·</span>
+                  <span>{f.percentage.toFixed(2)}%</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop: card grid */}
+        <div className="hidden md:grid gap-4 md:grid-cols-2">
           {fellowships.map((f) => (
             <div
               key={f.council}
@@ -85,7 +120,7 @@ export default function FellowshipProgress() {
 
               <div className="mt-1.5 flex items-center justify-between">
                 <span className="text-xs text-white/30">
-                  {f.percentage.toFixed(1)}% of goal
+                  {f.percentage.toFixed(2)}% of goal
                 </span>
                 {f.donation_count > 0 && (
                   <span className="flex items-center gap-1 text-xs text-green-400">

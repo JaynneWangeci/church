@@ -12,6 +12,7 @@ import MemberRegistration from "../components/MemberRegistration";
 import PledgeBoard from "../components/PledgeBoard";
 import Footer from "../components/Footer";
 import FellowshipProgress from "../components/FellowshipProgress";
+import GenderCompetition from "../components/GenderCompetition";
 
 const SECTIONS = [
   { id: 'hero', label: 'Hero' },
@@ -20,6 +21,7 @@ const SECTIONS = [
   { id: 'pledge-board', label: 'Pledge' },
   { id: 'live-progress', label: 'Progress' },
   { id: 'fellowships', label: 'Fellowships' },
+  { id: 'gender-challenge', label: 'Men vs Women' },
   { id: 'about', label: 'About' },
 ];
 
@@ -87,12 +89,11 @@ export default function HomePage() {
       </div>
 
       <SlideshowBackground />
-      <div className="relative z-10 pt-10">
-        <section id="hero"><ChurchHero /></section>
-
-        <section className="relative z-10 -mt-6 mb-6 px-4">
-          <div className="mx-auto max-w-lg rounded-2xl border border-blue-400/20 bg-white/5 p-5 text-center backdrop-blur-sm">
-            <div className="mb-3 flex items-center justify-center gap-2">
+      <div className="relative z-10 pt-4">
+        {/* Countdown at top — above everything */}
+        <section className="relative z-10 mb-2 px-4">
+          <div className="mx-auto max-w-lg rounded-2xl border border-blue-400/20 bg-white/5 p-4 text-center backdrop-blur-sm">
+            <div className="mb-2 flex items-center justify-center gap-2">
               <Clock size={14} className="text-amber" />
               <span className="text-xs font-bold uppercase tracking-wider text-amber">Harambee Countdown</span>
             </div>
@@ -100,11 +101,14 @@ export default function HomePage() {
           </div>
         </section>
 
+        <section id="hero"><ChurchHero /></section>
+
         <section id="register"><MemberRegistration /></section>
         <ContributeSection />
         <section id="pledge-board"><PledgeBoard /></section>
         <section id="live-progress"><LiveProgress /></section>
         <section id="fellowships"><FellowshipProgress /></section>
+        <GenderCompetition />
         <AboutSection />
 
         {/* Google Maps pin */}

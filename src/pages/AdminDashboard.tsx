@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   TrendingUp, Users, DollarSign, Clock, AlertCircle,
-  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileSpreadsheet, Search, ScanSearch, ArrowUpRight, ArrowDownRight, PieChart, Target, Save, Pencil, Monitor, Eye, EyeOff,
+  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileSpreadsheet, Search, ScanSearch, ArrowUpRight, ArrowDownRight, PieChart, Target, Save, Pencil, Monitor, Eye, EyeOff, GitMerge,
 } from "lucide-react";
 import MemberHistoryPanel from "../components/MemberHistoryPanel";
 import {
@@ -74,11 +74,33 @@ export default function AdminDashboard() {
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
   const [deduping, setDeduping] = useState(false);
   const [dedupResult, setDedupResult] = useState("");
+  const [mergeResult, setMergeResult] = useState("");
   const [historyName, setHistoryName] = useState("");
   const [historyResult, setHistoryResult] = useState<any>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [showHistoryDropdown, setShowHistoryDropdown] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [donationFilter, setDonationFilter] = useState<"all" | "stk" | "paybill" | "unassigned">("all");
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchTimer = useRef<any>(null);
+  const [addMemberSearchResults, setAddMemberSearchResults] = useState<any[]>([]);
+  const [showAddMemberDropdown, setShowAddMemberDropdown] = useState(false);
+  const [searchingMember, setSearchingMember] = useState(false);
+  const addMemberDropdownRef = useRef<HTMLDivElement>(null);
+  const addMemberTimer = useRef<any>(null);
+  const [honouringDonation, setHonouringDonation] = useState<string | null>(null);
+  const [honourSearch, setHonourSearch] = useState("");
+  const [honourResults, setHonourResults] = useState<any[]>([]);
+  const [honourSearching, setHonourSearching] = useState(false);
+  const honourTimer = useRef<any>(null);
+  const [allDonations, setAllDonations] = useState<any[]>([]);
+  const [donationsLoading, setDonationsLoading] = useState(false);
+  const [donationsTotal, setDonationsTotal] = useState(0);
+  const donationsOffsetRef = useRef(0);
+  const [donationsHasMore, setDonationsHasMore] = useState(true);
+  const [donationDateFrom, setDonationDateFrom] = useState("");
+  const [donationDateTo, setDonationDateTo] = useState("");
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [analyticsRange, setAnalyticsRange] = useState<"7d" | "30d" | "90d" | "1y" | "all">("30d");
   const [chartPeriod, setChartPeriod] = useState<"daily" | "weekly" | "monthly">("daily");
@@ -116,6 +138,11 @@ export default function AdminDashboard() {
   const [payAmount, setPayAmount] = useState("");
   const [payReceipt, setPayReceipt] = useState("");
 
+  const hourlyBarColors = Array.from({ length: 24 }, (_, i) => {
+    const hue = i < 6 ? 250 : i < 12 ? 270 : i < 18 ? 240 : 260;
+    return `hsl(${hue}, ${50 + (i % 6) * 5}%, ${40 + (i % 4) * 8}%)`;
+  });
+
   const token = localStorage.getItem("token");
 
   const checkAuth = useCallback(async () => {
@@ -129,6 +156,41 @@ export default function AdminDashboard() {
       setAdmin(data.admin);
     } catch { navigate("/admin/login"); }
   }, [token, navigate]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (addMemberDropdownRef.current && !addMemberDropdownRef.current.contains(e.target as Node)) {
+        setShowAddMemberDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const fetchDonations = useCallback(async (from?: string, to?: string, append = false, filter?: string) => {
+    setDonationsLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const pageSize = 200;
+      const currentOffset = append ? donationsOffsetRef.current : 0;
+      const params = new URLSearchParams({ limit: String(pageSize), offset: String(currentOffset) });
+      if (from) params.set("date_from", from);
+      if (to) params.set("date_to", to);
+      if (filter === "unassigned") params.set("honoured", "false");
+      const res = await fetch(`/api/donations?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const newDonations = data.donations || [];
+        setAllDonations(prev => append ? [...prev, ...newDonations] : newDonations);
+        setDonationsTotal(data.total || 0);
+        donationsOffsetRef.current = currentOffset + newDonations.length;
+        setDonationsHasMore(newDonations.length >= pageSize);
+      }
+    } catch {}
+    setDonationsLoading(false);
+  }, []);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -192,13 +254,15 @@ export default function AdminDashboard() {
 
   const fetchMembers = useCallback(async () => {
     try {
-      const res = await fetch("/api/members");
+      const res = await fetch("/api/members", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (res.ok) {
         const data = await res.json();
         setChurchMembers(data.members || []);
       }
     } catch { /* silent */ }
-  }, []);
+  }, [token]);
 
   const fetchCommittee = useCallback(async () => {
     try {
@@ -255,6 +319,7 @@ export default function AdminDashboard() {
     setLoading(false);
     fetchStats();
     fetchLogs();
+    fetchDonations();
     fetchMembers();
     fetchAdmins();
     fetchAnalytics();
@@ -263,7 +328,7 @@ export default function AdminDashboard() {
     fetchFellowshipReport();
     loadCouncils();
     loadHarambee();
-  }, [admin, fetchStats, fetchLogs, fetchMembers, fetchAdmins, fetchAnalytics, fetchCommittee, fetchPledges, fetchFellowshipReport, loadCouncils, loadHarambee]);
+  }, [admin, fetchStats, fetchLogs, fetchDonations, fetchMembers, fetchAdmins, fetchAnalytics, fetchCommittee, fetchPledges, fetchFellowshipReport, loadCouncils, loadHarambee]);
 
   // Live audit log polling
   useEffect(() => {
@@ -272,6 +337,14 @@ export default function AdminDashboard() {
     const interval = setInterval(fetchLogs, 15000);
     return () => clearInterval(interval);
   }, [admin?.role, fetchLogs]);
+
+  // Fetch donations when date range changes (debounced)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchDonations(donationDateFrom || undefined, donationDateTo || undefined, false, donationFilter);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [donationDateFrom, donationDateTo, donationFilter, fetchDonations]);
 
   async function addMember(e: React.FormEvent) {
     e.preventDefault();
@@ -445,6 +518,25 @@ export default function AdminDashboard() {
     finally { setDeduping(false); }
   }
 
+  async function handleMerge() {
+    if (selectedMembers.size < 2) return;
+    const selected = churchMembers.filter(m => selectedMembers.has(m.id));
+    const names = selected.map((m, i) => `  ${i === 0 ? "→ " : "  "}${m.name}${i === 0 ? " (survivor)" : ""}`).join("\n");
+    if (!confirm(`Merge these ${selected.length} members into one?\n\n${names}\n\n"${selected[0].name}" will be kept. All others will be absorbed and deactivated. This cannot be undone.`)) return;
+    setMergeResult("");
+    try {
+      const sourceIds = selected.slice(1).map(m => m.id);
+      const res = await fetch(`/api/members/${selected[0].id}/merge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ source_ids: sourceIds }),
+      });
+      const data = await res.json();
+      setMergeResult(data.message || "Done.");
+      if (res.ok) { setSelectedMembers(new Set()); fetchMembers(); fetchStats(); fetchAnalytics(); fetchFellowshipReport(); fetchPledges(); }
+    } catch { setMergeResult("Something went wrong. Please try again."); }
+  }
+
   async function handleHistorySearch() {
     const q = historyName.trim();
     if (!q || q.length < 2) return;
@@ -510,13 +602,17 @@ export default function AdminDashboard() {
 
   if (!admin) return null;
 
-  const progress = stats ? Math.min(Math.round((stats.raised / stats.goal) * 100), 100) : 0;
+  const progress = stats ? Math.min((stats.raised / stats.goal) * 100, 100) : 0;
+
+  const paybillPct = stats?.total_raised ? ((stats as any).paybill_total || 0) / stats.total_raised * 100 : 0;
 
   const statCards = [
     { icon: TrendingUp, label: "Total Raised", value: stats ? `KES ${stats.total_raised.toLocaleString()}` : "—" },
     { icon: Users, label: "Total Donors", value: stats?.total_donors?.toLocaleString() || "0" },
     { icon: DollarSign, label: "Average Gift", value: stats ? `KES ${stats.avg_gift.toLocaleString()}` : "—" },
     { icon: Clock, label: "Pending", value: stats?.pending_count?.toString() || "0" },
+    { icon: TrendingUp, label: "STK Push", value: stats ? `KES ${((stats as any).stk_total || 0).toLocaleString()}` : "—" },
+    { icon: TrendingUp, label: "Paybill", value: stats ? `KES ${((stats as any).paybill_total || 0).toLocaleString()} (${paybillPct.toFixed(2)}%)` : "—" },
   ];
 
   const groupedMembers = churchMembers.reduce((acc, m) => {
@@ -568,7 +664,7 @@ export default function AdminDashboard() {
             <p className="text-xs text-muted">{admin.name} &middot; {admin.role.replace("_", " ")}</p>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => { fetchStats(); fetchLogs(); fetchMembers(); fetchAdmins(); fetchAnalytics(); fetchCommittee(); loadCouncils(); loadHarambee(); }} className="rounded-lg p-2 text-muted transition hover:bg-cream" title="Refresh">
+            <button onClick={() => { fetchStats(); fetchLogs(); fetchDonations(donationDateFrom || undefined, donationDateTo || undefined); fetchMembers(); fetchAdmins(); fetchAnalytics(); fetchCommittee(); loadCouncils(); loadHarambee(); }} className="rounded-lg p-2 text-muted transition hover:bg-cream" title="Refresh">
               <RefreshCw size={16} />
             </button>
             <a href="/" className="text-sm text-muted underline underline-offset-2 hover:text-nobuk">View Site</a>
@@ -668,65 +764,98 @@ export default function AdminDashboard() {
           )}
         </div>
 
-        {/* Global member search — visible from every tab */}
+        {/* Global member search — DB-powered autocomplete */}
         <div className="mb-4">
           <div className="flex items-center gap-2">
             <div ref={dropdownRef} className="relative flex-1">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
               <input
                 type="text"
-                placeholder="Search any member's full history (donations, pledges, failed attempts)..."
+                placeholder="Type any name to search full history..."
                 value={historyName}
-                onChange={e => { setHistoryName(e.target.value); setShowHistoryDropdown(true); }}
-                onFocus={() => setShowHistoryDropdown(true)}
+                onChange={e => {
+                  const val = e.target.value;
+                  setHistoryName(val);
+                  setShowHistoryDropdown(true);
+                  if (searchTimer.current) clearTimeout(searchTimer.current);
+                  if (val.trim().length >= 1) {
+                    setSearchLoading(true);
+                    searchTimer.current = setTimeout(async () => {
+                      try {
+                        const res = await fetch(`/api/members/search?q=${encodeURIComponent(val.trim())}`, {
+                          headers: { Authorization: `Bearer ${token}` },
+                        });
+                        if (res.ok) { const d = await res.json(); setSearchResults(d.members || []); }
+                      } catch {}
+                      setSearchLoading(false);
+                    }, 200);
+                  } else {
+                    // Show all members from local cache when input is empty
+                    setSearchResults(churchMembers.filter(m => m.is_active !== false));
+                    setSearchLoading(false);
+                  }
+                }}
+                onFocus={() => {
+                  setShowHistoryDropdown(true);
+                  if (!historyName.trim()) {
+                    setSearchResults(churchMembers.filter(m => m.is_active !== false));
+                  }
+                }}
                 onKeyDown={e => { if (e.key === "Enter") { setShowHistoryDropdown(false); handleHistorySearch(); } }}
                 className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-9 pr-3 text-sm text-ink outline-none focus:border-nobuk shadow-sm"
               />
               {showHistoryDropdown && historyName.trim() && (
                 <div className="absolute top-full left-0 right-0 z-30 mt-1 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg">
-                  <div className="max-h-56 overflow-y-auto divide-y divide-gray-50">
-                    {COUNCIL_ORDER && Object.keys(COUNCIL_ORDER).filter(council => {
-                      const filtered = churchMembers.filter(m =>
-                        m.council === council &&
-                        m.name.toLowerCase().includes(historyName.toLowerCase())
-                      );
-                      return filtered.length > 0;
-                    }).sort((a, b) => (COUNCIL_ORDER[a] || 99) - (COUNCIL_ORDER[b] || 99)).map(council => {
-                      const councilMembers = churchMembers.filter(m =>
-                        m.council === council &&
-                        m.name.toLowerCase().includes(historyName.toLowerCase())
-                      );
-                      if (!councilMembers.length) return null;
-                      return (
-                        <div key={council}>
-                          <div className="sticky top-0 flex items-center gap-2 bg-blue-50 px-4 py-1.5">
-                            <Church size={12} className="text-nobuk" />
-                            <span className="text-[10px] font-bold text-nobuk uppercase tracking-wider">{councilLabels[council] || council.replace(/_/g, " ")}</span>
-                          </div>
-                          {councilMembers.map(m => (
-                            <button key={m.id} type="button"
-                              onClick={() => { setHistoryName(m.name); setShowHistoryDropdown(false); handleHistorySearch(); }}
-                              className={`flex w-full items-center gap-3 px-4 py-2 text-left transition-all hover:bg-cream ${
-                                historyName === m.name ? "bg-blue-50 font-bold" : ""
-                              }`}>
-                              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                                historyName === m.name ? "bg-nobuk text-white" : "bg-nobuk-muted text-nobuk"
-                              }`}>
-                                {m.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}
+                  {searchLoading ? (
+                    <div className="flex items-center justify-center py-6">
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-nobuk border-t-transparent" />
+                    </div>
+                  ) : searchResults.length > 0 ? (
+                    <div className="max-h-64 overflow-y-auto divide-y divide-gray-50">
+                      {(() => {
+                        const councilsInResults = [...new Set(searchResults.map(m => m.council))];
+                        const orderMap = COUNCIL_ORDER || {};
+                        councilsInResults.sort((a, b) => (orderMap[a] || 99) - (orderMap[b] || 99));
+                        return councilsInResults.map(council => {
+                          const councilMembers = searchResults.filter(m => m.council === council);
+                          return (
+                            <div key={council}>
+                              <div className="sticky top-0 flex items-center gap-2 bg-blue-50 px-4 py-1.5">
+                                <Church size={12} className="text-nobuk" />
+                                <span className="text-[10px] font-bold text-nobuk uppercase tracking-wider">{councilLabels[council] || council.replace(/_/g, " ")}</span>
                               </div>
-                              <p className={`text-sm ${historyName === m.name ? "text-nobuk" : "text-ink font-medium"}`}>{m.name}</p>
-                              {m.gender && <span className={`text-[10px] font-bold ${m.gender === "male" ? "text-blue-500" : "text-pink-500"}`}>{m.gender === "male" ? "M" : "F"}</span>}
-                            </button>
-                          ))}
-                        </div>
-                      );
-                    })}
-                    {churchMembers.filter(m => m.name.toLowerCase().includes(historyName.toLowerCase())).length === 0 && (
-                      <div className="px-4 py-4 text-center text-xs text-muted">
-                        No matching members. Press <span className="font-bold text-ink">Enter</span> to search all records.
-                      </div>
-                    )}
-                  </div>
+                              {councilMembers.map(m => (
+                                <button key={m.id} type="button"
+                                  onClick={() => { setHistoryName(m.name); setShowHistoryDropdown(false); handleHistorySearch(); }}
+                                  className="flex w-full items-center gap-3 px-4 py-2 text-left transition-all hover:bg-cream">
+                                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-nobuk-muted text-xs font-bold text-nobuk">
+                                    {m.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-ink truncate">{m.name}</p>
+                                    <p className="text-[10px] text-muted">{councilLabels[m.council] || m.council?.replace(/_/g, " ")}{m.gender ? ` · ${m.gender}` : ""}{!m.is_active ? " · inactive" : ""}</p>
+                                  </div>
+                                  <span className="shrink-0 text-[10px] text-nobuk underline">View</span>
+                                </button>
+                              ))}
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  ) : (
+                    <div className="px-4 py-4 text-center text-xs text-muted">
+                      {historyName.trim().length >= 1 ? "No matching members found." : "Start typing to search..."}
+                    </div>
+                  )}
+                  {searchResults.length > 0 && (
+                    <div className="border-t border-gray-100 px-4 py-2">
+                      <button onClick={() => { setShowHistoryDropdown(false); handleHistorySearch(); }}
+                        className="w-full text-center text-xs font-semibold text-nobuk hover:underline">
+                        Search all records for &ldquo;{historyName}&rdquo; →
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -736,11 +865,11 @@ export default function AdminDashboard() {
               Search
             </button>
           </div>
-          <p className="mt-1.5 text-[11px] text-muted">Shows all donations (completed, failed, pending), pledges, and payment attempts with timestamps. Type a name and press Enter or click Search.</p>
+          <p className="mt-1.5 text-[11px] text-muted">Type to search from database — click a name to see all donations (completed, failed, pending), pledges, and payment attempts with timestamps. Press Enter for broader search.</p>
         </div>
 
         {historyResult && (
-          <MemberHistoryPanel result={historyResult} name={historyName} onClose={() => setHistoryResult(null)} adminRole={admin?.role} />
+          <MemberHistoryPanel result={historyResult} name={historyName} onClose={() => setHistoryResult(null)} adminRole={admin?.role} token={token} onRefresh={handleHistorySearch} />
         )}
 
         {tab === "overview" && (
@@ -755,7 +884,7 @@ export default function AdminDashboard() {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-3xl font-bold text-nobuk">{progress}%</p>
+                  <p className="text-3xl font-bold text-nobuk">{progress.toFixed(2)}%</p>
                   {harambeeDays > 0 && (
                     <p className="mt-1 text-xs font-bold text-amber-600">{harambeeDays} days remaining</p>
                   )}
@@ -814,8 +943,8 @@ export default function AdminDashboard() {
 
             <div className="grid gap-8 lg:grid-cols-2">
               <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-sm font-bold text-ink">Recent Donations</h2>
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="text-sm font-bold text-ink">Donations</h2>
                   <button onClick={async () => {
                     setExporting("xlsx");
                     try {
@@ -833,36 +962,195 @@ export default function AdminDashboard() {
                     <Download size={12} /> {exporting === "xlsx" ? "..." : "Export XLSX"}
                   </button>
                 </div>
-                {stats?.recent_donations?.length ? (
-                  <div className="space-y-2">
-                    {stats.recent_donations.slice(0, 10).map((d: any) => (
-                      <div key={d.id} className="flex items-center justify-between rounded-lg bg-cream px-3 py-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-ink">{d.donor_name || "Anonymous"}</p>
-                          <p className="text-xs text-muted">{d.created_at ? new Date(d.created_at).toLocaleDateString() : "—"}</p>
-                          {d.receipt_number && <p className="text-[10px] font-mono text-muted">{d.receipt_number}</p>}
-                          {d.phone && <p className="text-[10px] text-muted">{d.phone}</p>}
-                        </div>
-                        <div className="ml-3 text-right shrink-0">
-                          <p className="text-sm font-bold text-ink tabular-nums">KES {Number(d.amount || 0).toLocaleString()}</p>
-                          <span className={`text-xs font-semibold ${
-                            d.status === "completed" ? "text-green-600" :
-                            d.status === "pending" ? "text-amber-600" :
-                            "text-red-600"
-                          }`}>
-                            {(d.status || "unknown").replace("_", " ")}
-                          </span>
-                          {d.status === "completed" && d.phone && (
-                            <button onClick={async () => { await fetch(`/api/mpesa/resend-whatsapp/${d.id}`, { method: "POST" }); }}
-                              className="ml-1 rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-600 hover:bg-blue-200">
-                              WA
-                            </button>
-                          )}
-                        </div>
-                      </div>
+
+                {/* Date range + filter bar */}
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <input type="date" value={donationDateFrom} onChange={(e) => setDonationDateFrom(e.target.value)}
+                      className="rounded-lg border border-gray-200 px-2 py-1.5 text-[10px] text-ink outline-none focus:border-nobuk" />
+                    <span className="text-[10px] text-muted">—</span>
+                    <input type="date" value={donationDateTo} onChange={(e) => setDonationDateTo(e.target.value)}
+                      className="rounded-lg border border-gray-200 px-2 py-1.5 text-[10px] text-ink outline-none focus:border-nobuk" />
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {["all", "stk", "paybill", "unassigned"].map(f => (
+                      <button key={f} onClick={() => setDonationFilter(f as any)}
+                        className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition ${
+                          donationFilter === f ? "bg-nobuk text-white" : "bg-gray-100 text-muted hover:bg-gray-200"
+                        }`}>
+                        {f === "all" ? "All" : f === "stk" ? "STK Push" : f === "paybill" ? "Paybill" : "Unassigned"}
+                      </button>
                     ))}
                   </div>
-                ) : <p className="text-sm text-muted">No donations yet</p>}
+                  {donationsTotal > 0 && (
+                    <span className="text-[10px] text-muted ml-auto tabular-nums">{donationsTotal} donation{donationsTotal !== 1 ? "s" : ""}</span>
+                  )}
+                </div>
+
+                {/* Donations list */}
+                <div className="max-h-[520px] overflow-y-auto space-y-1.5">
+                  {donationsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-nobuk border-t-transparent" />
+                    </div>
+                  ) : allDonations.length > 0 ? (
+                    allDonations.filter((d: any) => {
+                      if (donationFilter === "all" || donationFilter === "unassigned") return true;
+                      const isPaybill = !!d.transaction_id || (d.account_reference && d.account_reference.startsWith("C2B:"));
+                      return donationFilter === "paybill" ? isPaybill : !isPaybill;
+                    }).map((d: any) => {
+                      const isPaybill = !!d.transaction_id || (d.account_reference && d.account_reference.startsWith("C2B:"));
+                      return (
+                        <div key={d.id}>
+                          <div className="flex items-center justify-between rounded-lg bg-cream px-3 py-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="truncate text-sm font-medium text-ink">{d.donor_name || "Anonymous"}</p>
+                                {d.honoured?.name && (
+                                  <span className="text-xs text-amber-600 truncate">→ {d.honoured.name}</span>
+                                )}
+                                <span className={`shrink-0 rounded px-1 py-0.5 text-[8px] font-bold uppercase ${
+                                  isPaybill
+                                    ? "bg-purple-100 text-purple-700"
+                                    : "bg-blue-100 text-blue-700"
+                                }`}>{isPaybill ? "Paybill" : "STK"}</span>
+                                {d.honored_member_id && <span className="shrink-0 rounded bg-amber-100 px-1 py-0.5 text-[8px] font-bold text-amber-700">Honoured</span>}
+                              </div>
+                              <p className="text-xs text-muted">{d.created_at ? new Date(d.created_at).toLocaleDateString("en-KE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}</p>
+                              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                {d.receipt_number && <span className="text-[9px] font-mono text-muted">#{d.receipt_number}</span>}
+                                {d.transaction_id && <span className="text-[9px] font-mono text-muted">TXN: {d.transaction_id}</span>}
+                                {d.phone && <span className="text-[9px] text-muted">{d.phone}</span>}
+                              </div>
+                            </div>
+                            <div className="ml-3 text-right shrink-0">
+                              <p className="text-sm font-bold text-ink tabular-nums">KES {Number(d.amount || 0).toLocaleString()}</p>
+                              <span className={`text-xs font-semibold ${
+                                d.status === "completed" ? "text-green-600" :
+                                d.status === "pending" ? "text-amber-600" :
+                                "text-red-600"
+                              }`}>
+                                {(d.status || "unknown").replace("_", " ")}
+                              </span>
+                              <div className="flex items-center gap-1 mt-1 justify-end">
+                                {d.status === "completed" && d.phone && (
+                                  <button onClick={async () => { await fetch(`/api/mpesa/resend-whatsapp/${d.id}`, { method: "POST" }); }}
+                                    className="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-600 hover:bg-blue-200">
+                                    WA
+                                  </button>
+                                )}
+                                <button onClick={() => {
+                                  setHonouringDonation(honouringDonation === d.id ? null : d.id);
+                                  setHonourSearch("");
+                                  setHonourResults([]);
+                                }}
+                                  className={`rounded px-1.5 py-0.5 text-[9px] font-bold transition ${
+                                    d.honored_member_id
+                                      ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                                      : "bg-gray-100 text-muted hover:bg-gray-200"
+                                  }`}>
+                                  {d.honored_member_id ? "Change" : "Honour"}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                          {honouringDonation === d.id && (
+                            <div className="px-3 pb-2">
+                              <div className="rounded-lg border border-gray-100 bg-white p-2 shadow-sm">
+                                <div className="relative">
+                                  <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+                                  <input type="text" value={honourSearch} onChange={(e) => {
+                                    const val = e.target.value;
+                                    setHonourSearch(val);
+                                    if (honourTimer.current) clearTimeout(honourTimer.current);
+                                    if (val.trim().length >= 1) {
+                                      setHonourSearching(true);
+                                      honourTimer.current = setTimeout(async () => {
+                                        try {
+                                          const res = await fetch(`/api/members/search?q=${encodeURIComponent(val.trim())}`, {
+                                            headers: { Authorization: `Bearer ${token}` },
+                                          });
+                                          if (res.ok) { const data = await res.json(); setHonourResults(data.members || []); }
+                                        } catch {}
+                                        setHonourSearching(false);
+                                      }, 200);
+                                    } else { setHonourResults([]); setHonourSearching(false); }
+                                  }}
+                                    placeholder="Search member to honour..."
+                                    className="w-full rounded-lg border border-gray-200 pl-7 pr-2 py-1.5 text-xs text-ink outline-none focus:border-nobuk"
+                                    autoFocus />
+                                </div>
+                                {honourSearching && (
+                                  <div className="flex items-center justify-center py-2">
+                                    <div className="h-3 w-3 animate-spin rounded-full border-2 border-nobuk border-t-transparent" />
+                                  </div>
+                                )}
+                                {!honourSearching && honourResults.length > 0 && (
+                                  <div className="mt-1 max-h-40 overflow-y-auto">
+                                    {(() => {
+                                      const councils = [...new Set(honourResults.map((m: any) => m.council))];
+                                      return councils.map(council => (
+                                        <div key={council}>
+                                          <div className="sticky top-0 bg-white px-2 py-1 text-[9px] font-bold text-muted uppercase tracking-wider">
+                                            {councilLabels[council] || council?.replace(/_/g, " ")}
+                                          </div>
+                                          {honourResults.filter((m: any) => m.council === council).map((m: any) => (
+                                            <button key={m.id} type="button" onClick={async () => {
+                                              try {
+                                                const res = await fetch(`/api/donations/${d.id}/honour`, {
+                                                  method: "PATCH",
+                                                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                                                  body: JSON.stringify({ honored_member_id: m.id }),
+                                                });
+                                                if (res.ok) {
+                                                  setHonouringDonation(null);
+                                                  setHonourSearch("");
+                                                  setHonourResults([]);
+                                                  fetchDonations(donationDateFrom || undefined, donationDateTo || undefined, false, donationFilter);
+                                                }
+                                              } catch {}
+                                            }}
+                                              className="flex w-full items-center gap-2 px-2 py-1.5 text-left transition hover:bg-cream rounded">
+                                              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-nobuk-muted text-[8px] font-bold text-nobuk">
+                                                {m.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
+                                              </div>
+                                              <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-medium text-ink truncate">{m.name}</p>
+                                                <p className="text-[9px] text-muted">{councilLabels[m.council] || m.council?.replace(/_/g, " ")}</p>
+                                              </div>
+                                            </button>
+                                          ))}
+                                        </div>
+                                      ));
+                                    })()}
+                                  </div>
+                                )}
+                                {!honourSearching && honourSearch.length >= 1 && honourResults.length === 0 && (
+                                  <p className="py-2 text-center text-[10px] text-muted">No members found</p>
+                                )}
+                                <div className="mt-1 flex justify-end">
+                                  <button onClick={() => { setHonouringDonation(null); setHonourSearch(""); setHonourResults([]); }}
+                                    className="text-[9px] text-muted hover:text-ink font-medium">Cancel</button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  ) : <p className="py-8 text-center text-sm text-muted">No donations found</p>}
+                  {donationsHasMore && !donationsLoading && (
+                    <button onClick={() => fetchDonations(donationDateFrom || undefined, donationDateTo || undefined, true)}
+                      className="mt-2 w-full rounded-lg border border-gray-200 py-2 text-xs font-bold text-muted hover:bg-cream transition">
+                      Load more ({donationsTotal - donationsOffsetRef.current} remaining)
+                    </button>
+                  )}
+                  {donationsLoading && allDonations.length > 0 && (
+                    <div className="flex items-center justify-center py-3">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-nobuk border-t-transparent" />
+                    </div>
+                  )}
+                </div>
               </div>
 
               {admin.role === "super_admin" && (
@@ -879,7 +1167,7 @@ export default function AdminDashboard() {
                             <p className="truncate text-sm font-medium text-ink">{log.admin_name}</p>
                             <p className="truncate text-xs text-muted">{log.action.replace(/_/g, " ")}</p>
                           </div>
-                          <p className="ml-2 shrink-0 text-xs text-muted">{new Date(log.created_at).toLocaleDateString()}</p>
+                          <p className="ml-2 shrink-0 text-xs text-muted">{new Date(log.created_at).toLocaleDateString("en-KE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
                         </div>
                       ))}
                     </div>
@@ -918,11 +1206,68 @@ export default function AdminDashboard() {
                 {memberError && (
                   <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">{memberError}</div>
                 )}
-                <div>
+                <div ref={addMemberDropdownRef} className="relative">
                   <label className="mb-1 block text-xs font-bold text-muted">Name</label>
-                  <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)}
-                    placeholder="e.g. John Doe"
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+                    <input type="text" value={newName} onChange={(e) => {
+                      const val = e.target.value;
+                      setNewName(val);
+                      setShowAddMemberDropdown(true);
+                      if (addMemberTimer.current) clearTimeout(addMemberTimer.current);
+                      if (val.trim().length >= 1) {
+                        setSearchingMember(true);
+                        addMemberTimer.current = setTimeout(async () => {
+                          try {
+                            const res = await fetch(`/api/members/search?q=${encodeURIComponent(val.trim())}`, {
+                              headers: { Authorization: `Bearer ${token}` },
+                            });
+                            if (res.ok) { const d = await res.json(); setAddMemberSearchResults(d.members || []); }
+                          } catch {}
+                          setSearchingMember(false);
+                        }, 200);
+                      } else { setAddMemberSearchResults([]); setSearchingMember(false); }
+                    }}
+                      onFocus={() => setShowAddMemberDropdown(true)}
+                      placeholder="e.g. John Doe"
+                      className="w-full rounded-lg border border-gray-200 pl-9 pr-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                  </div>
+                  {showAddMemberDropdown && newName.trim() && (
+                    <div className="absolute top-full left-0 right-0 z-30 mt-1 max-h-60 overflow-y-auto rounded-xl border border-gray-100 bg-white shadow-lg">
+                      {searchingMember ? (
+                        <div className="flex items-center justify-center py-4"><div className="h-4 w-4 animate-spin rounded-full border-2 border-nobuk border-t-transparent" /></div>
+                      ) : addMemberSearchResults.length > 0 ? (
+                        (() => {
+                          const councilsInResults = [...new Set(addMemberSearchResults.map((m: any) => m.council))];
+                          return councilsInResults.map(council => {
+                            const members = addMemberSearchResults.filter((m: any) => m.council === council);
+                            return (
+                              <div key={council}>
+                                <div className="sticky top-0 flex items-center gap-2 bg-blue-50 px-3 py-1.5">
+                                  <Church size={10} className="text-nobuk" />
+                                  <span className="text-[10px] font-bold text-nobuk uppercase tracking-wider">{councilLabels[council] || council.replace(/_/g, " ")}</span>
+                                </div>
+                                {members.map((m: any) => (
+                                  <button key={m.id} type="button" onClick={() => { setNewName(m.name); setNewCouncil(m.council); setNewGender(m.gender || ""); setShowAddMemberDropdown(false); }}
+                                    className="flex w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-cream">
+                                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-nobuk-muted text-[10px] font-bold text-nobuk">
+                                      {m.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium text-ink truncate">{m.name}</p>
+                                      <p className="text-[10px] text-muted">{councilLabels[m.council] || m.council?.replace(/_/g, " ")}{m.gender ? ` · ${m.gender}` : ""}</p>
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            );
+                          });
+                        })()
+                      ) : (
+                        <div className="px-3 py-3 text-center text-xs text-muted">New member will be added as: <span className="font-bold text-ink">{newName}</span></div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-bold text-muted">Fellowship</label>
@@ -1107,8 +1452,8 @@ export default function AdminDashboard() {
                 </button>
                 <span className="text-xs text-muted">{churchMembers.length} total</span>
               </div>
-              {dedupResult && (
-                <div className="mb-3 rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-xs text-green-700">{dedupResult}</div>
+              {(dedupResult || mergeResult) && (
+                <div className={`mb-3 rounded-lg border px-3 py-2 text-xs ${mergeResult ? "border-blue-300 bg-blue-50 text-blue-700" : "border-green-300 bg-green-50 text-green-700"}`}>{mergeResult || dedupResult}</div>
               )}
               <div className="mb-4 flex flex-col gap-2 sm:flex-row">
                 <div className="relative flex-1">
@@ -1140,6 +1485,12 @@ export default function AdminDashboard() {
                   <button onClick={handleBulkDelete}
                     className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white hover:bg-red-700 transition">
                     <Trash2 size={14} /> Delete {selectedMembers.size} selected
+                  </button>
+                )}
+                {selectedMembers.size >= 2 && (
+                  <button onClick={handleMerge}
+                    className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 transition">
+                    <GitMerge size={14} /> Merge {selectedMembers.size} selected
                   </button>
                 )}
                 {memberCouncilFilter && selectedMembers.size === 0 && (
@@ -2007,7 +2358,7 @@ export default function AdminDashboard() {
                                       "bg-gray-100 text-gray-600"
                                     }`}>{p.status}</span>
                                   </td>
-                                  <td className="py-2 pr-3 text-xs text-muted">{new Date(p.created_at).toLocaleDateString()}</td>
+                                  <td className="py-2 pr-3 text-xs text-muted">{new Date(p.created_at).toLocaleDateString("en-KE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
                                   <td className="py-2">
                                     <div className="flex items-center gap-1">
                                       {editingPledge === p.id ? (
@@ -2173,7 +2524,7 @@ export default function AdminDashboard() {
                               <div className="mb-4">
                                 <div className="mb-1 flex items-center justify-between text-xs">
                                   <span className="font-semibold text-ink">Pledge Fulfillment</span>
-                                  <span className="text-muted tabular-nums">{f.pledge.fulfilled}/{f.pledge.count} fulfilled · {pledgePct.toFixed(1)}%</span>
+                                  <span className="text-muted tabular-nums">{f.pledge.fulfilled}/{f.pledge.count} fulfilled · {pledgePct.toFixed(2)}%</span>
                                 </div>
                                 <div className="h-2.5 overflow-hidden rounded-full bg-gray-100">
                                   <div className="h-full rounded-full bg-green-500 transition-all duration-500" style={{ width: `${Math.min(pledgePct, 100)}%` }} />
@@ -2416,53 +2767,78 @@ export default function AdminDashboard() {
                   {/* ── Charts grid ── */}
                   <div className="mb-6 grid gap-6 lg:grid-cols-2">
 
-                    {/* Council Breakdown */}
+                    {/* Council Breakdown + Fellowship Stats combined */}
                     <div className="rounded-lg border border-gray-100 bg-white p-4">
                       <h3 className="mb-3 text-sm font-bold text-ink">Council Breakdown</h3>
-                      <ResponsiveContainer width="100%" height={dashboardData.breakdowns.council.length * 48 + 20}>
-                        <BarChart data={[...dashboardData.breakdowns.council].sort((a: any, b: any) => (COUNCIL_ORDER[a.council] || 99) - (COUNCIL_ORDER[b.council] || 99))} layout="vertical" margin={{ left: 20, right: 20 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-                          <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} stroke="#9CA3AF" />
-                          <YAxis type="category" dataKey="council" tick={{ fontSize: 11 }} tickFormatter={v => v.replace(/_/g, " ")} stroke="#9CA3AF" width={120} />
-                          <Tooltip
-                            contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 12 }}
-                            formatter={(value: number) => [`KES ${value.toLocaleString("en-KE")}`, "Total"]}
-                          />
-                          <Bar dataKey="total" radius={[0, 4, 4, 0]}>
-                            {dashboardData.breakdowns.council.map((_: any, i: number) => (
-                              <Cell key={i} fill={["#2563EB", "#3B82F6", "#60A5FA", "#93C5FD", "#BFDBFE"][i % 5]} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-
-                    {/* Fellowship Stats Table */}
-                    <div className="rounded-lg border border-gray-100 bg-white p-4">
-                      <h3 className="mb-3 text-sm font-bold text-ink">Fellowship Details</h3>
-                      <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
-                        <table className="w-full text-left text-xs">
-                          <thead>
-                            <tr className="border-b border-gray-100">
-                              <th className="pb-2 pr-2 font-bold text-muted">Fellowship</th>
-                              <th className="pb-2 pr-2 font-bold text-muted text-right">Members</th>
-                              <th className="pb-2 pr-2 font-bold text-muted text-right">Donations</th>
-                              <th className="pb-2 pr-2 font-bold text-muted text-right">Total</th>
-                              <th className="pb-2 font-bold text-muted text-right">Avg</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {[...dashboardData.breakdowns.council].sort((a: any, b: any) => (COUNCIL_ORDER[a.council] || 99) - (COUNCIL_ORDER[b.council] || 99)).map((f: any, i: number, arr: any[]) => (
-                              <tr key={f.council} className={i < arr.length - 1 ? "border-b border-gray-50" : ""}>
-                                <td className="py-2 pr-2 font-medium text-ink capitalize whitespace-nowrap">{f.council.replace(/_/g, " ")}</td>
-                                <td className="py-2 pr-2 text-right tabular-nums text-ink">{f.member_count}</td>
-                                <td className="py-2 pr-2 text-right tabular-nums text-ink">{f.count}</td>
-                                <td className="py-2 pr-2 text-right tabular-nums font-bold text-nobuk">KES {f.total.toLocaleString("en-KE")}</td>
-                                <td className="py-2 text-right tabular-nums text-muted">KES {f.avg_per_member.toLocaleString("en-KE")}</td>
+                      <div className="hidden sm:block">
+                        <ResponsiveContainer width="100%" height={dashboardData.breakdowns.council.length * 36 + 20}>
+                          <BarChart data={[...dashboardData.breakdowns.council].sort((a: any, b: any) => (COUNCIL_ORDER[a.council] || 99) - (COUNCIL_ORDER[b.council] || 99))} layout="vertical" margin={{ left: 16, right: 8 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+                            <XAxis type="number" tick={{ fontSize: 9 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} stroke="#9CA3AF" />
+                            <YAxis type="category" dataKey="council" tick={{ fontSize: 10 }} tickFormatter={v => v.replace(/_/g, " ")} stroke="#9CA3AF" width={100} />
+                            <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 11 }}
+                              formatter={(value: number) => [`KES ${value.toLocaleString("en-KE")}`, "Total"]} />
+                            <Bar dataKey="total" radius={[0, 4, 4, 0]}>
+                              {dashboardData.breakdowns.council.map((_: any, i: number) => (
+                                <Cell key={i} fill={["#2563EB", "#3B82F6", "#60A5FA", "#93C5FD", "#BFDBFE"][i % 5]} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                      {/* Compact list for mobile */}
+                      <div className="sm:hidden space-y-1.5 max-h-[260px] overflow-y-auto">
+                        {[...dashboardData.breakdowns.council].sort((a: any, b: any) => (COUNCIL_ORDER[a.council] || 99) - (COUNCIL_ORDER[b.council] || 99)).map((f: any) => {
+                          const maxTotal = Math.max(...dashboardData.breakdowns.council.map((c: any) => c.total));
+                          return (
+                            <div key={f.council} className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-cream transition-colors">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[11px] font-medium text-ink truncate">{f.council.replace(/_/g, " ")}</span>
+                                  <span className="text-[10px] font-bold text-nobuk tabular-nums shrink-0 ml-1">KES {(f.total / 1000).toFixed(0)}k</span>
+                                </div>
+                                <div className="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+                                  <div className="h-full rounded-full bg-blue-500" style={{ width: `${(f.total / maxTotal) * 100}%` }} />
+                                </div>
+                                <div className="flex items-center gap-2 text-[9px] text-muted mt-0.5">
+                                  <span>{f.member_count} members</span>
+                                  <span>·</span>
+                                  <span>{f.count} donations</span>
+                                  <span>·</span>
+                                  <span>avg KES {(f.avg_per_member || 0).toLocaleString("en-KE")}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {/* Desktop table */}
+                      <div className="hidden sm:block mt-3">
+                        <h4 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted">Fellowship Details</h4>
+                        <div className="overflow-x-auto max-h-[240px] overflow-y-auto">
+                          <table className="w-full text-left text-[11px]">
+                            <thead>
+                              <tr className="border-b border-gray-100">
+                                <th className="pb-1.5 pr-2 font-bold text-muted">Fellowship</th>
+                                <th className="pb-1.5 pr-2 font-bold text-muted text-right">Members</th>
+                                <th className="pb-1.5 pr-2 font-bold text-muted text-right">Donations</th>
+                                <th className="pb-1.5 pr-2 font-bold text-muted text-right">Total</th>
+                                <th className="pb-1.5 font-bold text-muted text-right">Avg</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody>
+                              {[...dashboardData.breakdowns.council].sort((a: any, b: any) => (COUNCIL_ORDER[a.council] || 99) - (COUNCIL_ORDER[b.council] || 99)).map((f: any, i: number, arr: any[]) => (
+                                <tr key={f.council} className={i < arr.length - 1 ? "border-b border-gray-50" : ""}>
+                                  <td className="py-1.5 pr-2 font-medium text-ink capitalize whitespace-nowrap">{f.council.replace(/_/g, " ")}</td>
+                                  <td className="py-1.5 pr-2 text-right tabular-nums text-ink">{f.member_count}</td>
+                                  <td className="py-1.5 pr-2 text-right tabular-nums text-ink">{f.count}</td>
+                                  <td className="py-1.5 pr-2 text-right tabular-nums font-bold text-nobuk">KES {f.total.toLocaleString("en-KE")}</td>
+                                  <td className="py-1.5 text-right tabular-nums text-muted">KES {f.avg_per_member.toLocaleString("en-KE")}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     </div>
 
@@ -2629,6 +3005,210 @@ export default function AdminDashboard() {
                     </div>
                   )}
 
+                  {/* ── Usage Analysis ── */}
+                  {dashboardData.usage && (
+                    <div className="rounded-lg border border-gray-100 bg-white p-4">
+                      <div className="mb-4 flex items-center gap-2">
+                        <BarChart3 size={16} className="text-nobuk" />
+                        <h3 className="text-sm font-bold text-ink">Usage Analysis</h3>
+                      </div>
+
+                      {/* KPI mini-cards */}
+                      <div className="mb-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                        {[
+                          { label: "Page Views (7d)", value: dashboardData.system.page_views_7d, color: "bg-blue-50 text-blue-900" },
+                          { label: "Page Views (30d)", value: dashboardData.system.page_views_30d, color: "bg-blue-50 text-blue-900" },
+                          { label: "Unique Visitors (7d)", value: dashboardData.usage.unique_visitors_7d, color: "bg-violet-50 text-violet-900" },
+                          { label: "Unique Visitors (30d)", value: dashboardData.usage.unique_visitors_30d, color: "bg-violet-50 text-violet-900" },
+                          { label: "Logins (30d)", value: dashboardData.usage.login_trend.reduce((s: number, d: any) => s + d.success, 0), color: "bg-emerald-50 text-emerald-900" },
+                          { label: "Failed Logins (30d)", value: dashboardData.usage.login_trend.reduce((s: number, d: any) => s + d.failed, 0), color: "bg-red-50 text-red-900" },
+                        ].map((k) => (
+                          <div key={k.label} className={`rounded-lg p-3 text-center ${k.color}`}>
+                            <p className="text-xs font-medium opacity-75">{k.label}</p>
+                            <p className="mt-0.5 text-lg font-bold">{k.value}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Charts row 1: Page views trend + Top pages */}
+                      <div className="mb-4 grid gap-4 lg:grid-cols-2">
+                        {/* Page Views Trend */}
+                        <div className="rounded-lg border border-gray-100 p-3">
+                          <h4 className="mb-2 text-xs font-bold text-ink">Page Views (Daily Trend)</h4>
+                          <ResponsiveContainer width="100%" height={180}>
+                            <AreaChart data={dashboardData.usage.page_views_trend}>
+                              <defs>
+                                <linearGradient id="pvGrad" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor="#8B5CF6" stopOpacity={0.3} />
+                                  <stop offset="100%" stopColor="#8B5CF6" stopOpacity={0.02} />
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                              <XAxis dataKey="date" tick={{ fontSize: 9 }} tickFormatter={v => v.slice(5)} stroke="#9CA3AF" />
+                              <YAxis tick={{ fontSize: 9 }} stroke="#9CA3AF" allowDecimals={false} />
+                              <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 11 }} />
+                              <Area type="monotone" dataKey="count" stroke="#8B5CF6" strokeWidth={2} fill="url(#pvGrad)" dot={false} activeDot={{ r: 3 }} />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        </div>
+
+                        {/* Top Pages */}
+                        <div className="rounded-lg border border-gray-100 p-3">
+                          <h4 className="mb-2 text-xs font-bold text-ink">Most Visited Pages</h4>
+                          <div className="space-y-1">
+                            {dashboardData.usage.top_pages.map((p: any, i: number) => {
+                              const maxCount = dashboardData.usage.top_pages[0].count;
+                              const pct = (p.count / maxCount) * 100;
+                              return (
+                                <div key={p.path} className="flex items-center gap-2">
+                                  <span className="w-4 text-[10px] font-bold text-muted text-right shrink-0">{i + 1}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[11px] text-ink truncate">{p.title || p.path}</span>
+                                      <span className="text-[10px] font-bold text-nobuk tabular-nums shrink-0 ml-2">{p.count}</span>
+                                    </div>
+                                    <div className="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+                                      <div className="h-full rounded-full bg-gradient-to-r from-violet-400 to-violet-600" style={{ width: `${pct}%` }} />
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Charts row 2: Hourly + Browser breakdown */}
+                      <div className="mb-4 grid gap-4 lg:grid-cols-2">
+                        {/* Hourly Activity */}
+                        <div className="rounded-lg border border-gray-100 p-3">
+                          <h4 className="mb-2 text-xs font-bold text-ink">Activity by Hour (7d)</h4>
+                          <ResponsiveContainer width="100%" height={160}>
+                            <BarChart data={dashboardData.usage.hourly_breakdown}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                              <XAxis dataKey="hour" tick={{ fontSize: 9 }} tickFormatter={v => `${v}:00`} stroke="#9CA3AF" />
+                              <YAxis tick={{ fontSize: 9 }} stroke="#9CA3AF" allowDecimals={false} />
+                              <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 11 }} />
+                              <Bar dataKey="count" radius={[2, 2, 0, 0]}>
+                                {dashboardData.usage.hourly_breakdown.map((_: any, i: number) => (
+                                  <Cell key={i} fill={hourlyBarColors[i]} />
+                                ))}
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+
+                        {/* Browser Breakdown + Unique Visitors */}
+                        <div className="rounded-lg border border-gray-100 p-3">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <h4 className="mb-2 text-xs font-bold text-ink">Devices (7d)</h4>
+                              <ResponsiveContainer width="100%" height={140}>
+                                <RePie>
+                                  <Pie
+                                    data={[
+                                      { name: "Mobile", value: dashboardData.usage.browser_breakdown.mobile },
+                                      { name: "Desktop", value: dashboardData.usage.browser_breakdown.desktop },
+                                      { name: "Tablet", value: dashboardData.usage.browser_breakdown.tablet },
+                                      { name: "Unknown", value: dashboardData.usage.browser_breakdown.unknown },
+                                    ].filter(d => d.value > 0)}
+                                    dataKey="value"
+                                    nameKey="name"
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={30}
+                                    outerRadius={55}
+                                    paddingAngle={2}
+                                  >
+                                    {["#8B5CF6", "#3B82F6", "#10B981", "#D1D5DB"].map((c, i) => (
+                                      <Cell key={i} fill={c} />
+                                    ))}
+                                  </Pie>
+                                  <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 11 }} />
+                                </RePie>
+                              </ResponsiveContainer>
+                            </div>
+                            <div className="flex flex-col justify-center space-y-3">
+                              <div className="flex items-center gap-2 text-xs">
+                                <div className="h-2.5 w-2.5 rounded-full bg-violet-500 shrink-0" />
+                                <span className="text-muted">Mobile</span>
+                                <span className="ml-auto font-bold text-ink">{dashboardData.usage.browser_breakdown.mobile}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs">
+                                <div className="h-2.5 w-2.5 rounded-full bg-blue-500 shrink-0" />
+                                <span className="text-muted">Desktop</span>
+                                <span className="ml-auto font-bold text-ink">{dashboardData.usage.browser_breakdown.desktop}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs">
+                                <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0" />
+                                <span className="text-muted">Tablet</span>
+                                <span className="ml-auto font-bold text-ink">{dashboardData.usage.browser_breakdown.tablet}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs">
+                                <div className="h-2.5 w-2.5 rounded-full bg-gray-300 shrink-0" />
+                                <span className="text-muted">Unknown</span>
+                                <span className="ml-auto font-bold text-ink">{dashboardData.usage.browser_breakdown.unknown}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Charts row 3: Login activity */}
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        {/* Login Trend */}
+                        {dashboardData.usage.login_trend.length > 0 && (
+                          <div className="rounded-lg border border-gray-100 p-3">
+                            <h4 className="mb-2 text-xs font-bold text-ink">Login Activity (Daily)</h4>
+                            <ResponsiveContainer width="100%" height={180}>
+                              <BarChart data={dashboardData.usage.login_trend}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                <XAxis dataKey="date" tick={{ fontSize: 9 }} tickFormatter={v => v.slice(5)} stroke="#9CA3AF" />
+                                <YAxis tick={{ fontSize: 9 }} stroke="#9CA3AF" allowDecimals={false} />
+                                <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 11 }} />
+                                <Bar dataKey="success" stackId="a" fill="#10B981" radius={[2, 2, 0, 0]} name="Success" />
+                                <Bar dataKey="failed" stackId="a" fill="#EF4444" radius={[2, 2, 0, 0]} name="Failed" />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        )}
+
+                        {/* Recent Logins */}
+                        {dashboardData.usage.recent_logins.length > 0 && (
+                          <div className="rounded-lg border border-gray-100 p-3">
+                            <h4 className="mb-2 text-xs font-bold text-ink">Recent Logins (7d)</h4>
+                            <div className="max-h-[180px] overflow-y-auto">
+                              <table className="w-full text-left text-[10px]">
+                                <thead className="sticky top-0 bg-white">
+                                  <tr className="border-b border-gray-100">
+                                    <th className="pb-1 pr-1 font-bold text-muted">Admin</th>
+                                    <th className="pb-1 pr-1 font-bold text-muted">Status</th>
+                                    <th className="pb-1 font-bold text-muted">When</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {dashboardData.usage.recent_logins.map((r: any, i: number) => (
+                                    <tr key={i} className="border-b border-gray-50 last:border-0">
+                                      <td className="py-1 pr-1 font-medium text-ink">{r.admin_name || "—"}</td>
+                                      <td className="py-1 pr-1">
+                                        <span className={`inline-block rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
+                                          r.action === "login" ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
+                                        }`}>
+                                          {r.action === "login" ? "Success" : "Failed"}
+                                        </span>
+                                      </td>
+                                      <td className="py-1 text-muted tabular-nums whitespace-nowrap">{new Date(r.created_at).toLocaleDateString("en-KE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* ── Member + Campaign Stats ── */}
                   <div className="mt-6 grid gap-6 lg:grid-cols-2">
                     <div className="rounded-lg border border-gray-100 bg-cream p-4">
@@ -2719,6 +3299,93 @@ export default function AdminDashboard() {
                             </div>
                           </div>
                         </div>
+
+                        {/* ── Gender Contributions ── */}
+                        {dashboardData.members.gender_contributions && (
+                          <div className="mt-4 border-t border-gray-100 pt-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <DollarSign size={14} className="text-nobuk" />
+                              <h4 className="text-xs font-bold text-ink">Contributions by Gender</h4>
+                              {(() => {
+                                const { male: mM, female: fM } = dashboardData.members.gender_contributions;
+                                if (mM === fM) return <span className="text-[10px] font-bold text-gray-500">— TIED</span>;
+                                return (
+                                  <span className={`flex items-center gap-0.5 text-[10px] font-bold tabular-nums ${mM > fM ? "text-blue-600" : "text-pink-600"}`}>
+                                    {mM > fM ? <ArrowUpRight size={11} /> : <ArrowUpRight size={11} />}
+                                    {mM > fM ? "Men leading" : "Women leading"}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                            <div className="flex items-center gap-6">
+                              <div className="relative flex h-28 w-28 shrink-0 items-center justify-center">
+                                <ResponsiveContainer width={112} height={112}>
+                                  <RePie>
+                                    <Pie
+                                      data={[
+                                        { name: "Men", value: dashboardData.members.gender_contributions.male || 1 },
+                                        { name: "Women", value: dashboardData.members.gender_contributions.female || 1 },
+                                      ]}
+                                      dataKey="value"
+                                      nameKey="name"
+                                      cx="50%"
+                                      cy="50%"
+                                      innerRadius={30}
+                                      outerRadius={52}
+                                      paddingAngle={2}
+                                    >
+                                      <Cell fill="#3B82F6" />
+                                      <Cell fill="#EC4899" />
+                                    </Pie>
+                                    <Tooltip
+                                      contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 11 }}
+                                      formatter={(value: number) => [`KES ${value.toLocaleString("en-KE")}`, ""]}
+                                    />
+                                  </RePie>
+                                </ResponsiveContainer>
+                              </div>
+                              <div className="space-y-2 text-sm flex-1">
+                                <div>
+                                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                                    <div className="flex items-center gap-1.5">
+                                      <div className="h-2.5 w-2.5 rounded-full bg-blue-500 shrink-0" />
+                                      <span className="text-xs text-muted">Men</span>
+                                    </div>
+                                    <span className="text-xs font-bold text-ink tabular-nums">KES {dashboardData.members.gender_contributions.male.toLocaleString("en-KE")}</span>
+                                  </div>
+                                  <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                                    <div className="h-full rounded-full bg-blue-500 transition-all" style={{
+                                      width: `${(() => {
+                                        const total = dashboardData.members.gender_contributions.male + dashboardData.members.gender_contributions.female;
+                                        return total > 0 ? (dashboardData.members.gender_contributions.male / total) * 100 : 0;
+                                      })()}%`
+                                    }} />
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                                    <div className="flex items-center gap-1.5">
+                                      <div className="h-2.5 w-2.5 rounded-full bg-pink-500 shrink-0" />
+                                      <span className="text-xs text-muted">Women</span>
+                                    </div>
+                                    <span className="text-xs font-bold text-ink tabular-nums">KES {dashboardData.members.gender_contributions.female.toLocaleString("en-KE")}</span>
+                                  </div>
+                                  <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                                    <div className="h-full rounded-full bg-pink-500 transition-all" style={{
+                                      width: `${(() => {
+                                        const total = dashboardData.members.gender_contributions.male + dashboardData.members.gender_contributions.female;
+                                        return total > 0 ? (dashboardData.members.gender_contributions.female / total) * 100 : 0;
+                                      })()}%`
+                                    }} />
+                                  </div>
+                                </div>
+                                <div className="pt-1 text-[10px] text-muted text-center border-t border-gray-50">
+                                  Total: KES {(dashboardData.members.gender_contributions.male + dashboardData.members.gender_contributions.female).toLocaleString("en-KE")}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 

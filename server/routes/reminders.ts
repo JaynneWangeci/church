@@ -62,7 +62,7 @@ remindersRouter.get("/verse", async (req, res) => {
 remindersRouter.get("/portfolio", async (req, res) => {
   try {
     const db = requireService();
-    const q = String(req.query.name || "").trim();
+    const q = String(req.query.name || "").trim().replace(/[%_<>]/g, "").slice(0, 100);
     if (!q) return res.status(400).json({ error: "name required" });
 
     // Get matching member ids for sub-queries

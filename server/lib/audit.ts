@@ -18,7 +18,9 @@ export type AuditAction =
   | "data_access"
   | "settings_change"
   | "reminder_sent"
-  | "view_member_history";
+  | "view_member_history"
+  | "dedup_church_members"
+  | "merge_church_members";
 
 export type AuditResourceType =
   | "member" | "donation" | "pledge" | "campaign"
