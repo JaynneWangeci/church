@@ -46,7 +46,7 @@ pledgesRouter.post("/", async (req, res) => {
         donor_name: data.donor_name,
         whatsapp_number: data.whatsapp_number,
         updated_at: new Date().toISOString(),
-      }, { onConflict: "donor_name" }).catch(() => {});
+      }, { onConflict: "donor_name" }).then(() => {}, () => {});
         const amt = Number(data.amount).toLocaleString("en-KE");
         const added = newAmount.toLocaleString("en-KE");
         const v = pickVerse(PLEDGE_VERSES);
@@ -93,7 +93,7 @@ pledgesRouter.post("/", async (req, res) => {
         donor_name: data.donor_name,
         whatsapp_number: data.whatsapp_number,
         updated_at: new Date().toISOString(),
-      }, { onConflict: "donor_name" }).catch(() => {});
+      }, { onConflict: "donor_name" }).then(() => {}, () => {});
       const amt = Number(data.amount).toLocaleString("en-KE");
       const v = pickVerse(PLEDGE_VERSES);
       const msg =
