@@ -3631,9 +3631,10 @@ function SiteContentEditor() {
 
   const [waTestMsg, setWaTestMsg] = useState("");
   const [waTesting, setWaTesting] = useState(false);
+  const [waTestPhone, setWaTestPhone] = useState("");
 
   async function handleTestWhatsApp() {
-    const num = content.whatsapp_phone.trim();
+    const num = waTestPhone.trim() || content.whatsapp_phone.trim();
     if (!num) return;
     setWaTesting(true); setWaTestMsg("Sending...");
     try {
@@ -3687,6 +3688,15 @@ function SiteContentEditor() {
             <button onClick={handleTestWhatsApp} disabled={waTesting || !content.whatsapp_phone.trim()}
               className="btn-lift flex items-center gap-1.5 rounded-xl bg-green-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-green-700 disabled:opacity-40">
               <Send size={14} /> {waTesting ? "Sending..." : "Send Test"}
+            </button>
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <input type="text" value={waTestPhone} onChange={e => setWaTestPhone(e.target.value)} placeholder="Custom test number (optional)"
+              className="w-full max-w-xs rounded-xl border border-gray-200 px-3 py-1.5 text-xs text-ink outline-none focus:border-nobuk placeholder:text-muted/50" />
+            <button onClick={() => { const n = waTestPhone.trim(); if (!n) return; setWaTesting(true); setWaTestMsg("Sending..."); const t = localStorage.getItem("token"); fetch("/api/mpesa/test-whatsapp", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` }, body: JSON.stringify({ phone: n }) }).then(r => r.json()).then(d => { setWaTestMsg(d.ok ? "Test message sent successfully!" : d.error || "Failed"); setWaTesting(false); }).catch(() => { setWaTestMsg("Network error"); setWaTesting(false); }); }}
+              disabled={waTesting || !waTestPhone.trim()}
+              className="rounded-lg border border-green-300 px-2.5 py-1.5 text-[10px] font-semibold text-green-700 hover:bg-green-50 disabled:opacity-40 transition">
+              Send to custom
             </button>
           </div>
           {waTestMsg && (
