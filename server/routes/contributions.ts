@@ -190,44 +190,36 @@ contributionsRouter.get("/export/pdf", requireAdmin, async (req, res) => {
 
     const { data: donations } = await db
       .from("donations")
-      .select("id, donor_name, amount, method, status, receipt_number, message, created_at, honored_member_id, church_members!honored_member_id(name), church_members!church_member_id(name, council)")
+      .select("id, donor_name, amount, method, status, receipt_number, message, created_at, honored_member_id, church_members!church_member_id(name, council, gender), honoured:church_members!honored_member_id(name, council)")
       .eq("status", "completed")
       .order("created_at", { ascending: false });
 
-    const total = (donations || []).reduce((s, d) => s + Number(d.amount), 0);
-    const count = (donations || []).length;
-    const avg = count > 0 ? Math.round(total / count) : 0;
-    const topDonor = (donations || []).reduce((best, d) => Number(d.amount) > Number(best?.amount || 0) ? d : best, null);
-    const genDate = new Date().toLocaleDateString("en-KE", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    const { data: pledges } = await db.from("pledges").select("*");
+    const { data: memberData } = await db.from("church_members").select("*").eq("is_active", true);
 
-    // Group by honoured member
-    const honourGroups = new Map<string, { name: string; donations: any[]; total: number }>();
-    const ungrouped: any[] = [];
-    for (const d of donations || []) {
-      const honoured = d.honored_member_id ? (d as any).church_members?.[0]?.name : null;
-      if (honoured) {
-        if (!honourGroups.has(honoured)) honourGroups.set(honoured, { name: honoured, donations: [], total: 0 });
-        const g = honourGroups.get(honoured)!;
-        g.donations.push(d);
-        g.total += Number(d.amount);
-      } else {
-        ungrouped.push(d);
-      }
-    }
+    const completed = donations || [];
+    const totalRaised = completed.reduce((s, d) => s + Number(d.amount), 0);
+    const count = completed.length;
+    const avg = count > 0 ? Math.round(totalRaised / count) : 0;
+    const topDonor = completed.reduce((best, d) => Number(d.amount) > Number(best?.amount || 0) ? d : best, null);
+    const genDate = new Date().toLocaleDateString("en-KE", { weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    const totalPledges = (pledges || []).reduce((s, p) => s + Number(p.amount), 0);
+    const paidPledges = (pledges || []).reduce((s, p) => s + Number(p.paid), 0);
+    const uniqueDonors = new Set(completed.map(d => d.donor_name?.toLowerCase()).filter(Boolean)).size;
 
-    const doc = new PDFDocument({ size: "A4", margin: 50, info: { Title: "Harambee Contribution Report", Author: "AIPCA Bahati Cathedral" } });
+    const doc = new PDFDocument({ size: "A4", margin: 50, info: { Title: "AIPCA Harambee Contribution Report", Author: "AIPCA Bahati Cathedral" } });
 
     const chunks: Buffer[] = [];
     doc.on("data", (c: Buffer) => chunks.push(c));
     doc.on("end", async () => {
       const pdf = Buffer.concat(chunks);
       res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename=harambee-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+      res.setHeader("Content-Disposition", `attachment; filename=AIPCA-Harambee-Report-${new Date().toISOString().slice(0, 10)}.pdf`);
       res.send(pdf);
       await logAudit({
         adminId: admin.id,
         action: "export_ledger",
-        details: { type: "pdf", count: donations?.length },
+        details: { type: "pdf", count: completed.length },
         ipAddress: (req as any).adminIp,
       });
     });
@@ -239,125 +231,264 @@ contributionsRouter.get("/export/pdf", requireAdmin, async (req, res) => {
     function addFooter() {
       pageNum++;
       doc.fontSize(7).fillColor("#6B7280");
-      doc.text(`AIPCA Bahati Cathedral — Harambee Report | Generated ${genDate} | Page ${pageNum}`, m, doc.page.height - 40, { align: "center", width: pw });
-      doc.rect(m, doc.page.height - 45, pw, 0.5).fill("#3B82F6");
+      doc.text(`AIPCA Bahati Cathedral — Harambee Report | ${genDate} | Page ${pageNum}`, m, doc.page.height - 40, { align: "center", width: pw });
+      doc.rect(m, doc.page.height - 45, pw, 0.5).fill("#C4964A");
     }
     doc.on("pageAdded", addFooter);
 
-    // ── Cover Header ──
-    doc.rect(m, 30, pw, 4).fill("#1E3A5F");
-    doc.rect(m, 34, pw, 1.5).fill("#3B82F6");
-    doc.moveDown(3);
-    doc.fontSize(24).font("Helvetica-Bold").fillColor("#1E3A5F").text("AIPCA Bahati Cathedral", { align: "center" });
-    doc.fontSize(14).fillColor("#3B82F6").text("Harambee Contribution Report", { align: "center" });
-    doc.moveDown(0.3);
-    doc.fontSize(8).fillColor("#6B7280").text(`Prepared on ${genDate}`, { align: "center" });
+    // ═══════════════════════════════════════════
+    // COVER PAGE
+    // ═══════════════════════════════════════════
+    doc.rect(0, 0, doc.page.width, doc.page.height).fill("#0F2847");
+    doc.fontSize(36).font("Helvetica-Bold").fillColor("#C4964A").text("AIPCA BAHATI", m, 180, { align: "center", width: pw });
+    doc.fontSize(36).font("Helvetica-Bold").fillColor("#FFFFFF").text("CATHEDRAL", m, 220, { align: "center", width: pw });
+    doc.moveDown(2);
+    doc.fontSize(18).fillColor("#C4964A").text("Harambee Development Fund", { align: "center", width: pw });
     doc.moveDown(0.5);
+    doc.fontSize(11).fillColor("#94A3B8").text("Contribution Report", { align: "center", width: pw });
+    doc.moveDown(3);
+    doc.rect(m + 100, doc.y, pw - 200, 1).fillColor("#C4964A").fill();
+    doc.moveDown(3);
+    doc.fontSize(10).fillColor("#94A3B8");
+    doc.text(`Prepared by: ${admin.name} (${admin.role.replace("_", " ")})`, { align: "center", width: pw });
+    doc.text(`Generated: ${genDate}`, { align: "center", width: pw });
+    doc.text(`Period: ${completed.length > 0 ? `${new Date(completed[completed.length-1].created_at).toLocaleDateString("en-KE")} – ${new Date(completed[0].created_at).toLocaleDateString("en-KE")}` : "—"}`, { align: "center", width: pw });
+    doc.addPage();
 
-    // ── Summary line ──
-    const summaryData = [
-      { label: "Total Raised", value: `KES ${total.toLocaleString("en-KE")}` },
+    // ═══════════════════════════════════════════
+    // EXECUTIVE SUMMARY
+    // ═══════════════════════════════════════════
+    doc.fontSize(18).font("Helvetica-Bold").fillColor("#0F2847").text("Executive Summary", m, 50);
+    doc.rect(m, doc.y + 2, pw, 1.5).fill("#C4964A");
+    doc.moveDown(2);
+
+    const kpiBoxes = [
+      { label: "Total Raised", value: `KES ${totalRaised.toLocaleString("en-KE")}` },
       { label: "Donations", value: `${count}` },
-      { label: "Average", value: `KES ${avg.toLocaleString("en-KE")}` },
-      { label: "Top Gift", value: topDonor ? `KES ${Number(topDonor.amount).toLocaleString("en-KE")}` : "—" },
+      { label: "Average Gift", value: `KES ${avg.toLocaleString("en-KE")}` },
+      { label: "Unique Donors", value: `${uniqueDonors}` },
     ];
-    const cw = (pw - 30) / 4;
-    const cy = doc.y;
-    summaryData.forEach((c, i) => {
-      const cx = m + i * (cw + 10);
-      doc.roundedRect(cx, cy, cw, 40, 4).fill("#EFF6FF").lineWidth(0.5).stroke("#BFDBFE");
-      doc.fontSize(6).font("Helvetica").fillColor("#6B7280").text(c.label.toUpperCase(), cx + 6, cy + 6, { width: cw - 12, align: "center" });
-      doc.fontSize(10).font("Helvetica-Bold").fillColor("#1E3A5F").text(c.value, cx + 6, cy + 18, { width: cw - 12, align: "center" });
+    const boxW = (pw - 30) / 4;
+    const boxY = doc.y;
+    kpiBoxes.forEach((b, i) => {
+      const bx = m + i * (boxW + 10);
+      doc.roundedRect(bx, boxY, boxW, 42, 4).fill("#EFF6FF").lineWidth(0.5).stroke("#BFDBFE");
+      doc.fontSize(5).font("Helvetica").fillColor("#64748B").text(b.label.toUpperCase(), bx + 4, boxY + 6, { width: boxW - 8, align: "center" });
+      doc.fontSize(10).font("Helvetica-Bold").fillColor("#0F2847").text(b.value, bx + 4, boxY + 20, { width: boxW - 8, align: "center" });
     });
-    doc.y = cy + 50;
+    doc.y = boxY + 55;
 
-    function drawTableHeader(ypos: number) {
-      doc.fontSize(8).font("Helvetica-Bold").fillColor("FFFFFF");
-      const hdrs = ["Donor", "Amount", "Method", "Receipt", "Date"];
-      const cws = [pw * 0.24, pw * 0.14, pw * 0.14, pw * 0.22, pw * 0.26];
-      let xp = m;
-      doc.rect(m, ypos, pw, 14).fill("#1E3A5F");
-      hdrs.forEach((h, i) => { doc.text(h, xp + 3, ypos + 3, { width: cws[i], align: i === 1 ? "right" : "left" }); xp += cws[i]; });
-      return { y: ypos + 14, widths: cws };
-    }
-
-    function checkPage(ypos: number): number {
-      if (ypos <= doc.page.height - 60) return ypos;
-      doc.addPage();
-      const { y: ny } = drawTableHeader(50);
-      return ny;
-    }
-
-    let { y: curY, widths: colW } = drawTableHeader(doc.y);
-
-    // ── Honour groups ──
-    doc.font("Helvetica").fontSize(8).fillColor("#374151");
-    for (const [honouredName, group] of honourGroups) {
-      curY = checkPage(curY + 2);
-      doc.rect(m, curY - 2, pw, 14).fill("#EFF6FF");
-      doc.font("Helvetica-Bold").fontSize(8).fillColor("#1E3A5F");
-      doc.text(`★ ${honouredName}`, m + 4, curY + 2);
-      doc.text(`Total: KES ${group.total.toLocaleString("en-KE")}`, m + pw - 80, curY + 2, { width: 80, align: "right" });
-      curY += 14;
-      for (const d of (group.donations || []).slice(0, 10)) {
-        curY = checkPage(curY + 2);
-        const vals = [
-          (d.donor_name || "Anonymous").slice(0, 20),
-          `${Number(d.amount).toLocaleString("en-KE")}`,
-          d.method || "—",
-          (d.receipt_number || "—").slice(0, 12),
-          new Date(d.created_at).toLocaleDateString("en-KE", { day: "2-digit", month: "short" }),
-        ];
-        const bg = curY % 2 === 0 ? "#FFFFFF" : "#F9FAFB";
-        doc.rect(m, curY - 1, pw, 13).fill(bg);
-        doc.font("Helvetica").fontSize(7).fillColor("#6B7280");
-        let xp = m;
-        vals.forEach((v, i) => { doc.text(v, xp + 3, curY, { width: colW[i], align: i === 1 ? "right" : "left" }); xp += colW[i]; });
-        curY += 13;
-      }
-    }
-
-    // ── Ungrouped / general donations ──
-    if (ungrouped.length) {
-      curY = checkPage(curY + 2);
-      doc.rect(m, curY - 2, pw, 14).fill("#F3F4F6");
-      doc.font("Helvetica-Bold").fontSize(8).fillColor("#374151");
-      doc.text(`General Harambee Fund`, m + 4, curY + 2);
-      curY += 14;
-      for (const d of ungrouped.slice(0, 50)) {
-        curY = checkPage(curY + 2);
-        const vals = [
-          (d.donor_name || "Anonymous").slice(0, 20),
-          `${Number(d.amount).toLocaleString("en-KE")}`,
-          d.method || "—",
-          (d.receipt_number || "—").slice(0, 12),
-          new Date(d.created_at).toLocaleDateString("en-KE", { day: "2-digit", month: "short" }),
-        ];
-        const bg = curY % 2 === 0 ? "#FFFFFF" : "#F9FAFB";
-        doc.rect(m, curY - 1, pw, 13).fill(bg);
-        doc.font("Helvetica").fontSize(7).fillColor("#6B7280");
-        let xp = m;
-        vals.forEach((v, i) => { doc.text(v, xp + 3, curY, { width: colW[i], align: i === 1 ? "right" : "left" }); xp += colW[i]; });
-        curY += 13;
-      }
-    }
-
-    // ── Bottom summary ──
-    curY = checkPage(curY + 10);
-    doc.rect(m, curY, pw, 0.5).fill("#3B82F6");
-    curY += 10;
-    doc.fontSize(9).font("Helvetica-Bold").fillColor("#1E3A5F").text("Report Summary", { align: "center" });
-    curY += 14;
-    doc.fontSize(8).font("Helvetica").fillColor("#6B7280");
-    const summaryLines = [
-      `Total donations: ${count}`,
-      `Total amount raised: KES ${total.toLocaleString("en-KE")}`,
-      `Average contribution: KES ${avg.toLocaleString("en-KE")}`,
+    // Secondary KPIs
+    const kpiBoxes2 = [
+      { label: "Pledges", value: `KES ${totalPledges.toLocaleString("en-KE")}` },
+      { label: "Paid", value: `KES ${paidPledges.toLocaleString("en-KE")}` },
+      { label: "Fulfillment", value: totalPledges > 0 ? `${((paidPledges / totalPledges) * 100).toFixed(1)}%` : "0%" },
+      { label: "Members", value: `${(memberData || []).length}` },
     ];
-    if (topDonor?.donor_name) summaryLines.push(`Highest: KES ${Number(topDonor.amount).toLocaleString("en-KE")} by ${topDonor.donor_name}`);
-    summaryLines.forEach(l => { doc.text(l, m, curY, { align: "center" }); curY += 12; });
-    curY += 6;
-    doc.fontSize(7).fillColor("#9CA3AF").text("— End of Report —", { align: "center" });
+    const boxY2 = doc.y;
+    kpiBoxes2.forEach((b, i) => {
+      const bx = m + i * (boxW + 10);
+      doc.roundedRect(bx, boxY2, boxW, 42, 4).fill("#FEF3C7").lineWidth(0.5).stroke("#FDE68A");
+      doc.fontSize(5).font("Helvetica").fillColor("#92400E").text(b.label.toUpperCase(), bx + 4, boxY2 + 6, { width: boxW - 8, align: "center" });
+      doc.fontSize(10).font("Helvetica-Bold").fillColor("#78350F").text(b.value, bx + 4, boxY2 + 20, { width: boxW - 8, align: "center" });
+    });
+    doc.y = boxY2 + 55;
+
+    if (topDonor?.donor_name) {
+      doc.fontSize(9).font("Helvetica").fillColor("#475569").text(`🏆 Top Donor: ${topDonor.donor_name} — KES ${Number(topDonor.amount).toLocaleString("en-KE")}`, m, doc.y, { width: pw });
+      doc.moveDown(0.5);
+    }
+
+    // ═══════════════════════════════════════════
+    // FELLOWSHIP SUMMARY TABLE
+    // ═══════════════════════════════════════════
+    doc.moveDown(0.5);
+    doc.fontSize(14).font("Helvetica-Bold").fillColor("#0F2847").text("Fellowship Contribution Summary", m, doc.y);
+    doc.rect(m, doc.y + 2, pw, 1).fill("#C4964A");
+    doc.moveDown(1.5);
+
+    const councilData: Record<string, { total: number; count: number; members: number }> = {};
+    for (const d of completed) {
+      const c = (d as any).church_members?.council || "Unassigned";
+      if (!councilData[c]) councilData[c] = { total: 0, count: 0, members: 0 };
+      councilData[c].total += Number(d.amount);
+      councilData[c].count += 1;
+    }
+    for (const mem of memberData || []) {
+      const c = mem.council || "Unassigned";
+      if (!councilData[c]) councilData[c] = { total: 0, count: 0, members: 0 };
+      councilData[c].members += 1;
+    }
+
+    const sortedC = Object.entries(councilData).sort((a, b) => b[1].total - a[1].total);
+    const cHeaders = ["Fellowship", "Raised (KES)", "Donations", "Members", "Avg/Member"];
+    const cWidths = [pw * 0.28, pw * 0.20, pw * 0.15, pw * 0.15, pw * 0.22];
+    let cy = doc.y;
+
+    doc.fontSize(7).font("Helvetica-Bold").fillColor("FFFFFF");
+    let cx2 = m;
+    doc.rect(m, cy, pw, 14).fill("#0F2847");
+    cHeaders.forEach((h, i) => { doc.text(h, cx2 + 3, cy + 3, { width: cWidths[i], align: i > 0 ? "right" : "left" }); cx2 += cWidths[i]; });
+    cy += 14;
+
+    let gTotal = 0, gCount = 0;
+    sortedC.forEach(([name, data], idx) => {
+      const avg2 = data.members > 0 ? Math.round(data.total / data.members) : 0;
+      const bg2 = idx % 2 === 0 ? "#FFFFFF" : "#F8FAFC";
+      doc.rect(m, cy, pw, 13).fill(bg2);
+      doc.fontSize(7).font("Helvetica").fillColor("#334155");
+      let xp = m;
+      const vals = [name.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()), data.total.toLocaleString("en-KE"), data.count.toString(), data.members.toString(), `KES ${avg2.toLocaleString("en-KE")}`];
+      vals.forEach((v, i) => { doc.text(v, xp + 3, cy + 2, { width: cWidths[i], align: i > 0 ? "right" : "left" }); xp += cWidths[i]; });
+      cy += 13;
+      gTotal += data.total; gCount += data.count;
+    });
+
+    // Total row
+    doc.rect(m, cy, pw, 14).fill("#E2E8F0");
+    doc.font("Helvetica-Bold").fontSize(8).fillColor("#0F2847");
+    let xp = m;
+    const tVals = ["TOTAL", gTotal.toLocaleString("en-KE"), gCount.toString(), "", ""];
+    cHeaders.forEach((_, i) => { doc.text(tVals[i] || "", xp + 3, cy + 3, { width: cWidths[i], align: i > 0 ? "right" : "left" }); xp += cWidths[i]; });
+    cy += 20;
+
+    // ═══════════════════════════════════════════
+    // GENDER ANALYSIS
+    // ═══════════════════════════════════════════
+    doc.y = cy;
+    doc.addPage();
+    cy = 50;
+    doc.fontSize(14).font("Helvetica-Bold").fillColor("#0F2847").text("Gender Contribution Analysis", m, cy);
+    doc.rect(m, cy + 2, pw, 1).fill("#C4964A");
+    cy += 20;
+
+    const genderTotals: Record<string, { total: number; count: number; members: Set<string> }> = {};
+    for (const d of completed) {
+      const g = (d as any).church_members?.gender || "unknown";
+      if (!genderTotals[g]) genderTotals[g] = { total: 0, count: 0, members: new Set() };
+      genderTotals[g].total += Number(d.amount);
+      genderTotals[g].count += 1;
+      if (d.church_member_id) genderTotals[g].members.add(d.church_member_id);
+    }
+
+    const gEntries = Object.entries(genderTotals).filter(([k]) => k !== "unknown").sort((a, b) => b[1].total - a[1].total);
+    const gHeaders = ["Gender", "Total (KES)", "Donations", "Members", "Avg/Person"];
+    const gWidths = [pw * 0.22, pw * 0.22, pw * 0.18, pw * 0.18, pw * 0.20];
+    doc.fontSize(7).font("Helvetica-Bold").fillColor("FFFFFF");
+    let gx = m;
+    doc.rect(m, cy, pw, 14).fill("#0F2847");
+    gHeaders.forEach((h, i) => { doc.text(h, gx + 3, cy + 3, { width: gWidths[i], align: i > 0 ? "right" : "left" }); gx += gWidths[i]; });
+    cy += 14;
+
+    let maleTotal = 0, femaleTotal = 0;
+    gEntries.forEach(([gender, data], idx) => {
+      const avg3 = data.members.size > 0 ? Math.round(data.total / data.members.size) : 0;
+      doc.rect(m, cy, pw, 13).fill(idx % 2 === 0 ? "#FFF1F2" : "#F0F7FF");
+      doc.font("Helvetica").fontSize(7).fillColor("#334155");
+      let xp = m;
+      const label = gender === "male" ? "👨 Men" : gender === "female" ? "👩 Women" : gender;
+      [label, data.total.toLocaleString("en-KE"), data.count.toString(), data.members.size.toString(), `KES ${avg3.toLocaleString("en-KE")}`].forEach((v, i) => {
+        doc.text(v, xp + 3, cy + 2, { width: gWidths[i], align: i > 0 ? "right" : "left" }); xp += gWidths[i];
+      });
+      cy += 13;
+      if (gender === "male") maleTotal = data.total;
+      if (gender === "female") femaleTotal = data.total;
+    });
+
+    if (maleTotal > 0 || femaleTotal > 0) {
+      cy += 5;
+      const higher = maleTotal > femaleTotal ? "Men" : "Women";
+      const diff = Math.abs(maleTotal - femaleTotal);
+      doc.fontSize(8).font("Helvetica").fillColor("#475569")
+        .text(`📊 ${higher} are leading by KES ${diff.toLocaleString("en-KE")}`, m, cy, { width: pw, align: "center" });
+      cy += 20;
+    }
+
+    // ═══════════════════════════════════════════
+    // TOP DONORS TABLE
+    // ═══════════════════════════════════════════
+    cy += 10;
+    doc.fontSize(14).font("Helvetica-Bold").fillColor("#0F2847").text("Top Donors", m, cy);
+    doc.rect(m, cy + 2, pw, 1).fill("#C4964A");
+    cy += 20;
+
+    const donorAgg: Record<string, { total: number; count: number }> = {};
+    for (const d of completed) {
+      const name = d.donor_name?.trim() || "Anonymous";
+      if (!donorAgg[name]) donorAgg[name] = { total: 0, count: 0 };
+      donorAgg[name].total += Number(d.amount);
+      donorAgg[name].count += 1;
+    }
+    const topDonors = Object.entries(donorAgg).sort((a, b) => b[1].total - a[1].total).slice(0, 20);
+
+    const dHeaders = ["#", "Donor Name", "Total (KES)", "Donations", "Avg (KES)"];
+    const dWidths = [pw * 0.06, pw * 0.34, pw * 0.22, pw * 0.16, pw * 0.22];
+    doc.fontSize(7).font("Helvetica-Bold").fillColor("FFFFFF");
+    let dx = m;
+    doc.rect(m, cy, pw, 14).fill("#0F2847");
+    dHeaders.forEach((h, i) => { doc.text(h, dx + 3, cy + 3, { width: dWidths[i], align: i > 1 ? "right" : "left" }); dx += dWidths[i]; });
+    cy += 14;
+
+    topDonors.forEach(([name, data], idx) => {
+      const isTop3 = idx < 3;
+      const colors = ["#FFD700", "#C0C0C0", "#CD7F32"];
+      doc.rect(m, cy, pw, 12).fill(idx % 2 === 0 ? "#FEF9E7" : "#FFFFFF");
+      if (isTop3) doc.rect(m, cy, pw, 12).fill(isTop3 ? colors[idx] + "40" : "").lineWidth(0.5).stroke(colors[idx]);
+      doc.font(isTop3 ? "Helvetica-Bold" : "Helvetica").fontSize(7).fillColor("#334155");
+      let xp = m;
+      const avg3 = data.count > 0 ? Math.round(data.total / data.count) : 0;
+      [idx + 1, name, data.total.toLocaleString("en-KE"), data.count.toString(), `KES ${avg3.toLocaleString("en-KE")}`].forEach((v, i) => {
+        doc.text(String(v), xp + 3, cy + 2, { width: dWidths[i], align: i > 1 ? "right" : "left" }); xp += dWidths[i];
+      });
+      cy += 12;
+    });
+
+    // ═══════════════════════════════════════════
+    // RECENT DONATIONS
+    // ═══════════════════════════════════════════
+    doc.y = cy + 10;
+    doc.addPage();
+    cy = 50;
+    doc.fontSize(14).font("Helvetica-Bold").fillColor("#0F2847").text("Recent Donations (Last 50)", m, cy);
+    doc.rect(m, cy + 2, pw, 1).fill("#C4964A");
+    cy += 20;
+
+    const rHeaders = ["Donor", "Amount (KES)", "Method", "Receipt", "Date"];
+    const rWidths = [pw * 0.24, pw * 0.16, pw * 0.14, pw * 0.20, pw * 0.26];
+    doc.fontSize(7).font("Helvetica-Bold").fillColor("FFFFFF");
+    let rx = m;
+    doc.rect(m, cy, pw, 14).fill("#0F2847");
+    rHeaders.forEach((h, i) => { doc.text(h, rx + 3, cy + 3, { width: rWidths[i], align: i === 1 ? "right" : "left" }); rx += rWidths[i]; });
+    cy += 14;
+
+    completed.slice(0, 50).forEach((d, idx) => {
+      if (cy > doc.page.height - 60) { doc.addPage(); cy = 50; addFooter(); }
+      doc.rect(m, cy, pw, 12).fill(idx % 2 === 0 ? "#F8FAFC" : "#FFFFFF");
+      doc.font("Helvetica").fontSize(6).fillColor("#475569");
+      let xp = m;
+      const vals = [
+        (d.donor_name || "Anonymous").slice(0, 22),
+        `${Number(d.amount).toLocaleString("en-KE")}`,
+        d.method?.toUpperCase() || "—",
+        (d.receipt_number || "—").slice(0, 14),
+        d.created_at ? new Date(d.created_at).toLocaleDateString("en-KE", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—",
+      ];
+      vals.forEach((v, i) => { doc.text(v, xp + 2, cy + 2, { width: rWidths[i], align: i === 1 ? "right" : "left" }); xp += rWidths[i]; });
+      cy += 12;
+    });
+
+    // ═══════════════════════════════════════════
+    // CLOSING
+    // ═══════════════════════════════════════════
+    cy = Math.max(cy + 30, doc.page.height - 100);
+    doc.rect(m, cy, pw, 1.5).fill("#C4964A");
+    cy += 15;
+    doc.fontSize(10).font("Helvetica-Bold").fillColor("#0F2847").text("— End of Report —", m, cy, { align: "center", width: pw });
+    cy += 20;
+    doc.fontSize(7).font("Helvetica").fillColor("#94A3B8");
+    doc.text("AIPCA Bahati Cathedral | Bahati, Nakuru County, Kenya", m, cy, { align: "center", width: pw });
+    doc.text("Tujenge Pamoja — Building our house of worship together.", m, cy + 10, { align: "center", width: pw });
+
     doc.end();
   } catch (err) {
     console.error("pdf export error:", err);

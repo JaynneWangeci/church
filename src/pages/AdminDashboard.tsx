@@ -950,6 +950,22 @@ export default function AdminDashboard() {
                   }} disabled={exporting === "xlsx"} className="flex items-center gap-1 text-xs text-muted hover:text-nobuk disabled:opacity-40">
                     <Download size={12} /> {exporting === "xlsx" ? "..." : "Export XLSX"}
                   </button>
+                  <button onClick={async () => {
+                    setExporting("pdf");
+                    try {
+                      const res = await fetch("/api/contributions/export/pdf", { headers: { Authorization: `Bearer ${token}` } });
+                      if (!res.ok) return;
+                      const blob = await res.blob();
+                      const a = document.createElement("a");
+                      a.href = URL.createObjectURL(blob);
+                      a.download = `AIPCA-Harambee-Report-${new Date().toISOString().slice(0, 10)}.pdf`;
+                      a.click();
+                      URL.revokeObjectURL(a.href);
+                    } catch {}
+                    setExporting(null);
+                  }} disabled={exporting === "pdf"} className="flex items-center gap-1 text-xs text-muted hover:text-nobuk disabled:opacity-40">
+                    <Download size={12} /> {exporting === "pdf" ? "..." : "Export PDF"}
+                  </button>
                 </div>
 
                 {/* Date range + filter bar */}
@@ -2442,7 +2458,23 @@ export default function AdminDashboard() {
                     } catch {}
                     setExporting(null);
                   }} disabled={exporting === "frxlsx"} className="flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-[11px] font-semibold text-muted hover:bg-cream disabled:opacity-40">
-                    <Download size={12} /> {exporting === "frxlsx" ? "..." : "Export"}
+                    <Download size={12} /> {exporting === "frxlsx" ? "..." : "Export XLSX"}
+                  </button>
+                  <button onClick={async () => {
+                    setExporting("frpdf");
+                    try {
+                      const res = await fetch("/api/contributions/export/pdf", { headers: { Authorization: `Bearer ${token}` } });
+                      if (!res.ok) return;
+                      const blob = await res.blob();
+                      const a = document.createElement("a");
+                      a.href = URL.createObjectURL(blob);
+                      a.download = `AIPCA-Harambee-Report-${new Date().toISOString().slice(0, 10)}.pdf`;
+                      a.click();
+                      URL.revokeObjectURL(a.href);
+                    } catch {}
+                    setExporting(null);
+                  }} disabled={exporting === "frpdf"} className="flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-[11px] font-semibold text-muted hover:bg-cream disabled:opacity-40">
+                    <Download size={12} /> {exporting === "frpdf" ? "..." : "PDF Report"}
                   </button>
                   <button onClick={() => fetchFellowshipReport()}
                     className="flex items-center gap-1 text-xs font-semibold text-nobuk hover:underline">
@@ -2679,6 +2711,23 @@ export default function AdminDashboard() {
                   }} disabled={exporting === "xlsx"}
                     className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-muted hover:bg-cream disabled:opacity-40">
                     <FileSpreadsheet size={14} /> {exporting === "xlsx" ? "..." : "Excel Report"}
+                  </button>
+                  <button onClick={async () => {
+                    setExporting("pdf");
+                    try {
+                      const res = await fetch("/api/contributions/export/pdf", { headers: { Authorization: `Bearer ${token}` } });
+                      if (!res.ok) return;
+                      const blob = await res.blob();
+                      const a = document.createElement("a");
+                      a.href = URL.createObjectURL(blob);
+                      a.download = `AIPCA-Harambee-Report-${new Date().toISOString().slice(0, 10)}.pdf`;
+                      a.click();
+                      URL.revokeObjectURL(a.href);
+                    } catch {}
+                    setExporting(null);
+                  }} disabled={exporting === "pdf"}
+                    className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-muted hover:bg-cream disabled:opacity-40">
+                    <Download size={14} /> {exporting === "pdf" ? "..." : "PDF Report"}
                   </button>
                 </div>
               </div>
