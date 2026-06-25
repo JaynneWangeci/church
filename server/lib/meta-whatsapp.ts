@@ -7,8 +7,9 @@ const BASE_URL = `https://graph.facebook.com/${API_VERSION}/${PHONE_NUMBER_ID}/m
 export async function sendWhatsApp(to: string, message: string): Promise<boolean> {
   try {
     if (!ACCESS_TOKEN || !PHONE_NUMBER_ID) {
-      console.warn("Meta WhatsApp not configured — skipping send");
-      return false;
+      console.warn("Meta WhatsApp not configured — falling back to SMS");
+      const { sendSMS } = await import("../lib/africastalking.js");
+      return sendSMS(to, message);
     }
     const clean = to.replace(/\D/g, "");
     const formatted = clean.startsWith("0") ? "254" + clean.slice(1) : clean.startsWith("254") ? clean : "254" + clean;
@@ -30,18 +31,18 @@ export async function sendWhatsApp(to: string, message: string): Promise<boolean
 
     if (!res.ok) {
       const errBody = await res.text();
-      console.error("Meta WhatsApp API error:", res.status, errBody);
-      try {
-        const errJson = JSON.parse(errBody);
-        if (errJson?.error?.code === 131030) {
-          console.error("Add recipient number to Meta WhatsApp Allowed Recipients list");
-        }
-      } catch {}
-      return false;
+      console.error("Meta WhatsApp API error:", res.status, errBody, "— falling back to SMS");
+      const { sendSMS } = await import("../lib/africastalking.js");
+      return sendSMS(to, message);
     }
     return true;
   } catch (err) {
-    console.error("Meta WhatsApp send error:", err);
-    return false;
+    console.error("Meta WhatsApp send error:", err, "— falling back to SMS");
+    try {
+      const { sendSMS } = await import("../lib/africastalking.js");
+      return sendSMS(to, message);
+    } catch {
+      return false;
+    }
   }
 }
