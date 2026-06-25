@@ -1,0 +1,3 @@
+Contact: mailto:admin@aipcaharambee.com
+Preferred-Languages: en, sw
+Canonical: https://aipcaharambee.com/.well-known/security.txt
