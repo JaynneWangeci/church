@@ -679,124 +679,78 @@ export default function AdminDashboard() {
     return { name: cleaned, council: bulkCouncil };
   }
 
+  const TabButton = ({ active, onClick, icon, count, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; count?: number; children: React.ReactNode }) => (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-medium transition-all sm:gap-2 sm:px-4 sm:py-2 sm:text-sm ${
+        active
+          ? "bg-nobuk text-white shadow-sm"
+          : "bg-white text-muted hover:bg-cream hover:text-ink border border-gray-200"
+      }`}
+    >
+      {icon}
+      <span>{children}</span>
+      {count !== undefined && (
+        <span className={`ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold sm:ml-1 ${
+          active ? "bg-white/20 text-white" : "bg-gray-100 text-muted"
+        }`}>
+          {count}
+        </span>
+      )}
+    </button>
+  );
+
   return (
     <div className="min-h-screen bg-cream">
       <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <div>
-            <h1 className="text-lg font-bold text-nobuk">Admin Dashboard</h1>
-            <p className="text-xs text-muted">{admin.name} &middot; {admin.role.replace("_", " ")}</p>
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-3 py-2 sm:px-4 sm:py-3">
+          <div className="min-w-0">
+            <h1 className="text-sm font-bold text-nobuk sm:text-lg">Admin Dashboard</h1>
+            <p className="truncate text-[10px] text-muted sm:text-xs">{admin.name} &middot; {admin.role.replace("_", " ")}</p>
           </div>
-          <div className="flex items-center gap-3">
-            <button onClick={() => { fetchStats(); fetchLogs(); fetchDonations(donationDateFrom || undefined, donationDateTo || undefined); fetchMembers(); fetchAdmins(); fetchAnalytics(); fetchCommittee(); loadCouncils(); loadHarambee(); }} className="rounded-lg p-2 text-muted transition hover:bg-cream" title="Refresh">
-              <RefreshCw size={16} />
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+            <button onClick={() => { fetchStats(); fetchLogs(); fetchDonations(donationDateFrom || undefined, donationDateTo || undefined); fetchMembers(); fetchAdmins(); fetchAnalytics(); fetchCommittee(); loadCouncils(); loadHarambee(); }} className="rounded-lg p-1.5 text-muted transition hover:bg-cream sm:p-2" title="Refresh">
+              <RefreshCw size={14} />
             </button>
-            <a href="/" className="text-sm text-muted underline underline-offset-2 hover:text-nobuk">View Site</a>
-            <button onClick={() => { setShowSessions(p => !p); if (!showSessions) fetchSessions(); }} className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-muted transition hover:bg-cream">
-              <Monitor size={14} /> Security
+            <a href="/" className="hidden text-xs text-muted underline underline-offset-2 hover:text-nobuk sm:inline">View Site</a>
+            <button onClick={() => { setShowSessions(p => !p); if (!showSessions) fetchSessions(); }} className="flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-[11px] text-muted transition hover:bg-cream sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-sm">
+              <Monitor size={12} className="sm:size-[14px]" /> <span className="hidden sm:inline">Sessions</span>
             </button>
-            <button onClick={handleLogout} className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-muted transition hover:bg-cream">
-              <LogOut size={14} /> Logout
+            <button onClick={handleLogout} className="flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-[11px] text-muted transition hover:bg-cream sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-sm">
+              <LogOut size={12} className="sm:size-[14px]" /> <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-8">
-        {/* Tab navigation */}
-        <div className="mb-6 flex flex-wrap gap-4 border-b border-gray-200">
-          <button
-            onClick={() => setTab("overview")}
-            className={`pb-3 text-sm font-bold transition border-b-2 ${
-              tab === "overview" ? "border-nobuk text-nobuk" : "border-transparent text-muted hover:text-nobuk"
-            }`}
-          >
-            Overview
-          </button>
-          {(admin.role === "admin" || admin.role === "super_admin") && (
-            <button
-              onClick={() => setTab("members")}
-              className={`pb-3 text-sm font-bold transition border-b-2 ${
-                tab === "members" ? "border-nobuk text-nobuk" : "border-transparent text-muted hover:text-nobuk"
-              }`}
-            >
-              Church Members ({churchMembers.length})
-            </button>
-          )}
-          {admin.role === "super_admin" && (
-            <button
-              onClick={() => setTab("admins")}
-              className={`pb-3 text-sm font-bold transition border-b-2 ${
-                tab === "admins" ? "border-nobuk text-nobuk" : "border-transparent text-muted hover:text-nobuk"
-              }`}
-            >
-              Admins ({admins.length})
-            </button>
-          )}
-          {(admin.role === "admin" || admin.role === "super_admin") && (
-            <button
-              onClick={() => setTab("council")}
-              className={`pb-3 text-sm font-bold transition border-b-2 ${
-                tab === "council" ? "border-nobuk text-nobuk" : "border-transparent text-muted hover:text-nobuk"
-              }`}
-            >
-              <Users size={14} className="inline mr-1" />
-              Fellowship ({committeeMembers.length})
-            </button>
-          )}
-          {(admin.role === "admin" || admin.role === "super_admin") && (
-            <button
-              onClick={() => setTab("pledges")}
-              className={`pb-3 text-sm font-bold transition border-b-2 ${
-                tab === "pledges" ? "border-nobuk text-nobuk" : "border-transparent text-muted hover:text-nobuk"
-              }`}
-            >
-              <Target size={14} className="inline mr-1" />
-              Pledges ({pledges.length})
-            </button>
-          )}
-          {(admin.role === "admin" || admin.role === "super_admin") && (
-            <button
-              onClick={() => { setTab("fellowshipreports"); fetchFellowshipReport(); }}
-              className={`pb-3 text-sm font-bold transition border-b-2 ${
-                tab === "fellowshipreports" ? "border-nobuk text-nobuk" : "border-transparent text-muted hover:text-nobuk"
-              }`}
-            >
-              <Users size={14} className="inline mr-1" />
-              Fellowship Reports
-            </button>
-          )}
-          <button
-            onClick={() => setTab("analytics")}
-            className={`pb-3 text-sm font-bold transition border-b-2 ${
-              tab === "analytics" ? "border-nobuk text-nobuk" : "border-transparent text-muted hover:text-nobuk"
-            }`}
-          >
-            <BarChart3 size={14} className="inline mr-1" />
-            Analytics
-          </button>
-          {(admin.role === "admin" || admin.role === "super_admin") && (
-            <button
-              onClick={() => setTab("security")}
-              className={`pb-3 text-sm font-bold transition border-b-2 ${
-                tab === "security" ? "border-nobuk text-nobuk" : "border-transparent text-muted hover:text-nobuk"
-              }`}
-            >
-              <Shield size={14} className="inline mr-1" />
-              Security
-            </button>
-          )}
-          {(admin.role === "admin" || admin.role === "super_admin") && (
-            <button
-              onClick={() => setTab("sitecontent")}
-              className={`pb-3 text-sm font-bold transition border-b-2 ${
-                tab === "sitecontent" ? "border-nobuk text-nobuk" : "border-transparent text-muted hover:text-nobuk"
-              }`}
-            >
-              <Settings size={14} className="inline mr-1" />
-              Site Content
-            </button>
-          )}
+      <main className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-8">
+        {/* Tab navigation — mobile scrollable, desktop pills */}
+        <div className="mb-4 overflow-x-auto sm:mb-6">
+          <div className="flex gap-1.5 pb-2 sm:flex-wrap sm:gap-2 sm:pb-0">
+            <TabButton active={tab === "overview"} onClick={() => setTab("overview")} icon={<BarChart3 size={14} />}>Overview</TabButton>
+            {(admin.role === "admin" || admin.role === "super_admin") && (
+              <TabButton active={tab === "members"} onClick={() => setTab("members")} icon={<Users size={14} />} count={churchMembers.length}>Members</TabButton>
+            )}
+            {admin.role === "super_admin" && (
+              <TabButton active={tab === "admins"} onClick={() => setTab("admins")} icon={<Shield size={14} />} count={admins.length}>Admins</TabButton>
+            )}
+            {(admin.role === "admin" || admin.role === "super_admin") && (
+              <TabButton active={tab === "council"} onClick={() => setTab("council")} icon={<Users size={14} />} count={committeeMembers.length}>Fellowship</TabButton>
+            )}
+            {(admin.role === "admin" || admin.role === "super_admin") && (
+              <TabButton active={tab === "pledges"} onClick={() => setTab("pledges")} icon={<Target size={14} />} count={pledges.length}>Pledges</TabButton>
+            )}
+            {(admin.role === "admin" || admin.role === "super_admin") && (
+              <TabButton active={tab === "fellowshipreports"} onClick={() => { setTab("fellowshipreports"); fetchFellowshipReport(); }} icon={<Users size={14} />}>Reports</TabButton>
+            )}
+            <TabButton active={tab === "analytics"} onClick={() => setTab("analytics")} icon={<TrendingUp size={14} />}>Analytics</TabButton>
+            {(admin.role === "admin" || admin.role === "super_admin") && (
+              <TabButton active={tab === "security"} onClick={() => setTab("security")} icon={<Shield size={14} />}>Security</TabButton>
+            )}
+            {(admin.role === "admin" || admin.role === "super_admin") && (
+              <TabButton active={tab === "sitecontent"} onClick={() => setTab("sitecontent")} icon={<Settings size={14} />}>Settings</TabButton>
+            )}
+          </div>
         </div>
 
         {/* Global member search — DB-powered autocomplete */}

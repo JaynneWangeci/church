@@ -235,47 +235,6 @@ export async function resetFailedAttempts(email: string) {
     .eq("email", email.toLowerCase().trim());
 }
 
-// ----- Audit Logging ----- //
-
-export async function logAudit(params: {
-  adminId: string;
-  action: string;
-  resourceType?: string | null;
-  resourceId?: string | null;
-  details?: Record<string, unknown> | null;
-  ipAddress?: string | null;
-  userAgent?: string | null;
-}) {
-  try {
-    const db = requireService();
-    const { data: admin } = await db
-      .from("admin_users")
-      .select("name, role")
-      .eq("id", params.adminId)
-      .single();
-
-    const entry = {
-      id: uuid(),
-      timestamp: new Date().toISOString(),
-      actor_id: params.adminId,
-      actor_name: admin?.name || null,
-      actor_role: admin?.role || null,
-      action: params.action,
-      resource_type: params.resourceType || null,
-      resource_id: params.resourceId || null,
-      details: params.details || null,
-      ip_address: params.ipAddress || null,
-      user_agent: params.userAgent || null,
-      request_id: null,
-      immutable: true,
-    };
-
-    await db.from("audit_logs").insert(entry);
-  } catch (e) {
-    console.error("audit log exception:", e);
-  }
-}
-
 // ----- Middleware ----- //
 
 export async function requireAdmin(req: Request, res: Response, next: NextFunction) {

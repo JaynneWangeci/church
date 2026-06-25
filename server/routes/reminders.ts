@@ -88,7 +88,8 @@ remindersRouter.post("/send", async (req, res) => {
         .maybeSingle();
       const phone = dw?.whatsapp_number || n.phone;
       if (!phone) continue;
-      if (ok) {
+      const sentFollowUp = await sendWhatsApp(phone, n.message);
+      if (sentFollowUp) {
         await db.from("pending_notifications").delete().eq("id", n.id);
         followUpSent++;
       }
