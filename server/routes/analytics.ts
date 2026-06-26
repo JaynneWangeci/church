@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
-import { requireAdmin, logAudit } from "../lib/admin.js";
+import { requireAdmin, logAudit, recalculatePledgeFulfillment } from "../lib/admin.js";
 import { cacheGet, cacheSet, cacheKey } from "../lib/redis.js";
 
 export const analyticsRouter = Router();
@@ -8,6 +8,8 @@ export const analyticsRouter = Router();
 analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
   try {
     const db = requireService();
+
+    await recalculatePledgeFulfillment(db);
 
     // Try cache first
     const cacheKeyStr = cacheKey("analytics", "dashboard", "v2");

@@ -4,6 +4,7 @@ import { requireService, requireAnon, createAuthUser, updateAuthUserPassword, de
 import {
   requireAdmin, requireAdminOrAbove, requireSuperAdmin, logAudit,
   filterDonationsByRole, verifyPassword, hashPassword, getClientIp,
+  recalculatePledgeFulfillment,
 } from "../lib/admin.js";
 
 export const adminRouter = Router();
@@ -340,6 +341,8 @@ adminRouter.get("/fellowship-report", requireAdmin, async (req, res) => {
   try {
     const db = requireService();
     const admin = (req as any).admin;
+
+    await recalculatePledgeFulfillment(db);
 
     const { data: campaign } = await db
       .from("campaigns")

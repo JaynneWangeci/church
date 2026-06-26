@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
-import { requireAdmin, requireAdminOrAbove } from "../lib/admin.js";
+import { requireAdmin, requireAdminOrAbove, recalculatePledgeFulfillment } from "../lib/admin.js";
 import { sendWhatsApp } from "../lib/meta-whatsapp.js";
 import { PLEDGE_VERSES, pickVerse } from "./verses.js";
 import { enqueueFollowUp } from "../lib/queue.js";
@@ -124,6 +124,7 @@ pledgesRouter.post("/", async (req, res) => {
 pledgesRouter.get("/", async (_req, res) => {
   try {
     const db = requireService();
+    await recalculatePledgeFulfillment(db);
     const { data, error } = await db
       .from("pledges")
       .select("id, donor_name, amount, paid, remaining, status, rating, color_hex, created_at")

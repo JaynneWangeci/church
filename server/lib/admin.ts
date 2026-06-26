@@ -352,3 +352,62 @@ export function filterDonationsByRole(
     return d;
   }).filter(Boolean) as Record<string, unknown>[];
 }
+
+export async function recalculatePledgeFulfillment(db: any): Promise<void> {
+  const { data: pledges } = await db.from("pledges").select("id, donor_name, amount, paid, remaining, status");
+  const { data: members } = await db.from("church_members").select("id, name").eq("is_active", true);
+  const { data: donations } = await db
+    .from("donations")
+    .select("id, donor_name, amount, honored_member_id, account_reference")
+    .eq("status", "completed");
+
+  // Also fetch pledge_payments (admin-recorded + PLD callback payments)
+  const { data: pledgePayments } = await db.from("pledge_payments").select("pledge_id, amount");
+
+  if (!pledges?.length) return;
+
+  const memberByName = new Map<string, string>();
+  for (const m of members || []) memberByName.set(m.name.toLowerCase().trim(), m.id);
+
+  // Sum pledge_payments per pledge
+  const paymentByPledge = new Map<string, number>();
+  for (const pp of pledgePayments || []) {
+    paymentByPledge.set(pp.pledge_id, (paymentByPledge.get(pp.pledge_id) || 0) + Number(pp.amount));
+  }
+
+  const updates: { id: string; paid: number; remaining: number; status: string }[] = [];
+
+  for (const pledge of pledges) {
+    if (pledge.status === "fulfilled") continue;
+    const pledgeName = pledge.donor_name.toLowerCase().trim();
+    const memberId = memberByName.get(pledgeName);
+
+    // Sum non-PLD donations linked to this member (direct + honour)
+    let totalPaid = 0;
+    for (const d of donations || []) {
+      const isPld = d.account_reference && String(d.account_reference).startsWith("PLD:");
+      if (isPld) continue; // already counted via pledge_payments
+      const donorMatch = d.donor_name && d.donor_name.toLowerCase().trim() === pledgeName;
+      const honourMatch = memberId && d.honored_member_id === memberId;
+      if (donorMatch || honourMatch) {
+        totalPaid += Number(d.amount);
+      }
+    }
+
+    // Add pledge_payments (admin + PLD callback)
+    totalPaid += paymentByPledge.get(pledge.id) || 0;
+
+    if (totalPaid !== Number(pledge.paid)) {
+      updates.push({
+        id: pledge.id,
+        paid: totalPaid,
+        remaining: Math.max(0, Number(pledge.amount) - totalPaid),
+        status: totalPaid >= Number(pledge.amount) ? "fulfilled" : "pending",
+      });
+    }
+  }
+
+  for (const u of updates) {
+    await db.from("pledges").update({ paid: u.paid, remaining: u.remaining, status: u.status }).eq("id", u.id);
+  }
+}

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
-import { requireAdmin, logAudit } from "../lib/admin.js";
+import { requireAdmin, logAudit, recalculatePledgeFulfillment } from "../lib/admin.js";
 import { cacheGet, cacheSet, cacheKey, invalidateOnChange } from "../lib/redis.js";
 
 export const contributionsRouter = Router();
@@ -187,6 +187,8 @@ contributionsRouter.get("/export/pdf", requireAdmin, async (req, res) => {
 
     const PDFDocument = (await import("pdfkit")).default;
     const db = requireService();
+
+    await recalculatePledgeFulfillment(db);
 
     const { data: donations } = await db
       .from("donations")
@@ -503,6 +505,8 @@ contributionsRouter.get("/export/xlsx", requireAdmin, async (req, res) => {
 
     const ExcelJS = (await import("exceljs")).default;
     const db = requireService();
+
+    await recalculatePledgeFulfillment(db);
 
     const { data: donations } = await db
       .from("donations")
