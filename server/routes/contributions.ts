@@ -589,7 +589,7 @@ contributionsRouter.get("/export/xlsx", requireAdmin, async (req, res) => {
     // SHEET 1 — EXECUTIVE SUMMARY
     // ══════════════════════════════════════════════════════════════
     const s1 = wb.addWorksheet("Executive Summary");
-    autoCols(s1, [4, 28, 22, 28, 22, 4]);
+    autoCols(s1, [4, 28, 22, 14, 22, 4, 20, 20, 22, 14]);
     addTitleRow(s1, "AIPCA BAHATI CATHEDRAL — HARAMBEE DEVELOPMENT FUND", "F", 1);
     addSubtitleRow(s1, `Executive Audit Report — Generated ${new Date().toLocaleDateString("en-KE", { weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}`, "F", 2);
 
@@ -627,47 +627,66 @@ contributionsRouter.get("/export/xlsx", requireAdmin, async (req, res) => {
     });
     addBorder(s1, metricStart, metricStart + metrics.length - 1, 5);
 
-    // Fellowship summary
-    const councilSummary: Record<string, { total: number; count: number; members: number }> = {};
+    // Fellowship summary (donations + pledges)
+    const memberLookup = new Map<string, string>();
+    for (const mem of memberData || []) memberLookup.set(mem.name.toLowerCase().trim(), mem.council || "Unassigned");
+
+    const councilSummary: Record<string, { total: number; count: number; members: number; pledgeTotal: number; pledgePaid: number; pledgeRemaining: number }> = {};
     for (const d of completed) {
       const m = (d as any).church_members;
       const c = m?.council || "Unassigned";
-      if (!councilSummary[c]) councilSummary[c] = { total: 0, count: 0, members: 0 };
+      if (!councilSummary[c]) councilSummary[c] = { total: 0, count: 0, members: 0, pledgeTotal: 0, pledgePaid: 0, pledgeRemaining: 0 };
       councilSummary[c].total += Number(d.amount);
       councilSummary[c].count += 1;
     }
     for (const mem of memberData || []) {
       const c = mem.council || "Unassigned";
-      if (!councilSummary[c]) councilSummary[c] = { total: 0, count: 0, members: 0 };
+      if (!councilSummary[c]) councilSummary[c] = { total: 0, count: 0, members: 0, pledgeTotal: 0, pledgePaid: 0, pledgeRemaining: 0 };
       councilSummary[c].members += 1;
+    }
+    for (const p of pledges || []) {
+      const council = memberLookup.get(p.donor_name.toLowerCase().trim()) || "Unassigned";
+      if (!councilSummary[council]) councilSummary[council] = { total: 0, count: 0, members: 0, pledgeTotal: 0, pledgePaid: 0, pledgeRemaining: 0 };
+      councilSummary[council].pledgeTotal += Number(p.amount);
+      councilSummary[council].pledgePaid += Number(p.paid);
+      councilSummary[council].pledgeRemaining += Number(p.remaining);
     }
 
     const fs = sr + metrics.length + 2;
-    addTitleRow(s1, "FELLOWSHIP CONTRIBUTION SUMMARY", "F", fs);
+    addTitleRow(s1, "FELLOWSHIP CONTRIBUTION SUMMARY", "J", fs);
     const fh = fs + 1;
-    s1.getRow(fh).values = ["#", "Fellowship", "Total Raised (KES)", "Donations", "Members", "Avg/Member (KES)"];
+    s1.getRow(fh).values = ["#", "Fellowship", "Total Raised (KES)", "Donations", "Members", "Avg/Member (KES)", "Pledged (KES)", "Paid (KES)", "Remaining (KES)", "Fulfillment"];
     styleHeader(s1, s1.getRow(fh));
 
     const sortedCouncils = Object.entries(councilSummary).sort((a, b) => b[1].total - a[1].total);
-    let grandTotal = 0, grandCount = 0, grandMembers = 0;
+    let grandTotal = 0, grandCount = 0, grandMembers = 0, grandPledgeTotal = 0, grandPledgePaid = 0, grandPledgeRemaining = 0;
     sortedCouncils.forEach(([name, data], i) => {
       const r = s1.getRow(fh + 1 + i);
       const avg = data.members > 0 ? Math.round(data.total / data.members) : 0;
-      r.values = [i + 1, name.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()), data.total, data.count, data.members, avg];
+      const fulfillment = data.pledgeTotal > 0 ? (data.pledgePaid / data.pledgeTotal * 100).toFixed(2) + "%" : "—";
+      r.values = [i + 1, name.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()), data.total, data.count, data.members, avg, data.pledgeTotal, data.pledgePaid, data.pledgeRemaining, fulfillment];
       r.getCell(3).numFmt = '#,##0';
       r.getCell(6).numFmt = '#,##0';
+      r.getCell(7).numFmt = '#,##0';
+      r.getCell(8).numFmt = '#,##0';
+      r.getCell(9).numFmt = '#,##0';
       r.height = 20;
       if (i % 2 === 0) r.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F0F7FF" } }; });
       grandTotal += data.total; grandCount += data.count; grandMembers += data.members;
+      grandPledgeTotal += data.pledgeTotal; grandPledgePaid += data.pledgePaid; grandPledgeRemaining += data.pledgeRemaining;
     });
     const ft = fh + 1 + sortedCouncils.length;
     const totalRow = s1.getRow(ft);
-    totalRow.values = ["", "TOTAL", grandTotal, grandCount, grandMembers, Math.round(grandTotal / Math.max(grandMembers, 1))];
+    const grandFulfillment = grandPledgeTotal > 0 ? (grandPledgePaid / grandPledgeTotal * 100).toFixed(2) + "%" : "—";
+    totalRow.values = ["", "TOTAL", grandTotal, grandCount, grandMembers, Math.round(grandTotal / Math.max(grandMembers, 1)), grandPledgeTotal, grandPledgePaid, grandPledgeRemaining, grandFulfillment];
     totalRow.font = { bold: true, color: { argb: dark.replace("#", "") }, size: 11 };
     totalRow.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E8EDF2" } }; });
     totalRow.getCell(3).numFmt = '#,##0';
     totalRow.getCell(6).numFmt = '#,##0';
-    addBorder(s1, fh, ft, 6);
+    totalRow.getCell(7).numFmt = '#,##0';
+    totalRow.getCell(8).numFmt = '#,##0';
+    totalRow.getCell(9).numFmt = '#,##0';
+    addBorder(s1, fh, ft, 10);
     s1.views = [{ state: "frozen", ySplit: fs }];
 
     // ══════════════════════════════════════════════════════════════
@@ -793,6 +812,9 @@ contributionsRouter.get("/export/xlsx", requireAdmin, async (req, res) => {
       const leading = male > female ? "Men" : female > male ? "Women" : "Equal";
       const r = s3.getRow(gcRow + 2 + i);
       r.values = [i + 1, council.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()), male, female, diff, leading];
+      r.getCell(3).numFmt = '#,##0';
+      r.getCell(4).numFmt = '#,##0';
+      r.getCell(5).numFmt = '#,##0';
       if (i % 2 === 0) r.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F0F7FF" } }; });
     });
 
@@ -861,11 +883,7 @@ contributionsRouter.get("/export/xlsx", requireAdmin, async (req, res) => {
       r.getCell(3).numFmt = '#,##0';
       r.getCell(5).numFmt = '#,##0';
       r.height = 20;
-      if (i % 2 === 0) r.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FEF9E7" } }; });
-      // Gold highlight for top 3
-      if (i < 3) r.eachCell((c: any) => {
-        if (c.fill) c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ["FFD700", "C0C0C0", "CD7F32"][i] } };
-      });
+      if (i % 2 === 0) r.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F0F7FF" } }; });
     });
     s5.views = [{ state: "frozen", ySplit: 4 }];
 
@@ -894,6 +912,8 @@ contributionsRouter.get("/export/xlsx", requireAdmin, async (req, res) => {
       const dow = dayNames[new Date(date).getDay()];
       const avg = data.count > 0 ? Math.round(data.total / data.count) : 0;
       r.values = [i + 1, date, data.total, data.count, avg, dow];
+      r.getCell(3).numFmt = '#,##0';
+      r.getCell(5).numFmt = '#,##0';
       if (dow === "Sun") r.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FEE2E2" } }; });
       else if (i % 2 === 0) r.eachCell((c: any) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F0F7FF" } }; });
     });
