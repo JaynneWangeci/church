@@ -369,7 +369,7 @@ adminRouter.get("/fellowship-report", requireAdmin, async (req, res) => {
     // Campaign-scoped completed donations
     let donationQuery = db
       .from("donations")
-      .select("id, amount, donor_name, method, church_member_id, created_at")
+      .select("id, amount, donor_name, method, phone, church_member_id, created_at")
       .eq("status", "completed");
     if (campaignId) donationQuery = donationQuery.eq("campaign_id", campaignId);
     const { data: allDonations } = await donationQuery;
@@ -436,14 +436,17 @@ adminRouter.get("/fellowship-report", requireAdmin, async (req, res) => {
       const recentTotal = recentDonations.reduce((s, d) => s + Number(d.amount), 0);
 
       // Top donors in this fellowship
-      const donorMap = new Map<string, { name: string; total: number }>();
+      const donorMap = new Map<string, { name: string; total: number; phones: string[] }>();
       for (const d of donations) {
         const rawName = d.donor_name || "Anonymous";
         const key = rawName.toLowerCase().trim();
         if (donorMap.has(key)) {
           donorMap.get(key)!.total += Number(d.amount);
+          if (d.phone && !donorMap.get(key)!.phones.includes(d.phone)) {
+            donorMap.get(key)!.phones.push(d.phone);
+          }
         } else {
-          donorMap.set(key, { name: rawName, total: Number(d.amount) });
+          donorMap.set(key, { name: rawName, total: Number(d.amount), phones: d.phone ? [d.phone] : [] });
         }
       }
       const topDonors = Array.from(donorMap.values())

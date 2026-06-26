@@ -2621,10 +2621,14 @@ export default function AdminDashboard() {
                                 {f.donation.top_donors?.length > 0 ? (
                                   <div className="space-y-1">
                                     {f.donation.top_donors.map((d: any, i: number) => {
+                                      const phones = d.phones?.filter(Boolean).join(", ");
                                       return (
                                         <div key={d.name} className="flex items-center gap-1.5">
                                           <span className="w-5 shrink-0 text-[10px] font-bold text-muted">{i + 1}.</span>
-                                          <span className="min-w-0 flex-1 truncate text-xs text-ink">{d.name}</span>
+                                          <div className="min-w-0 flex-1">
+                                            <div className="truncate text-xs text-ink">{d.name}</div>
+                                            {phones && <div className="text-[9px] text-muted tabular-nums">{phones}</div>}
+                                          </div>
                                           <span className="shrink-0 text-xs font-semibold text-ink tabular-nums">KES {d.total.toLocaleString("en-KE")}</span>
                                         </div>
                                       );
