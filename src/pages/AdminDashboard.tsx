@@ -741,7 +741,7 @@ export default function AdminDashboard() {
               <TabButton active={tab === "pledges"} onClick={() => setTab("pledges")} icon={<Target size={14} />} count={pledges.length}>Pledges</TabButton>
             )}
             {(admin.role === "admin" || admin.role === "super_admin") && (
-              <TabButton active={tab === "fellowshipreports"} onClick={() => { setTab("fellowshipreports"); fetchFellowshipReport(); }} icon={<Users size={14} />}>Reports</TabButton>
+              <TabButton active={tab === "fellowshipreports"} onClick={() => { setTab("fellowshipreports"); fetchFellowshipReport(); }} icon={<Users size={14} />}>Fellowship Reports</TabButton>
             )}
             <TabButton active={tab === "analytics"} onClick={() => setTab("analytics")} icon={<TrendingUp size={14} />}>Analytics</TabButton>
             {(admin.role === "admin" || admin.role === "super_admin") && (
