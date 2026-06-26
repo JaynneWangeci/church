@@ -358,7 +358,7 @@ export async function recalculatePledgeFulfillment(db: any): Promise<void> {
   const { data: members } = await db.from("church_members").select("id, name").eq("is_active", true);
   const { data: donations } = await db
     .from("donations")
-    .select("id, donor_name, amount, honored_member_id, account_reference")
+    .select("id, donor_name, amount, church_member_id, honored_member_id, account_reference")
     .eq("status", "completed");
 
   // Also fetch pledge_payments (admin-recorded + PLD callback payments)
@@ -367,7 +367,7 @@ export async function recalculatePledgeFulfillment(db: any): Promise<void> {
   if (!pledges?.length) return;
 
   const memberByName = new Map<string, string>();
-  for (const m of members || []) memberByName.set(m.name.toLowerCase().trim(), m.id);
+  for (const m of members || []) memberByName.set(m.name.toLowerCase().trim().replace(/\s+/g, " "), m.id);
 
   // Sum pledge_payments per pledge
   const paymentByPledge = new Map<string, number>();
@@ -379,17 +379,18 @@ export async function recalculatePledgeFulfillment(db: any): Promise<void> {
 
   for (const pledge of pledges) {
     if (pledge.status === "fulfilled") continue;
-    const pledgeName = pledge.donor_name.toLowerCase().trim();
+    const pledgeName = pledge.donor_name.toLowerCase().trim().replace(/\s+/g, " ");
     const memberId = memberByName.get(pledgeName);
 
-    // Sum non-PLD donations linked to this member (direct + honour)
+    // Sum non-PLD donations linked to this member
     let totalPaid = 0;
     for (const d of donations || []) {
       const isPld = d.account_reference && String(d.account_reference).startsWith("PLD:");
       if (isPld) continue; // already counted via pledge_payments
-      const donorMatch = d.donor_name && d.donor_name.toLowerCase().trim() === pledgeName;
-      const honourMatch = memberId && d.honored_member_id === memberId;
-      if (donorMatch || honourMatch) {
+      const dName = d.donor_name?.toLowerCase().trim().replace(/\s+/g, " ");
+      const nameMatch = dName && dName === pledgeName.replace(/\s+/g, " ");
+      const memberIdMatch = memberId && (d.church_member_id === memberId || d.honored_member_id === memberId);
+      if (nameMatch || memberIdMatch) {
         totalPaid += Number(d.amount);
       }
     }
