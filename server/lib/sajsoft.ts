@@ -1,11 +1,11 @@
-const ENDPOINT = "https://bulksms.sajsoft.co.ke/api/sms/v1/sendsms";
-const BALANCE_EP = "https://bulksms.sajsoft.co.ke/api/sms/v1/credit-balance";
+const ENDPOINT = "https://bulksms.sajsoft.co.ke/sms/v3/sendsms";
+const PROFILE_EP = "https://bulksms.sajsoft.co.ke/sms/v3/profile";
 const API_KEY = process.env.SMS_APIKEY || "";
-const SENDER_ID = process.env.SMS_SENDERID || "";
+const SENDER_ID = process.env.SMS_SENDERID || "AIPCABAHATI";
 
 export async function sendSMS(to: string, message: string): Promise<boolean> {
   try {
-    if (!API_KEY || !SENDER_ID) {
+    if (!API_KEY) {
       console.warn("SAJSOFT not configured — skipping SMS send");
       return false;
     }
@@ -15,9 +15,11 @@ export async function sendSMS(to: string, message: string): Promise<boolean> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         api_key: API_KEY,
-        sender_id: SENDER_ID,
+        service_id: 0,
+        mobile: phone,
+        response_type: "json",
+        shortcode: SENDER_ID,
         message,
-        phone,
       }),
     });
     if (!res.ok) {
@@ -26,8 +28,8 @@ export async function sendSMS(to: string, message: string): Promise<boolean> {
       return false;
     }
     const json = await res.json().catch(() => null);
-    if (json?.status === "success") {
-      console.log("SAJSOFT SMS sent:", json.data?.message_id, "credits:", json.data?.credits_used);
+    if (json?.[0]?.status_code === "1000") {
+      console.log("SAJSOFT SMS sent:", json[0].message_id, "cost:", json[0].message_cost);
       return true;
     }
     console.error("SAJSOFT SMS unexpected response:", JSON.stringify(json));
@@ -40,13 +42,13 @@ export async function sendSMS(to: string, message: string): Promise<boolean> {
 
 export async function getBalance(): Promise<number | null> {
   try {
-    const res = await fetch(BALANCE_EP, {
+    const res = await fetch(PROFILE_EP, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ api_key: API_KEY }),
     });
     const json = await res.json();
-    const balance = Number(json?.[0]?.balance);
+    const balance = Number(json?.[0]?.wallet?.credit_balance);
     return isNaN(balance) ? null : balance;
   } catch {
     return null;

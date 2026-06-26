@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
 import { requireAdmin, requireAdminOrAbove, logAudit, maskSensitiveData } from "../lib/admin.js";
+import { sendSMS } from "../lib/sajsoft.js";
 
 export const donationsRouter = Router();
 
@@ -221,6 +222,18 @@ donationsRouter.patch("/:id/honour", requireAdmin, requireAdminOrAbove, async (r
       ipAddress: (req as any).adminIp,
       userAgent: (req as any).userAgent,
     });
+
+    // Notify the honoured member
+    const { data: honouredMember } = await db.from("church_members").select("name").eq("id", honored_member_id).single();
+    if (honouredMember?.name) {
+      const { data: donorPhone } = await db.from("donor_whatsapp").select("whatsapp_number").eq("donor_name", honouredMember.name).maybeSingle();
+      const phone = donorPhone?.whatsapp_number || data.phone;
+      if (phone) {
+        const amt = Number(data.amount).toLocaleString("en-KE");
+        const msg = `🙏 AIPCA Bahati Cathedral — You have been honoured!\n\n${data.donor_name || "Someone"} has donated KES ${amt} in your honour.\n\n"Honour the Lord with your wealth." — Proverbs 3:9\n\nBaraka tele! 🇰🇪`;
+        sendSMS(phone, msg).catch(() => {});
+      }
+    }
 
     res.json({ donation: data });
   } catch (err) {

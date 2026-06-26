@@ -6,6 +6,7 @@ import {
   filterDonationsByRole, verifyPassword, hashPassword, getClientIp,
   recalculatePledgeFulfillment,
 } from "../lib/admin.js";
+import { sendSMS } from "../lib/sajsoft.js";
 
 export const adminRouter = Router();
 
@@ -664,5 +665,48 @@ adminRouter.post("/migrate-v11", requireAdmin, requireSuperAdmin, async (_req, r
     res.status(500).json({ error: "All endpoints failed", details: results });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Send bulk SMS campaign reminder to all members
+adminRouter.post("/send-bulk-sms", requireAdmin, requireAdminOrAbove, async (req, res) => {
+  try {
+    const db = requireService();
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ error: "message required" });
+
+    const { data: members } = await db
+      .from("church_members")
+      .select("name")
+      .eq("is_active", true);
+
+    const phones = new Set<string>();
+    for (const m of members || []) {
+      const { data: dw } = await db.from("donor_whatsapp").select("whatsapp_number").eq("donor_name", m.name).maybeSingle();
+      if (dw?.whatsapp_number) phones.add(dw.whatsapp_number);
+      const { data: pledge } = await db.from("pledges").select("phone, whatsapp_number").ilike("donor_name", m.name).limit(1).maybeSingle();
+      if (pledge?.whatsapp_number) phones.add(pledge.whatsapp_number);
+      if (pledge?.phone) phones.add(pledge.phone);
+    }
+
+    let sent = 0, failed = 0;
+    for (const phone of phones) {
+      const ok = await sendSMS(phone, message);
+      if (ok) sent++; else failed++;
+    }
+
+    const admin = (req as any).admin;
+    await logAudit({
+      adminId: admin.id,
+      action: "bulk_sms",
+      details: { recipients: phones.size, sent, failed },
+      ipAddress: (req as any).adminIp,
+      userAgent: (req as any).userAgent,
+    });
+
+    res.json({ ok: true, total: phones.size, sent, failed });
+  } catch (err) {
+    console.error("bulk sms error:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });

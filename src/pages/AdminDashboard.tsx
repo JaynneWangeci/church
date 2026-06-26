@@ -3893,6 +3893,61 @@ function SiteContentEditor() {
           </div>
         ))}
       </div>
+
+      {/* Bulk SMS */}
+      <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <h2 className="mb-4 text-lg font-bold text-ink">Bulk SMS Campaign</h2>
+        <p className="mb-3 text-sm text-muted">Send an SMS to all church members with phone numbers on record.</p>
+        <div className="mb-3">
+          <label className="mb-1.5 block text-sm font-bold text-ink">Message</label>
+          <BulkSmsComposer />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BulkSmsComposer() {
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<null | { total: number; sent: number; failed: number }>(null);
+  const [error, setError] = useState("");
+  const token = localStorage.getItem("token");
+
+  const handleSend = async () => {
+    if (!message.trim()) return;
+    setSending(true); setError(""); setResult(null);
+    try {
+      const res = await fetch("/api/admin/send-bulk-sms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ message: message.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Failed"); return; }
+      setResult(data);
+      setMessage("");
+    } catch { setError("Network error"); }
+    setSending(false);
+  };
+
+  return (
+    <div>
+      <textarea value={message} onChange={e => setMessage(e.target.value)}
+        placeholder="Type your campaign message here... e.g. 'Habari familia! Karibu kushiriki katika Harambee yetu. Bonyeza link: https://aipcaharambee.com ...'"
+        rows={3} className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk placeholder:text-muted/50" />
+      <div className="mt-2 flex items-center gap-3">
+        <button onClick={handleSend} disabled={sending || !message.trim()}
+          className="btn-lift flex items-center gap-1.5 rounded-xl bg-nobuk px-5 py-2 text-sm font-bold text-white hover:bg-nobuk-light disabled:opacity-50">
+          <Send size={14} /> {sending ? "Sending..." : `Send to All Members`}
+        </button>
+        {result && (
+          <span className="text-xs text-green-700">
+            Sent to {result.sent}/{result.total} members {result.failed > 0 ? `(${result.failed} failed)` : ""}
+          </span>
+        )}
+        {error && <span className="text-xs text-red-600">{error}</span>}
+      </div>
     </div>
   );
 }
