@@ -65,10 +65,19 @@ councilsRouter.post("/", requireAdmin, requireAdminOrAbove, async (req, res) => 
 councilsRouter.patch("/:slug", requireAdmin, requireAdminOrAbove, async (req, res) => {
   try {
     const db = requireService();
-    const { name, is_active } = req.body;
+    const { name, is_active, slug } = req.body;
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name;
     if (is_active !== undefined) updates.is_active = is_active;
+    if (slug !== undefined) {
+      const cleanSlug = slug.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z_0-9]/g, "");
+      if (!cleanSlug) return res.status(400).json({ error: "Invalid slug" });
+      if (cleanSlug !== req.params.slug) {
+        const { data: existing } = await db.from("councils").select("slug").eq("slug", cleanSlug).maybeSingle();
+        if (existing) return res.status(409).json({ error: "A council with this slug already exists" });
+      }
+      updates.slug = cleanSlug;
+    }
 
     const { data, error } = await db
       .from("councils")

@@ -108,6 +108,7 @@ export default function AdminDashboard() {
   const [comError, setComError] = useState("");
   const [councils, setCouncils] = useState<Council[]>([]);
   const [editingCouncil, setEditingCouncil] = useState<Council | null>(null);
+  const [editCouncilSlug, setEditCouncilSlug] = useState("");
   const [editCouncilName, setEditCouncilName] = useState("");
   const [newCouncilSlug, setNewCouncilSlug] = useState("");
   const [newCouncilName, setNewCouncilName] = useState("");
@@ -735,7 +736,7 @@ export default function AdminDashboard() {
               <TabButton active={tab === "admins"} onClick={() => setTab("admins")} icon={<Shield size={14} />} count={admins.length}>Admins</TabButton>
             )}
             {(admin.role === "admin" || admin.role === "super_admin") && (
-              <TabButton active={tab === "council"} onClick={() => setTab("council")} icon={<Users size={14} />} count={committeeMembers.length}>Fellowship</TabButton>
+              <TabButton active={tab === "council"} onClick={() => { clearCouncilCache(); loadCouncils(); fetchCommittee(); setTab("council"); }} icon={<Users size={14} />} count={committeeMembers.length}>Fellowship</TabButton>
             )}
             {(admin.role === "admin" || admin.role === "super_admin") && (
               <TabButton active={tab === "pledges"} onClick={() => setTab("pledges")} icon={<Target size={14} />} count={pledges.length}>Pledges</TabButton>
@@ -1917,6 +1918,7 @@ export default function AdminDashboard() {
                         onClick={() => {
                           setEditingCouncil(editingCouncil?.slug === c.slug ? null : c);
                           setEditCouncilName(c.name);
+                          setEditCouncilSlug(c.slug);
                         }}
                         className="rounded-lg px-2 py-1 text-xs text-muted hover:bg-white hover:text-nobuk"
                       >
@@ -1946,39 +1948,52 @@ export default function AdminDashboard() {
                       </button>
                     </div>
                   </div>
-                  {editingCouncil?.slug === c.slug && (
-                    <div className="mt-3 border-t border-gray-200 pt-3 flex items-end gap-3">
-                      <div className="flex-1">
-                        <label className="mb-1 block text-xs font-bold text-muted">New Name</label>
-                        <input type="text" value={editCouncilName} onChange={(e) => setEditCouncilName(e.target.value)}
-                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                    {editingCouncil?.slug === c.slug && (
+                    <div className="mt-3 border-t border-gray-200 pt-3 space-y-3">
+                      <div className="flex items-end gap-3">
+                        <div className="flex-1">
+                          <label className="mb-1 block text-xs font-bold text-muted">Name</label>
+                          <input type="text" value={editCouncilName} onChange={(e) => setEditCouncilName(e.target.value)}
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                        </div>
+                        <div className="flex-1">
+                          <label className="mb-1 block text-xs font-bold text-muted">Slug</label>
+                          <input type="text" value={editCouncilSlug} onChange={(e) => setEditCouncilSlug(
+                            e.target.value.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z_0-9]/g, "")
+                          )}
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono text-ink outline-none focus:border-nobuk" />
+                        </div>
                       </div>
-                      <button
-                        onClick={async () => {
-                          if (!editCouncilName.trim()) return;
-                          setCouncilMgmtError(""); setCouncilMgmtMsg("");
-                          try {
-                            const res = await fetch(`/api/councils/${c.slug}`, {
-                              method: "PATCH",
-                              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                              body: JSON.stringify({ name: editCouncilName.trim() }),
-                            });
-                            const data = await res.json();
-                            if (!res.ok) { setCouncilMgmtError(data.error || "Failed to rename"); return; }
-                            setCouncilMgmtMsg(`Renamed to "${data.council.name}".`);
-                            setEditingCouncil(null);
-                            clearCouncilCache();
-                            loadCouncils();
-                          } catch { setCouncilMgmtError("Connection issue"); }
-                        }}
-                        className="rounded-lg bg-nobuk px-3 py-2 text-xs font-semibold text-white hover:bg-nobuk-light"
-                      >
-                        Save
-                      </button>
-                      <button onClick={() => setEditingCouncil(null)}
-                        className="rounded-lg border border-gray-200 px-3 py-2 text-xs text-muted hover:bg-white">
-                        Cancel
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={async () => {
+                            if (!editCouncilName.trim()) return;
+                            setCouncilMgmtError(""); setCouncilMgmtMsg("");
+                            try {
+                              const body: Record<string, string> = { name: editCouncilName.trim() };
+                              if (editCouncilSlug.trim() && editCouncilSlug.trim() !== c.slug) body.slug = editCouncilSlug.trim();
+                              const res = await fetch(`/api/councils/${c.slug}`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                                body: JSON.stringify(body),
+                              });
+                              const data = await res.json();
+                              if (!res.ok) { setCouncilMgmtError(data.error || "Failed to rename"); return; }
+                              setCouncilMgmtMsg(`Updated "${data.council.name}".`);
+                              setEditingCouncil(null);
+                              clearCouncilCache();
+                              loadCouncils();
+                            } catch { setCouncilMgmtError("Connection issue"); }
+                          }}
+                          className="rounded-lg bg-nobuk px-3 py-2 text-xs font-semibold text-white hover:bg-nobuk-light"
+                        >
+                          Save
+                        </button>
+                        <button onClick={() => setEditingCouncil(null)}
+                          className="rounded-lg border border-gray-200 px-3 py-2 text-xs text-muted hover:bg-white">
+                          Cancel
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
