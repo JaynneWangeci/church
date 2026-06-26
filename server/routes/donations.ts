@@ -50,7 +50,10 @@ donationsRouter.get("/", async (req, res) => {
         .filter((d: any) => d.status === "completed")
         .map((d: any) => maskSensitiveData(d));
     } else if (admin.role === "admin") {
-      donations = donations.map((d: any) => maskSensitiveData(d));
+      donations = donations.map((d: any) => {
+        const { checkout_request_id, ...rest } = d;
+        return rest;
+      });
     }
 
     res.json({ donations, total: count });

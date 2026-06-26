@@ -2617,22 +2617,32 @@ export default function AdminDashboard() {
                             <div className="grid gap-4 md:grid-cols-2">
                               {/* Top donors */}
                               <div>
-                                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted">Top Donors</p>
+                                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted">All Donors ({f.donation.top_donors?.length || 0})</p>
                                 {f.donation.top_donors?.length > 0 ? (
-                                  <div className="space-y-1">
-                                    {f.donation.top_donors.map((d: any, i: number) => {
-                                      const phones = d.phones?.filter(Boolean).join(", ");
-                                      return (
-                                        <div key={d.name} className="flex items-center gap-1.5">
-                                          <span className="w-5 shrink-0 text-[10px] font-bold text-muted">{i + 1}.</span>
-                                          <div className="min-w-0 flex-1">
-                                            <div className="truncate text-xs text-ink">{d.name}</div>
-                                            {phones && <div className="text-[9px] text-muted tabular-nums">{phones}</div>}
-                                          </div>
-                                          <span className="shrink-0 text-xs font-semibold text-ink tabular-nums">KES {d.total.toLocaleString("en-KE")}</span>
-                                        </div>
-                                      );
-                                    })}
+                                  <div className="max-h-[400px] overflow-y-auto rounded-lg border border-gray-100">
+                                    <table className="w-full text-left text-xs">
+                                      <thead className="sticky top-0 bg-gray-50">
+                                        <tr className="border-b border-gray-100">
+                                          <th className="px-2 py-1.5 font-bold text-muted w-6">#</th>
+                                          <th className="px-2 py-1.5 font-bold text-muted">Donor</th>
+                                          <th className="px-2 py-1.5 font-bold text-muted">Phone</th>
+                                          <th className="px-2 py-1.5 font-bold text-muted text-right">Total</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {f.donation.top_donors.map((d: any, i: number) => {
+                                          const phones = d.phones?.filter(Boolean).join(", ");
+                                          return (
+                                            <tr key={d.name} className="border-b border-gray-50 last:border-0 hover:bg-cream">
+                                              <td className="px-2 py-1.5 text-muted tabular-nums w-6">{i + 1}</td>
+                                              <td className="px-2 py-1.5 font-medium text-ink max-w-[140px] truncate">{d.name}</td>
+                                              <td className="px-2 py-1.5 text-muted tabular-nums">{phones || "—"}</td>
+                                              <td className="px-2 py-1.5 font-semibold text-ink tabular-nums text-right">KES {d.total.toLocaleString("en-KE")}</td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
                                   </div>
                                 ) : (
                                   <p className="text-xs text-muted italic">No donation data</p>

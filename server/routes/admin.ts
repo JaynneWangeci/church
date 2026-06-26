@@ -450,8 +450,7 @@ adminRouter.get("/fellowship-report", requireAdmin, async (req, res) => {
         }
       }
       const topDonors = Array.from(donorMap.values())
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 10);
+        .sort((a, b) => b.total - a.total);
 
       // Payment method breakdown
       const methodMap: Record<string, number> = {};
