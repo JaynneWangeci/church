@@ -5,8 +5,6 @@ import {
   Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileSpreadsheet, Search, ScanSearch, ArrowUpRight, ArrowDownRight, PieChart, Target, Save, Pencil, Monitor, Eye,   EyeOff, GitMerge, Send,
 } from "lucide-react";
 import MemberHistoryPanel from "../components/MemberHistoryPanel";
-import MasterPasswordGate from "../components/MasterPasswordGate";
-import { fetchWithSecret } from "../lib/master-password";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePie, Pie, Cell, Legend,
 } from "recharts";
@@ -151,7 +149,7 @@ export default function AdminDashboard() {
   const checkAuth = useCallback(async () => {
     if (!token) { navigate("/admin/login"); return; }
     try {
-      const res = await fetchWithSecret("/api/auth/me", {
+      const res = await fetch("/api/auth/me", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) { navigate("/admin/login"); return; }
@@ -180,7 +178,7 @@ export default function AdminDashboard() {
       if (from) params.set("date_from", from);
       if (to) params.set("date_to", to);
       if (filter === "unassigned") params.set("honoured", "false");
-      const res = await fetchWithSecret(`/api/donations?${params}`, {
+      const res = await fetch(`/api/donations?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -198,7 +196,7 @@ export default function AdminDashboard() {
   const fetchStats = useCallback(async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetchWithSecret("/api/admin/stats", {
+      const res = await fetch("/api/admin/stats", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) setStats(await res.json());
@@ -209,7 +207,7 @@ export default function AdminDashboard() {
     if (admin?.role !== "super_admin") return;
     const token = localStorage.getItem("token");
     try {
-      const res = await fetchWithSecret("/api/admin/audit-logs?limit=20", {
+      const res = await fetch("/api/admin/audit-logs?limit=20", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -222,7 +220,7 @@ export default function AdminDashboard() {
   const fetchSessions = useCallback(async () => {
     try {
       setLoadingSessions(true);
-      const res = await fetchWithSecret("/api/auth/sessions", {
+      const res = await fetch("/api/auth/sessions", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -236,7 +234,7 @@ export default function AdminDashboard() {
   const fetchSecurityEvents = useCallback(async () => {
     try {
       setSecLoading(true);
-      const res = await fetchWithSecret(`/api/admin/security/feed/critical?hours=24`, {
+      const res = await fetch(`/api/admin/security/feed/critical?hours=24`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -251,7 +249,7 @@ export default function AdminDashboard() {
   const fetchAdmins = useCallback(async () => {
     if (admin?.role !== "super_admin") return;
     try {
-      const res = await fetchWithSecret("/api/admin/users", {
+      const res = await fetch("/api/admin/users", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -263,7 +261,7 @@ export default function AdminDashboard() {
 
   const fetchAnalytics = useCallback(async () => {
     try {
-      const res = await fetchWithSecret("/api/analytics/dashboard", {
+      const res = await fetch("/api/analytics/dashboard", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) setDashboardData(await res.json());
@@ -272,7 +270,7 @@ export default function AdminDashboard() {
 
   const fetchMembers = useCallback(async () => {
     try {
-      const res = await fetchWithSecret("/api/members", {
+      const res = await fetch("/api/members", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -284,7 +282,7 @@ export default function AdminDashboard() {
 
   const fetchCommittee = useCallback(async () => {
     try {
-      const res = await fetchWithSecret("/api/committee");
+      const res = await fetch("/api/committee");
       if (res.ok) {
         const data = await res.json();
         setCommitteeMembers(data.members || []);
@@ -294,7 +292,7 @@ export default function AdminDashboard() {
 
   const fetchPledges = useCallback(async () => {
     try {
-      const res = await fetchWithSecret("/api/pledges");
+      const res = await fetch("/api/pledges");
       if (res.ok) {
         const data = await res.json();
         setPledges(data.pledges || []);
@@ -305,7 +303,7 @@ export default function AdminDashboard() {
   const fetchFellowshipReport = useCallback(async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetchWithSecret("/api/admin/fellowship-report", {
+      const res = await fetch("/api/admin/fellowship-report", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -322,7 +320,7 @@ export default function AdminDashboard() {
 
   const loadHarambee = useCallback(async () => {
     try {
-      const res = await fetchWithSecret("/api/settings/harambee");
+      const res = await fetch("/api/settings/harambee");
       if (res.ok) {
         const data = await res.json();
         setHarambeeDate(data.date);
@@ -376,7 +374,7 @@ export default function AdminDashboard() {
     e.preventDefault();
     if (!newName.trim()) { setMemberError("Kindly provide the member's name"); return; }
     try {
-      const res = await fetchWithSecret("/api/members", {
+      const res = await fetch("/api/members", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: newName.trim().replace(/^\d+[\.\)]?\s*(?:[A-Za-z]\s+)?/, "").replace(/\.+$/, ""), council: newCouncil, gender: newGender || undefined }),
@@ -424,7 +422,7 @@ export default function AdminDashboard() {
     let added = 0;
     for (const { name, council } of toAdd) {
       try {
-        const res = await fetchWithSecret("/api/members", {
+        const res = await fetch("/api/members", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ name, council, gender: bulkGender || undefined }),
@@ -450,7 +448,7 @@ export default function AdminDashboard() {
     if (!names.length) { setBulkEditResult("Paste at least one name"); return; }
     if (!bulkEditCouncil) { setBulkEditResult("Select a fellowship"); return; }
     setBulkEditResult("");
-    const res = await fetchWithSecret("/api/members/bulk-edit", {
+    const res = await fetch("/api/members/bulk-edit", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ names, council: bulkEditCouncil, gender: bulkEditGender || undefined }),
@@ -502,7 +500,7 @@ export default function AdminDashboard() {
 
   async function deleteMember(id: string) {
     try {
-      const res = await fetchWithSecret(`/api/members/${id}`, {
+      const res = await fetch(`/api/members/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -514,7 +512,7 @@ export default function AdminDashboard() {
     if (selectedMembers.size === 0) return;
     if (!confirm(`Remove ${selectedMembers.size} member${selectedMembers.size !== 1 ? 's' : ''}? This cannot be undone.`)) return;
     try {
-      const res = await fetchWithSecret("/api/members/bulk-delete", {
+      const res = await fetch("/api/members/bulk-delete", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ids: Array.from(selectedMembers) }),
@@ -533,7 +531,7 @@ export default function AdminDashboard() {
     setDeduping(true);
     setDedupResult("");
     try {
-      const res = await fetchWithSecret("/api/members/dedup", {
+      const res = await fetch("/api/members/dedup", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -552,7 +550,7 @@ export default function AdminDashboard() {
     setMergeResult("");
     try {
       const sourceIds = selected.slice(1).map(m => m.id);
-      const res = await fetchWithSecret(`/api/members/${selected[0].id}/merge`, {
+      const res = await fetch(`/api/members/${selected[0].id}/merge`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ source_ids: sourceIds }),
@@ -569,7 +567,7 @@ export default function AdminDashboard() {
     setHistoryLoading(true);
     setHistoryResult(null);
     try {
-      const res = await fetchWithSecret(`/api/members/history?name=${encodeURIComponent(q)}`, {
+      const res = await fetch(`/api/members/history?name=${encodeURIComponent(q)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) setHistoryResult(await res.json());
@@ -584,7 +582,7 @@ export default function AdminDashboard() {
     setChurchMembers(prev => prev.map(m => m.id === id ? { ...m, name: editMemberName.trim(), council: editMemberCouncil, gender: editMemberGender || null } : m));
     setEditingMember(null);
     try {
-      const res = await fetchWithSecret(`/api/members/${id}`, {
+      const res = await fetch(`/api/members/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: editMemberName.trim(), council: editMemberCouncil, gender: editMemberGender || null }),
@@ -608,7 +606,7 @@ export default function AdminDashboard() {
 
   async function revokeSession(sessionId: string) {
     try {
-      const res = await fetchWithSecret(`/api/auth/sessions/${sessionId}`, {
+      const res = await fetch(`/api/auth/sessions/${sessionId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -773,7 +771,7 @@ export default function AdminDashboard() {
                     setSearchLoading(true);
                     searchTimer.current = setTimeout(async () => {
                       try {
-                        const res = await fetchWithSecret(`/api/members/search?q=${encodeURIComponent(val.trim())}`, {
+                        const res = await fetch(`/api/members/search?q=${encodeURIComponent(val.trim())}`, {
                           headers: { Authorization: `Bearer ${token}` },
                         });
                         if (res.ok) { const d = await res.json(); setSearchResults(d.members || []); }
@@ -939,7 +937,7 @@ export default function AdminDashboard() {
                   <button onClick={async () => {
                     setExporting("xlsx");
                     try {
-                      const res = await fetchWithSecret("/api/contributions/export/xlsx", { headers: { Authorization: `Bearer ${token}` } });
+                      const res = await fetch("/api/contributions/export/xlsx", { headers: { Authorization: `Bearer ${token}` } });
                       if (!res.ok) return;
                       const blob = await res.blob();
                       const a = document.createElement("a");
@@ -955,7 +953,7 @@ export default function AdminDashboard() {
                   <button onClick={async () => {
                     setExporting("pdf");
                     try {
-                      const res = await fetchWithSecret("/api/contributions/export/pdf", { headers: { Authorization: `Bearer ${token}` } });
+                      const res = await fetch("/api/contributions/export/pdf", { headers: { Authorization: `Bearer ${token}` } });
                       if (!res.ok) return;
                       const blob = await res.blob();
                       const a = document.createElement("a");
@@ -1041,7 +1039,7 @@ export default function AdminDashboard() {
                               </span>
                               <div className="flex items-center gap-1 mt-1 justify-end">
                                 {d.status === "completed" && d.phone && (
-                                  <button onClick={async () => { await fetchWithSecret(`/api/mpesa/resend-whatsapp/${d.id}`, { method: "POST" }); }}
+                                  <button onClick={async () => { await fetch(`/api/mpesa/resend-whatsapp/${d.id}`, { method: "POST" }); }}
                                     className="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-600 hover:bg-blue-200">
                                     WA
                                   </button>
@@ -1074,7 +1072,7 @@ export default function AdminDashboard() {
                                       setHonourSearching(true);
                                       honourTimer.current = setTimeout(async () => {
                                         try {
-                                          const res = await fetchWithSecret(`/api/members/search?q=${encodeURIComponent(val.trim())}`, {
+                                          const res = await fetch(`/api/members/search?q=${encodeURIComponent(val.trim())}`, {
                                             headers: { Authorization: `Bearer ${token}` },
                                           });
                                           if (res.ok) { const data = await res.json(); setHonourResults(data.members || []); }
@@ -1104,7 +1102,7 @@ export default function AdminDashboard() {
                                           {honourResults.filter((m: any) => m.council === council).map((m: any) => (
                                             <button key={m.id} type="button" onClick={async () => {
                                               try {
-                                                const res = await fetchWithSecret(`/api/donations/${d.id}/honour`, {
+                                                const res = await fetch(`/api/donations/${d.id}/honour`, {
                                                   method: "PATCH",
                                                   headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                                                   body: JSON.stringify({ honored_member_id: m.id }),
@@ -1226,7 +1224,7 @@ export default function AdminDashboard() {
                         setSearchingMember(true);
                         addMemberTimer.current = setTimeout(async () => {
                           try {
-                            const res = await fetchWithSecret(`/api/members/search?q=${encodeURIComponent(val.trim())}`, {
+                            const res = await fetch(`/api/members/search?q=${encodeURIComponent(val.trim())}`, {
                               headers: { Authorization: `Bearer ${token}` },
                             });
                             if (res.ok) { const d = await res.json(); setAddMemberSearchResults(d.members || []); }
@@ -1508,7 +1506,7 @@ export default function AdminDashboard() {
                     const ids = churchMembers.filter(m => m.council === memberCouncilFilter).map(m => m.id);
                     if (!ids.length) return;
                     if (!confirm(`Delete all ${ids.length} members from this fellowship? This cannot be undone.`)) return;
-                    const r = await fetchWithSecret("/api/members/bulk-delete", {
+                    const r = await fetch("/api/members/bulk-delete", {
                       method: "POST",
                       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                       body: JSON.stringify({ ids }),
@@ -1706,7 +1704,7 @@ export default function AdminDashboard() {
                       if (newAdminPassword.length < 8) { setAdminError("Password must be at least 8 characters"); return; }
                       setAdminError("");
                       try {
-                        const res = await fetchWithSecret("/api/admin/admins", {
+                        const res = await fetch("/api/admin/admins", {
                           method: "POST",
                           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                           body: JSON.stringify({ name: newAdminName, email: newAdminEmail, password: newAdminPassword, role: newAdminRole, phone: newAdminPhone }),
@@ -1760,7 +1758,7 @@ export default function AdminDashboard() {
                           onClick={async () => {
                             if (!confirm(`Delete admin "${a.name}"?`)) return;
                             try {
-                              await fetchWithSecret(`/api/admin/users/${a.id}`, {
+                              await fetch(`/api/admin/users/${a.id}`, {
                                 method: "DELETE",
                                 headers: { Authorization: `Bearer ${token}` },
                               });
@@ -1804,7 +1802,7 @@ export default function AdminDashboard() {
                             <button
                               onClick={async () => {
                                 try {
-                                  const res = await fetchWithSecret(`/api/admin/users/${a.id}`, {
+                                  const res = await fetch(`/api/admin/users/${a.id}`, {
                                     method: "PUT",
                                     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                                     body: JSON.stringify({ name: editName, email: editEmail, role: editRole, phone: editPhone }),
@@ -1863,7 +1861,7 @@ export default function AdminDashboard() {
                       if (pwNew.length < 6) { setPwError("Password must be at least 6 characters"); return; }
                       setPwError("");
                       try {
-                        const res = await fetchWithSecret(`/api/admin/users/${admin!.id}/password`, {
+                        const res = await fetch(`/api/admin/users/${admin!.id}/password`, {
                           method: "PUT",
                           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                           body: JSON.stringify({ currentPassword: pwCurrent, newPassword: pwNew }),
@@ -1929,7 +1927,7 @@ export default function AdminDashboard() {
                           if (!confirm(`Delete "${c.name}"? Members using this fellowship must be reassigned first.`)) return;
                           setCouncilMgmtError(""); setCouncilMgmtMsg("");
                           try {
-                            const res = await fetchWithSecret(`/api/councils/${c.slug}`, {
+                            const res = await fetch(`/api/councils/${c.slug}`, {
                               method: "DELETE",
                               headers: { Authorization: `Bearer ${token}` },
                             });
@@ -1960,7 +1958,7 @@ export default function AdminDashboard() {
                           if (!editCouncilName.trim()) return;
                           setCouncilMgmtError(""); setCouncilMgmtMsg("");
                           try {
-                            const res = await fetchWithSecret(`/api/councils/${c.slug}`, {
+                            const res = await fetch(`/api/councils/${c.slug}`, {
                               method: "PATCH",
                               headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                               body: JSON.stringify({ name: editCouncilName.trim() }),
@@ -2010,7 +2008,7 @@ export default function AdminDashboard() {
                     <button onClick={async () => {
                       if (!editHarambeeDateVal) return;
                       try {
-                        const res = await fetchWithSecret("/api/settings", {
+                        const res = await fetch("/api/settings", {
                           method: "PUT",
                           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                           body: JSON.stringify({ harambee_date: editHarambeeDateVal }),
@@ -2055,7 +2053,7 @@ export default function AdminDashboard() {
                     if (!newCouncilSlug.trim() || !newCouncilName.trim()) { setCouncilMgmtError("Slug and name are required"); return; }
                     setCouncilMgmtError(""); setCouncilMgmtMsg("");
                     try {
-                      const res = await fetchWithSecret("/api/councils", {
+                      const res = await fetch("/api/councils", {
                         method: "POST",
                         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                         body: JSON.stringify({ slug: newCouncilSlug.trim(), name: newCouncilName.trim() }),
@@ -2118,7 +2116,7 @@ export default function AdminDashboard() {
                     if (!newComName.trim() || !newComRole.trim()) { setComError("Name and role are required"); return; }
                     setComError("");
                     try {
-                      const res = await fetchWithSecret("/api/committee", {
+                      const res = await fetch("/api/committee", {
                         method: "POST",
                         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                         body: JSON.stringify({ name: newComName.trim(), role: newComRole.trim(), council: newComCouncil, order: parseInt(newComOrder) || 0 }),
@@ -2185,7 +2183,7 @@ export default function AdminDashboard() {
                                     onClick={async () => {
                                       if (!confirm(`Remove "${m.name}" from council?`)) return;
                                       try {
-                                        await fetchWithSecret(`/api/committee/${m.id}`, {
+                                        await fetch(`/api/committee/${m.id}`, {
                                           method: "DELETE",
                                           headers: { Authorization: `Bearer ${token}` },
                                         });
@@ -2231,7 +2229,7 @@ export default function AdminDashboard() {
                                       <button
                                         onClick={async () => {
                                           try {
-                                            const res = await fetchWithSecret(`/api/committee/${m.id}`, {
+                                            const res = await fetch(`/api/committee/${m.id}`, {
                                               method: "PATCH",
                                               headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                                               body: JSON.stringify({ name: editComName, role: editComRole, council: editComCouncil, order: parseInt(editComOrder) || 0 }),
@@ -2376,7 +2374,7 @@ export default function AdminDashboard() {
                                           <button onClick={async () => {
                                             try {
                                               const token = localStorage.getItem("token");
-                                              const res = await fetchWithSecret(`/api/pledges/${p.id}`, {
+                                              const res = await fetch(`/api/pledges/${p.id}`, {
                                                 method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                                                 body: JSON.stringify({ amount: Number(editPledgeAmount) }),
                                               });
@@ -2395,7 +2393,7 @@ export default function AdminDashboard() {
                                           <button onClick={async () => {
                                             try {
                                               const token = localStorage.getItem("token");
-                                              const res = await fetchWithSecret(`/api/pledges/${p.id}/pay`, {
+                                              const res = await fetch(`/api/pledges/${p.id}/pay`, {
                                                 method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                                                 body: JSON.stringify({ amount: Number(payAmount), receipt_number: payReceipt }),
                                               });
@@ -2418,7 +2416,7 @@ export default function AdminDashboard() {
                                             if (!confirm("Delete this pledge?")) return;
                                             try {
                                               const token = localStorage.getItem("token");
-                                              const res = await fetchWithSecret(`/api/pledges/${p.id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+                                              const res = await fetch(`/api/pledges/${p.id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
                                               if (res.ok) fetchPledges();
                                             } catch {}
                                           }} className="rounded bg-red-100 px-2 py-1 text-[10px] font-bold text-red-700 hover:bg-red-200">Delete</button>
@@ -2449,7 +2447,7 @@ export default function AdminDashboard() {
                   <button onClick={async () => {
                     setExporting("frxlsx");
                     try {
-                      const res = await fetchWithSecret("/api/contributions/export/xlsx", { headers: { Authorization: `Bearer ${token}` } });
+                      const res = await fetch("/api/contributions/export/xlsx", { headers: { Authorization: `Bearer ${token}` } });
                       if (!res.ok) return;
                       const blob = await res.blob();
                       const a = document.createElement("a");
@@ -2465,7 +2463,7 @@ export default function AdminDashboard() {
                   <button onClick={async () => {
                     setExporting("frpdf");
                     try {
-                      const res = await fetchWithSecret("/api/contributions/export/pdf", { headers: { Authorization: `Bearer ${token}` } });
+                      const res = await fetch("/api/contributions/export/pdf", { headers: { Authorization: `Bearer ${token}` } });
                       if (!res.ok) return;
                       const blob = await res.blob();
                       const a = document.createElement("a");
@@ -2700,7 +2698,7 @@ export default function AdminDashboard() {
                   <button onClick={async () => {
                     setExporting("xlsx");
                     try {
-                      const res = await fetchWithSecret("/api/contributions/export/xlsx", { headers: { Authorization: `Bearer ${token}` } });
+                      const res = await fetch("/api/contributions/export/xlsx", { headers: { Authorization: `Bearer ${token}` } });
                       if (!res.ok) return;
                       const blob = await res.blob();
                       const a = document.createElement("a");
@@ -2717,7 +2715,7 @@ export default function AdminDashboard() {
                   <button onClick={async () => {
                     setExporting("pdf");
                     try {
-                      const res = await fetchWithSecret("/api/contributions/export/pdf", { headers: { Authorization: `Bearer ${token}` } });
+                      const res = await fetch("/api/contributions/export/pdf", { headers: { Authorization: `Bearer ${token}` } });
                       if (!res.ok) return;
                       const blob = await res.blob();
                       const a = document.createElement("a");
@@ -3524,8 +3522,6 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        <MasterPasswordGate />
-
         {tab === "security" && (
           <div className="rounded-2xl border border-gray-200 bg-white p-6">
             <div className="mb-4 flex items-center justify-between">
@@ -3674,7 +3670,7 @@ function SiteContentEditor() {
   });
 
   useEffect(() => {
-    fetchWithSecret("/api/settings")
+    fetch("/api/settings")
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (data?.settings) {
@@ -3705,7 +3701,7 @@ function SiteContentEditor() {
   async function translateText(text: string): Promise<string> {
     if (!text.trim()) return "";
     try {
-      const res = await fetchWithSecret("/api/translate", {
+      const res = await fetch("/api/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
@@ -3743,7 +3739,7 @@ function SiteContentEditor() {
       };
 
       const token = localStorage.getItem("token");
-      const res = await fetchWithSecret("/api/settings", {
+      const res = await fetch("/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ site_content: JSON.stringify(payload), church_phone: content.church_phone, whatsapp_phone: content.whatsapp_phone }),
@@ -3764,7 +3760,7 @@ function SiteContentEditor() {
     setWaTesting(true); setWaTestMsg("Sending...");
     try {
       const token = localStorage.getItem("token");
-      const res = await fetchWithSecret("/api/mpesa/test-whatsapp", {
+      const res = await fetch("/api/mpesa/test-whatsapp", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ phone: num }),
@@ -3818,7 +3814,7 @@ function SiteContentEditor() {
           <div className="mt-2 flex items-center gap-2">
             <input type="text" value={waTestPhone} onChange={e => setWaTestPhone(e.target.value)} placeholder="Custom test number (optional)"
               className="w-full max-w-xs rounded-xl border border-gray-200 px-3 py-1.5 text-xs text-ink outline-none focus:border-nobuk placeholder:text-muted/50" />
-            <button onClick={() => { const n = waTestPhone.trim(); if (!n) return; setWaTesting(true); setWaTestMsg("Sending..."); const t = localStorage.getItem("token"); fetchWithSecret("/api/mpesa/test-whatsapp", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` }, body: JSON.stringify({ phone: n }) }).then(r => r.json()).then(d => { setWaTestMsg(d.ok ? "Test message sent successfully!" : d.error || "Failed"); setWaTesting(false); }).catch(() => { setWaTestMsg("Network error"); setWaTesting(false); }); }}
+            <button onClick={() => { const n = waTestPhone.trim(); if (!n) return; setWaTesting(true); setWaTestMsg("Sending..."); const t = localStorage.getItem("token"); fetch("/api/mpesa/test-whatsapp", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` }, body: JSON.stringify({ phone: n }) }).then(r => r.json()).then(d => { setWaTestMsg(d.ok ? "Test message sent successfully!" : d.error || "Failed"); setWaTesting(false); }).catch(() => { setWaTestMsg("Network error"); setWaTesting(false); }); }}
               disabled={waTesting || !waTestPhone.trim()}
               className="rounded-lg border border-green-300 px-2.5 py-1.5 text-[10px] font-semibold text-green-700 hover:bg-green-50 disabled:opacity-40 transition">
               Send to custom

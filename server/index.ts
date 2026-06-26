@@ -24,7 +24,7 @@ import { fellowshipsRouter } from "./routes/fellowships.js";
 import { trackRouter } from "./routes/track.js";
 import { publicRouter } from "./routes/public.js";
 import { securityRouter } from "./routes/security.js";
-import { rateLimit, requireAdmin, requireSuperAdmin, requireMasterPassword } from "./lib/admin.js";
+import { rateLimit, requireAdmin, requireSuperAdmin } from "./lib/admin.js";
 import { startAllWorkers, stopAllWorkers } from "./lib/queue.js";
 
 if (!process.env.VERCEL) {
@@ -72,18 +72,6 @@ app.use("/api/verses", versesRouter);
 app.use("/api/track", trackRouter);
 app.use("/api/fellowships", fellowshipsRouter);
 app.use("/api/public", publicRouter);
-
-// Master password gate — all write operations require x-action-secret header
-app.use("/api", (req, res, next) => {
-  const path = (req as any).path || req.path;
-  if (path.startsWith("/api/auth") || path.startsWith("/api/public") || path.startsWith("/api/health") || path.startsWith("/api/translate") || path.startsWith("/api/track") || path.startsWith("/api/verses")) {
-    return next();
-  }
-  if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
-    return requireMasterPassword(req, res, next);
-  }
-  next();
-});
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
