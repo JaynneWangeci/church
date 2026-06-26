@@ -661,3 +661,13 @@ adminRouter.post("/migrate-v11", requireAdmin, requireSuperAdmin, async (_req, r
     res.status(500).json({ error: err.message });
   }
 });
+
+adminRouter.post("/verify-master", async (req, res) => {
+  const { secret } = req.body;
+  if (!secret) return res.status(400).json({ error: "Secret required" });
+  const stored = process.env.ADMIN_ACTION_SECRET;
+  if (!stored) return res.status(500).json({ error: "Not configured" });
+  const ok = await verifyPassword(secret, stored);
+  if (!ok) return res.status(403).json({ error: "Incorrect password" });
+  res.json({ ok: true });
+});

@@ -325,6 +325,22 @@ export function requireAdminOrAbove(req: Request, res: Response, next: NextFunct
   next();
 }
 
+export async function requireMasterPassword(req: Request, res: Response, next: NextFunction) {
+  const secret = req.headers["x-action-secret"] as string;
+  if (!secret) {
+    return res.status(403).json({ error: "Master password required" });
+  }
+  const stored = process.env.ADMIN_ACTION_SECRET;
+  if (!stored) {
+    return res.status(500).json({ error: "Master password not configured" });
+  }
+  const ok = await verifyPassword(secret, stored);
+  if (!ok) {
+    return res.status(403).json({ error: "Incorrect master password" });
+  }
+  next();
+}
+
 // ----- Data Isolation Helpers ----- //
 
 export function maskSensitiveData(donation: Record<string, unknown>): Record<string, unknown> {
