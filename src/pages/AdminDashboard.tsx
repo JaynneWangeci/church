@@ -2156,14 +2156,14 @@ export default function AdminDashboard() {
               </div>
               {committeeMembers.length ? (
                 <div className="space-y-4">
-                  {(["maranatha_fellowship", "bethlehem_fellowship", "jerusalem_fellowship", "aefeso_fellowship", "general_member"] as const).map((council) => {
-                    const filtered = committeeMembers.filter(m => m.council === council).sort((a, b) => a.order - b.order);
+                  {(councils.length ? councils : []).map((c) => {
+                    const filtered = committeeMembers.filter(m => m.council === c.slug).sort((a, b) => a.order - b.order);
                     if (filtered.length === 0) return null;
                     return (
-                      <div key={council}>
+                      <div key={c.slug}>
                         <div className="mb-2 flex items-center gap-2">
                           <Church size={14} className="text-muted" />
-                          <h3 className="text-xs font-bold text-muted uppercase tracking-wider">{councilLabels[council]}</h3>
+                          <h3 className="text-xs font-bold text-muted uppercase tracking-wider">{councilLabels[c.slug] || c.name}</h3>
                           <span className="text-[10px] text-muted">{filtered.length}</span>
                         </div>
                         <div className="space-y-1">
@@ -2228,11 +2228,9 @@ export default function AdminDashboard() {
                                       <label className="mb-1 block text-xs font-bold text-muted">Fellowship</label>
                                       <select value={editComCouncil} onChange={(e) => setEditComCouncil(e.target.value)}
                                         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk">
-                                        <option value="maranatha_fellowship">Maranatha Fellowship</option>
-                                        <option value="bethlehem_fellowship">Bethlehem Fellowship</option>
-                                        <option value="jerusalem_fellowship">Jerusalem Fellowship</option>
-                                        <option value="aefeso_fellowship">Aefeso Fellowship</option>
-                                        <option value="general_member">General Member</option>
+                                        {(councils.length ? councils : []).map(c => (
+                                          <option key={c.slug} value={c.slug}>{c.name}</option>
+                                        ))}
                                       </select>
                                     </div>
                                     <div>
