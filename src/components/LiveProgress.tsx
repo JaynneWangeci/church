@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { TrendingUp, Target, Zap, ExternalLink, Heart, Clock, Share2 } from 'lucide-react';
+import { TrendingUp, Target, Zap, ExternalLink, Clock, Share2 } from 'lucide-react';
 import { useInView } from '../hooks/useInView';
 
 export default function LiveProgress() {
@@ -8,10 +8,6 @@ export default function LiveProgress() {
   const [displayRaised, setDisplayRaised] = useState(0);
   const [harambeeDays, setHarambeeDays] = useState(0);
   const [width, setWidth] = useState(0);
-  const [pledgeTotal, setPledgeTotal] = useState(0);
-  const [pledgePaid, setPledgePaid] = useState(0);
-  const [pledgeCount, setPledgeCount] = useState(0);
-  const [pledgeWidth, setPledgeWidth] = useState(0);
   const barRef = useRef<HTMLDivElement>(null);
   const { ref, inView } = useInView();
   const prevPct = useRef(0);
@@ -20,22 +16,6 @@ export default function LiveProgress() {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   const pct = Math.min((raised / goal) * 100, 100);
-  const pledgePct = pledgeTotal > 0 ? Math.min((pledgePaid / pledgeTotal) * 100, 100) : 0;
-
-  function fetchPledges() {
-    fetch('/api/pledges')
-      .then(r => r.ok && r.json())
-      .then(data => {
-        if (data?.pledges?.length) {
-          const total = data.pledges.reduce((s: number, p: any) => s + Number(p.amount), 0);
-          const paid = data.pledges.reduce((s: number, p: any) => s + Number(p.paid), 0);
-          setPledgeTotal(total);
-          setPledgePaid(paid);
-          setPledgeCount(data.pledges.length);
-        }
-      })
-      .catch(() => {});
-  }
 
   useEffect(() => {
     fetch('/api/campaigns/development-fund')
@@ -46,14 +26,12 @@ export default function LiveProgress() {
       .then(r => r.ok && r.json())
       .then(data => { if (data) setHarambeeDays(data.days_remaining); })
       .catch(() => {});
-    fetchPledges();
 
     const interval = setInterval(() => {
       fetch('/api/campaigns/development-fund')
         .then(r => r.ok && r.json())
         .then(data => { if (data) { setRaised(Number(data.raised ?? 0)); setGoal(Number(data.goal ?? 30000000)); setEndsAt(data.ends_at || null); } })
         .catch(() => {});
-      fetchPledges();
     }, 30000);
 
     return () => clearInterval(interval);
@@ -287,52 +265,6 @@ export default function LiveProgress() {
               Share Progress
             </button>
           </div>
-
-          {/* Pledge Progress */}
-          {pledgeTotal > 0 && (
-            <div className="mt-6 border-t border-white/5 pt-6">
-              <div className="mb-4 flex flex-col items-center justify-between gap-4 sm:flex-row">
-                <div className="text-center sm:text-left">
-                  <p className="text-xs font-medium uppercase tracking-widest text-white/40">Total Pledges</p>
-                  <p className="mt-1 text-xl font-bold text-white md:text-2xl tabular-nums">
-                    KES {pledgePaid.toLocaleString()}
-                    <span className="text-base font-normal text-white/40"> / KES {pledgeTotal.toLocaleString()}</span>
-                  </p>
-                </div>
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 border-green-500/20 bg-green-500/5">
-                  <span className="text-lg font-bold text-green-400 tabular-nums">{pledgePct.toFixed(2)}%</span>
-                </div>
-              </div>
-              <div className="h-3 overflow-hidden rounded-full bg-white/5 shadow-inner md:h-4">
-                <div
-                  className="relative h-full rounded-full transition-all duration-500 ease-out"
-                  style={{
-                    width: `${pledgeWidth}%`,
-                    background: 'linear-gradient(90deg, #22c55e, #4ade80, #86efac, #22c55e)',
-                    backgroundSize: '200% 100%',
-                    animation: 'shimmer 3s linear infinite',
-                  }}
-                >
-                  <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/30 to-transparent animate-progress-shine" />
-                </div>
-              </div>
-              <div className="mt-3 grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <p className="text-sm font-bold text-green-400 tabular-nums">{pledgePct.toFixed(2)}%</p>
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-white/40">Fulfilled</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-bold text-white tabular-nums">KES {(pledgeTotal - pledgePaid > 0 ? (pledgeTotal - pledgePaid) : 0).toLocaleString()}</p>
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-white/40">Outstanding</p>
-                </div>
-                <div className="text-center">
-                  <Heart size={14} className="mx-auto mb-0.5 text-green-400" />
-                  <p className="text-sm font-bold text-white tabular-nums">{pledgeCount}</p>
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-white/40">Pledges</p>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </section>
