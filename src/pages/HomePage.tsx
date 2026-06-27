@@ -1,17 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Globe, MapPin, Clock, Heart, HandHeart, Phone, Share2 } from 'lucide-react';
+import { Globe, MapPin, Heart, HandHeart, Phone, Share2 } from 'lucide-react';
 import { useLang } from '../context/LanguageContext';
 import { useInView } from '../hooks/useInView';
 import SlideshowBackground from "../components/SlideshowBackground";
 import Ambient3D from "../components/Ambient3D";
 import ChurchHero from "../components/ChurchHero";
-import HarambeeCountdown from "../components/HarambeeCountdown";
 import LiveProgress from "../components/LiveProgress";
 import AboutSection from "../components/AboutSection";
 import ContributeSection from "../components/ContributeSection";
 import MemberRegistration from "../components/MemberRegistration";
 import PledgeBoard from "../components/PledgeBoard";
-import PledgePot from "../components/PledgePot";
+
 import Footer from "../components/Footer";
 import FellowshipProgress from "../components/FellowshipProgress";
 import GenderCompetition from "../components/GenderCompetition";
@@ -93,20 +92,6 @@ export default function HomePage() {
       <SlideshowBackground />
       <Ambient3D />
       <div className="relative z-10 pt-4">
-        {/* Countdown at top — above everything */}
-        <section className="relative z-10 mb-2 px-4">
-          <div className="mx-auto max-w-lg rounded-2xl border border-blue-400/20 bg-white/5 p-4 text-center backdrop-blur-sm">
-            <div className="mb-2 flex items-center justify-center gap-2">
-              <Clock size={14} className="text-amber" />
-              <span className="text-xs font-bold uppercase tracking-wider text-amber">Harambee Countdown</span>
-            </div>
-            <HarambeeCountdown />
-          </div>
-        </section>
-
-        {/* Pledge Pot — animated water-fill progress between countdown and hero */}
-        <PledgePot />
-
         <section id="hero"><ChurchHero /></section>
 
         <section id="register"><MemberRegistration /></section>

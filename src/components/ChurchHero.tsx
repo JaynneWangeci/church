@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Heart } from 'lucide-react';
+import { Clock, Heart } from 'lucide-react';
 import { useLang } from '../context/LanguageContext';
 import DonationModal from './DonationModal';
+import HarambeeCountdown from './HarambeeCountdown';
+import PledgePot from './PledgePot';
 
 const TITLE = 'Building His House, Together.';
 const SW_TITLE = 'Kujenga Nyumba Yake, Pamoja.';
@@ -10,7 +12,6 @@ export default function ChurchHero() {
   const { lang, t } = useLang();
   const [showGive, setShowGive] = useState(false);
   const [revealedChars, setRevealedChars] = useState(0);
-  const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
   const [scrolled, setScrolled] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
@@ -25,18 +26,10 @@ export default function ChurchHero() {
 
   useEffect(() => {
     if (revealedChars < heading.length) {
-      const timer = setTimeout(() => setRevealedChars(prev => prev + 1), 40);
+      const timer = setTimeout(() => setRevealedChars(prev => prev + 1), 30);
       return () => clearTimeout(timer);
     }
   }, [revealedChars, heading.length]);
-
-  const onMouseMove = useCallback((e: React.MouseEvent) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    setMousePos({
-      x: (e.clientX - rect.left) / rect.width,
-      y: (e.clientY - rect.top) / rect.height,
-    });
-  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -52,14 +45,14 @@ export default function ChurchHero() {
       size: number; alpha: number; pulse: number;
     }[] = [];
 
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 40; i++) {
       particles.push({
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.3,
-        vy: (Math.random() - 0.5) * 0.3,
-        size: Math.random() * 2.5 + 0.5,
-        alpha: Math.random() * 0.4 + 0.1,
+        vx: (Math.random() - 0.5) * 0.2,
+        vy: (Math.random() - 0.5) * 0.2,
+        size: Math.random() * 2 + 0.5,
+        alpha: Math.random() * 0.3 + 0.1,
         pulse: Math.random() * Math.PI * 2,
       });
     }
@@ -67,10 +60,7 @@ export default function ChurchHero() {
     let mouseX = canvas.width / 2;
     let mouseY = canvas.height / 2;
 
-    const handleMouse = (e: MouseEvent) => {
-      mouseX = e.clientX;
-      mouseY = e.clientY;
-    };
+    const handleMouse = (e: MouseEvent) => { mouseX = e.clientX; mouseY = e.clientY; };
     window.addEventListener('mousemove', handleMouse);
 
     function animate() {
@@ -122,18 +112,13 @@ export default function ChurchHero() {
     };
   }, []);
 
-  return (
-    <section
-      onMouseMove={onMouseMove}
-      className="relative z-10 flex min-h-screen flex-col"
-    >
-      {/* Particle canvas */}
-      <canvas
-        ref={canvasRef}
-        className="fixed inset-0 pointer-events-none z-0"
-      />
+  const headingRevealed = revealedChars >= heading.length;
 
-      {/* Liquid-glass navbar */}
+  return (
+    <section className="relative z-10 flex min-h-screen flex-col">
+      <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0" />
+
+      {/* Nav */}
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out ${
           scrolled
@@ -161,7 +146,6 @@ export default function ChurchHero() {
               <span className="hidden sm:inline text-sm font-medium text-white/50">Bahati Cathedral</span>
             </div>
           </div>
-
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowGive(true)}
@@ -176,27 +160,56 @@ export default function ChurchHero() {
         </div>
       </nav>
 
-      {/* Hero content */}
-      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 pb-20 pt-28">
+      {/* Compact hero content */}
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 pt-24 pb-10">
+        {/* Countdown */}
         <div
-          className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 backdrop-blur-sm"
+          className="mb-3 w-full max-w-xs rounded-xl border border-blue-400/15 bg-white/[0.03] p-3 text-center backdrop-blur-sm"
           style={{
             opacity: revealedChars > 0 ? 1 : 0,
             transform: revealedChars > 0 ? 'translateY(0)' : 'translateY(10px)',
             transition: 'opacity 0.6s ease-out, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
           }}
         >
+          <div className="mb-1.5 flex items-center justify-center gap-1.5">
+            <Clock size={10} className="text-amber" />
+            <span className="text-[9px] font-bold uppercase tracking-wider text-amber">Harambee Countdown</span>
+          </div>
+          <HarambeeCountdown />
+        </div>
+
+        {/* Pledge Box — pure fluid animation, no numbers */}
+        <div
+          className="mb-3"
+          style={{
+            opacity: revealedChars > 0 ? 1 : 0,
+            transition: 'opacity 0.6s ease-out 0.1s',
+          }}
+        >
+          <PledgePot />
+        </div>
+
+        {/* Badge */}
+        <div
+          className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1 backdrop-blur-sm"
+          style={{
+            opacity: revealedChars > 0 ? 1 : 0,
+            transform: revealedChars > 0 ? 'translateY(0)' : 'translateY(10px)',
+            transition: 'opacity 0.6s ease-out 0.15s, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.15s',
+          }}
+        >
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#5B9BD5] opacity-75" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-[#5B9BD5]" />
           </span>
-          <span className="text-[10px] font-semibold tracking-[0.2em] text-[#5B9BD5] uppercase">
+          <span className="text-[9px] font-semibold tracking-[0.2em] text-[#5B9BD5] uppercase">
             2026 · {t('Tujenge Pamoja', 'Tujenge Pamoja')}
           </span>
         </div>
 
+        {/* Heading */}
         <h1
-          className="text-center text-[2.5rem] leading-[1] font-bold tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl"
+          className="text-center text-[1.6rem] leading-[1] font-bold tracking-tight text-white sm:text-3xl md:text-4xl"
           style={{
             fontFamily: '"Neue Haas Grotesk Display Pro 55 Roman", "Helvetica Neue", Arial, sans-serif',
             letterSpacing: '-0.04em',
@@ -218,30 +231,32 @@ export default function ChurchHero() {
           ))}
         </h1>
 
+        {/* Verse */}
         <p
-          className="mt-6 max-w-lg text-center text-sm text-white/50 sm:text-base"
+          className="mt-2 max-w-xs text-center text-xs text-white/50 leading-relaxed"
           style={{
-            opacity: revealedChars >= heading.length ? 1 : 0,
-            transform: revealedChars >= heading.length ? 'translateY(0)' : 'translateY(15px)',
-            transition: 'opacity 0.8s ease-out 0.2s, transform 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.2s',
+            opacity: headingRevealed ? 1 : 0,
+            transform: headingRevealed ? 'translateY(0)' : 'translateY(10px)',
+            transition: 'opacity 0.6s ease-out 0.2s, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.2s',
           }}
         >
           <span className="italic text-[#5B9BD5]/70">&ldquo;{t('Unless the Lord builds the house, its builders labour in vain.', 'Bwana asipoijenga nyumba, wajengi hufanya kazi bure.')}&rdquo;</span>
           <br />
-          <span className="text-white/30">Psalm 127:1</span>
+          <span className="text-white/20">Psalm 127:1</span>
         </p>
 
+        {/* CTA */}
         <div
+          className="mt-3 flex items-center gap-4"
           style={{
-            opacity: revealedChars >= heading.length ? 1 : 0,
-            transform: revealedChars >= heading.length ? 'translateY(0)' : 'translateY(15px)',
-            transition: 'opacity 0.8s ease-out 0.4s, transform 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.4s',
+            opacity: headingRevealed ? 1 : 0,
+            transform: headingRevealed ? 'translateY(0)' : 'translateY(10px)',
+            transition: 'opacity 0.6s ease-out 0.3s, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.3s',
           }}
-          className="mt-8 flex items-center gap-4"
         >
           <button
             onClick={() => setShowGive(true)}
-            className="group relative overflow-hidden rounded-full bg-white px-6 py-3 text-sm font-bold text-[#1B2838] transition-all duration-300 hover:shadow-xl hover:shadow-white/20 active:scale-[0.97]"
+            className="group relative overflow-hidden rounded-full bg-white px-5 py-2.5 text-xs font-bold text-[#1B2838] transition-all duration-300 hover:shadow-xl hover:shadow-white/20 active:scale-[0.97]"
           >
             <span className="relative z-10">{t('Give to the Harambee', 'Toa kwa Harambee')}</span>
             <span className="absolute inset-0 bg-gradient-to-r from-white via-[#E8F0FE] to-white translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
@@ -251,14 +266,14 @@ export default function ChurchHero() {
 
       {/* Scroll indicator */}
       <div
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2"
+        className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-1.5"
         style={{
-          opacity: revealedChars >= heading.length ? 0.4 : 0,
-          transition: 'opacity 1s ease-out 0.8s',
+          opacity: headingRevealed ? 0.4 : 0,
+          transition: 'opacity 0.8s ease-out 0.6s',
         }}
       >
-        <span className="text-[10px] font-medium tracking-widest text-white/30 uppercase">{t('Scroll', 'Tembeza')}</span>
-        <div className="h-8 w-[1px] bg-gradient-to-b from-white/40 to-transparent animate-scroll-indicator" />
+        <span className="text-[9px] font-medium tracking-widest text-white/30 uppercase">{t('Scroll', 'Tembeza')}</span>
+        <div className="h-6 w-[1px] bg-gradient-to-b from-white/40 to-transparent animate-scroll-indicator" />
       </div>
 
       {showGive && (
