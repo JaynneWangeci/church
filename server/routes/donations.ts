@@ -3,6 +3,7 @@ import { requireService } from "../lib/supabase.js";
 import { requireAdmin, requireAdminOrAbove, logAudit, maskSensitiveData } from "../lib/admin.js";
 import { sendSMS } from "../lib/sajsoft.js";
 import { PAYMENT_VERSES, HONOUR_VERSES, pickVerse } from "./verses.js";
+import { getPhoneForName, savePhoneForName } from "../lib/contacts.js";
 
 export const donationsRouter = Router();
 
@@ -236,13 +237,29 @@ donationsRouter.patch("/:id/honour", requireAdmin, requireAdminOrAbove, async (r
     // Notify the honoured member
     const { data: honouredMember } = await db.from("church_members").select("name").eq("id", honored_member_id).single();
     if (honouredMember?.name) {
-      const { data: donorPhone } = await db.from("donor_whatsapp").select("whatsapp_number").eq("donor_name", honouredMember.name).maybeSingle();
-      const phone = donorPhone?.whatsapp_number || data.phone;
+      const phone = await getPhoneForName(honouredMember.name);
       if (phone) {
         const amt = Number(data.amount).toLocaleString("en-KE");
         const v = pickVerse(HONOUR_VERSES, "en");
         const msg = `You Have Been Honoured - AIPCA Bahati Cathedral\n\n${data.donor_name || "Someone"} has donated KES ${amt} in your honour.\n\n"${v.text}" - ${v.ref}\n\nBaraka tele!`;
-        sendSMS(phone, msg).catch(e => console.error("✉ SMS failed (donation honour):", e));
+
+        // Also send the honoured person their updated portfolio
+        const { data: pledge } = await db
+          .from("pledges")
+          .select("donor_name, amount, paid, remaining, status, phone, whatsapp_number")
+          .ilike("donor_name", honouredMember.name)
+          .neq("status", "fulfilled")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (pledge) {
+          const pct = pledge.amount > 0 ? Math.round((pledge.paid / pledge.amount) * 100) : 0;
+          const remaining = Math.max(0, Number(pledge.amount) - Number(pledge.paid));
+          const pledgeMsg = `Portfolio Update - AIPCA Bahati Cathedral\n\nHi ${pledge.donor_name}! Someone has donated KES ${amt} in your honour!\n\nPledged: KES ${Number(pledge.amount).toLocaleString()}\nPaid: KES ${Number(pledge.paid).toLocaleString()} (${pct}%)\nRemaining: KES ${remaining.toLocaleString()}\n\n"${v.text}" - ${v.ref}\n\nBaraka tele!`;
+          sendSMS(phone, pledgeMsg).catch(e => console.error("✉ SMS failed (honour portfolio update):", e));
+        } else {
+          sendSMS(phone, msg).catch(e => console.error("✉ SMS failed (donation honour):", e));
+        }
       }
     }
 

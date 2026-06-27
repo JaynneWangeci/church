@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
 import { requireAdmin } from "../lib/admin.js";
+import { savePhoneForName } from "../lib/contacts.js";
 
 export const c2bRouter = Router();
 
@@ -53,7 +54,7 @@ function resolvePayerName(FirstName: string, MiddleName: string, LastName: strin
  * Try to find an existing church member by name (case-insensitive).
  * Checks both the full name and the account reference.
  */
-async function findMember(db: any, name: string, accountRef: string): Promise<{ id: string; council: string; gender: string | null } | null> {
+async function findMember(db: any, name: string, accountRef: string): Promise<{ id: string; council: string; gender: string | null; phone: string | null } | null> {
   const candidates = [name];
   if (accountRef && accountRef.toLowerCase() !== name.toLowerCase()) {
     candidates.push(accountRef);
@@ -63,7 +64,7 @@ async function findMember(db: any, name: string, accountRef: string): Promise<{ 
     // Exact case-insensitive match
     const { data: exact } = await db
       .from("church_members")
-      .select("id, council, gender")
+      .select("id, council, gender, phone")
       .eq("is_active", true)
       .ilike("name", candidate.trim())
       .maybeSingle();
@@ -72,7 +73,7 @@ async function findMember(db: any, name: string, accountRef: string): Promise<{ 
     // Prefix match (e.g., "JOHN" matches "John Kamau")
     const { data: prefix } = await db
       .from("church_members")
-      .select("id, council, gender")
+      .select("id, council, gender, phone")
       .eq("is_active", true)
       .ilike("name", `${candidate.trim()}%`)
       .limit(1);
@@ -85,7 +86,7 @@ async function findMember(db: any, name: string, accountRef: string): Promise<{ 
         if (token.length < 2) continue;
         const { data: tokenMatch } = await db
           .from("church_members")
-          .select("id, council, gender")
+          .select("id, council, gender, phone")
           .eq("is_active", true)
           .ilike("name", `%${token}%`)
           .limit(1);
@@ -175,12 +176,18 @@ c2bRouter.post("/confirmation", async (req, res) => {
         // Member already exists — use their council, don't override
         memberId = existing.id;
         memberCouncil = existing.council;
+        // Backfill phone if not set
+        if (phone && !existing.phone) {
+          await db.from("church_members").update({ phone }).eq("id", existing.id);
+        }
       } else {
         // New member — use BillRefNumber as name if it's more complete
         const finalName = (accountRef && accountRef.length > payerName.length) ? accountRef : payerName;
+        const memberInsert: Record<string, unknown> = { name: finalName, council: memberCouncil };
+        if (phone) memberInsert.phone = phone;
         const { data: newMember } = await db
           .from("church_members")
-          .insert({ name: finalName, council: memberCouncil })
+          .insert(memberInsert)
           .select()
           .single();
         if (newMember) memberId = newMember.id;
@@ -201,6 +208,11 @@ c2bRouter.post("/confirmation", async (req, res) => {
       honored_member_id: honoredMemberId,
       church_member_id: memberId,
     });
+
+    // Backfill phone into church_members
+    if (payerName && payerName !== "Anonymous" && phone) {
+      savePhoneForName(payerName, phone).catch(() => {});
+    }
 
     console.log(`[c2b] recorded: ${payerName} KES ${TransAmount} ${TransID}`);
     res.json({ ResultCode: 0, ResultDesc: "Success" });

@@ -114,7 +114,7 @@ membersRouter.get("/search", rateLimit, async (req, res) => {
 membersRouter.post("/auto-add", rateLimit, async (req, res) => {
   try {
     const db = requireService();
-    let { name, council, gender } = req.body;
+    let { name, council, gender, phone } = req.body;
     name = sanitizeName(name || "");
     council = (council || "general_member").toLowerCase();
 
@@ -122,12 +122,12 @@ membersRouter.post("/auto-add", rateLimit, async (req, res) => {
     if (!validCouncils.includes(council)) council = "general_member";
 
     // Try to find existing member: exact → prefix → token match
-    let existingMember: { id: string; name: string; council: string; gender: string | null } | null = null;
+    let existingMember: { id: string; name: string; council: string; gender: string | null; phone: string | null } | null = null;
 
     // Exact case-insensitive
     const { data: exact } = await db
       .from("church_members")
-      .select("id, name, council, gender")
+      .select("id, name, council, gender, phone")
       .eq("is_active", true)
       .ilike("name", name)
       .maybeSingle();
@@ -137,7 +137,7 @@ membersRouter.post("/auto-add", rateLimit, async (req, res) => {
     if (!existingMember) {
       const { data: prefix } = await db
         .from("church_members")
-        .select("id, name, council, gender")
+        .select("id, name, council, gender, phone")
         .eq("is_active", true)
         .ilike("name", `${name}%`)
         .limit(1);
@@ -151,7 +151,7 @@ membersRouter.post("/auto-add", rateLimit, async (req, res) => {
         if (token.length < 2) continue;
         const { data: tokenMatch } = await db
           .from("church_members")
-          .select("id, name, council, gender")
+          .select("id, name, council, gender, phone")
           .eq("is_active", true)
           .ilike("name", `%${token}%`)
           .limit(1);
@@ -166,6 +166,10 @@ membersRouter.post("/auto-add", rateLimit, async (req, res) => {
       if (gender === "male" || gender === "female") {
         if (member.gender !== gender) updates.gender = gender;
       }
+      if (phone && !member.phone) {
+        const clean = String(phone).replace(/\D/g, "");
+        if (clean.length >= 10) updates.phone = clean;
+      }
       if (Object.keys(updates).length > 0) {
         await db.from("church_members").update(updates).eq("id", member.id);
       }
@@ -174,6 +178,10 @@ membersRouter.post("/auto-add", rateLimit, async (req, res) => {
 
     const insertData: Record<string, unknown> = { name, council };
     if (gender === "male" || gender === "female") insertData.gender = gender;
+    if (phone) {
+      const clean = String(phone).replace(/\D/g, "");
+      if (clean.length >= 10) insertData.phone = clean;
+    }
     const { data, error } = await db
       .from("church_members")
       .insert(insertData)
@@ -358,7 +366,7 @@ membersRouter.post("/:id/merge", requireAdmin, requireAdminOrAbove, async (req, 
 membersRouter.post("/", requireAdmin, requireAdminOrAbove, async (req, res) => {
   try {
     const db = requireService();
-    let { name, council, gender } = req.body;
+    let { name, council, gender, phone } = req.body;
     name = sanitizeName(name || "");
     if (!name) return res.status(400).json({ error: "name is required" });
     if (!council) council = "general_member";
@@ -377,6 +385,7 @@ membersRouter.post("/", requireAdmin, requireAdminOrAbove, async (req, res) => {
 
     const insertData: Record<string, unknown> = { name: trimmed, council };
     if (gender === "male" || gender === "female") insertData.gender = gender;
+    if (phone && String(phone).replace(/\D/g, "").length >= 10) insertData.phone = String(phone).replace(/\D/g, "");
     const { data, error } = await db
       .from("church_members")
       .insert(insertData)
@@ -488,12 +497,16 @@ membersRouter.post("/bulk-delete", requireAdmin, requireAdminOrAbove, async (req
 membersRouter.patch("/:id", requireAdmin, requireAdminOrAbove, async (req, res) => {
   try {
     const db = requireService();
-    const { name, council, is_active, gender } = req.body;
+    const { name, council, is_active, gender, phone } = req.body;
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name.trim();
     if (council !== undefined) updates.council = council || "general_member";
     if (is_active !== undefined) updates.is_active = is_active;
     if (gender === "male" || gender === "female" || gender === null) updates.gender = gender;
+    if (phone !== undefined) {
+      const clean = String(phone).replace(/\D/g, "");
+      updates.phone = clean.length >= 10 ? clean : null;
+    }
 
     const { data, error } = await db
       .from("church_members")

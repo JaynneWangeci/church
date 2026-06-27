@@ -6,6 +6,7 @@ import { withRetry } from "../lib/financial-safety.js";
 import { stkPushToPhone } from "./mpesa.js";
 import { PLEDGE_VERSES, pickVerse } from "./verses.js";
 import { enqueueFollowUp } from "../lib/queue.js";
+import { savePhoneForName } from "../lib/contacts.js";
 
 export const pledgesRouter = Router();
 
@@ -42,7 +43,9 @@ pledgesRouter.post("/", async (req, res) => {
 
       if (error) return res.status(500).json({ error: error.message });
 
-    if (data?.phone) {
+      if (data?.phone) savePhoneForName(data.donor_name, data.phone).catch(() => {});
+
+      if (data?.phone) {
         const amt = Number(data.amount).toLocaleString("en-KE");
         const added = newAmount.toLocaleString("en-KE");
         const v = pickVerse(PLEDGE_VERSES, "en");
@@ -76,6 +79,9 @@ pledgesRouter.post("/", async (req, res) => {
       .single();
 
     if (error) return res.status(500).json({ error: error.message });
+
+    // Save phone to church_members for unified messaging
+    if (phone) savePhoneForName(data.donor_name, phone).catch(() => {});
 
     if (data?.phone) {
       const amt = Number(data.amount).toLocaleString("en-KE");

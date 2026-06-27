@@ -4,6 +4,7 @@ import { sendSMS } from "../lib/sajsoft.js";
 import { requireAdmin } from "../lib/admin.js";
 import { PAYMENT_VERSES, pickVerse } from "./verses.js";
 import { enqueueFollowUp } from "../lib/queue.js";
+import { savePhoneForName } from "../lib/contacts.js";
 import {
   checkPhoneStkRateLimit,
   validateDonationAmount,
@@ -137,6 +138,10 @@ export function donationConfirmation(donation: any): void {
     `${receipt ? `Receipt: ${receipt}\n` : ""}` +
     `\n"${v.text}" - ${v.ref}\n` +
     `Thank you for building His house. May the Lord bless you abundantly.`;
+
+  if (donation.phone && name !== "Mungu anakupenda") {
+    savePhoneForName(name, donation.phone).catch(() => {});
+  }
 
   sendSMS(donation.phone, msg).catch((err) => console.error("✉ SMS failed (donation confirm):", err));
   enqueueFollowUp("payment", donation.phone, name, donation.amount, donation.receipt_number);

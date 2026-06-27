@@ -283,10 +283,6 @@ authRouter.post("/forgot-password", async (req, res) => {
       return res.json({ ok: true, message: "If the email exists, a reset code has been sent." });
     }
 
-    if (admin.role !== "super_admin") {
-      return res.json({ ok: true, message: "If the email exists, a reset code has been sent." });
-    }
-
     if (!admin.phone) {
       return res.json({ ok: true, message: "If the email exists, a reset code has been sent." });
     }

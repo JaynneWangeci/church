@@ -31,10 +31,12 @@ export default function AdminDashboard() {
   const [newName, setNewName] = useState("");
   const [newCouncil, setNewCouncil] = useState("maranatha_fellowship");
   const [newGender, setNewGender] = useState("");
+  const [newPhone, setNewPhone] = useState("");
   const [memberError, setMemberError] = useState("");
   const [bulkNames, setBulkNames] = useState("");
   const [bulkCouncil, setBulkCouncil] = useState("maranatha_fellowship");
   const [bulkGender, setBulkGender] = useState("");
+  const [bulkPhone, setBulkPhone] = useState("");
   const [bulkError, setBulkError] = useState("");
   const [bulkResult, setBulkResult] = useState("");
   const [bulkEditNames, setBulkEditNames] = useState("");
@@ -45,6 +47,7 @@ export default function AdminDashboard() {
   const [editMemberName, setEditMemberName] = useState("");
   const [editMemberCouncil, setEditMemberCouncil] = useState("");
   const [editMemberGender, setEditMemberGender] = useState("");
+  const [editMemberPhone, setEditMemberPhone] = useState("");
   const [memberCouncilFilter, setMemberCouncilFilter] = useState("");
   const [admins, setAdmins] = useState<AdminUserRecord[]>([]);
   const [showAddAdmin, setShowAddAdmin] = useState(false);
@@ -378,7 +381,7 @@ export default function AdminDashboard() {
       const res = await fetch("/api/members", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: newName.trim().replace(/^\d+[\.\)]?\s*(?:[A-Za-z]\s+)?/, "").replace(/\.+$/, ""), council: newCouncil, gender: newGender || undefined }),
+        body: JSON.stringify({ name: newName.trim().replace(/^\d+[\.\)]?\s*(?:[A-Za-z]\s+)?/, "").replace(/\.+$/, ""), council: newCouncil, gender: newGender || undefined, phone: newPhone.replace(/\D/g, "") || undefined }),
       });
       if (!res.ok) { const d = await res.json(); setMemberError(d.error || "Something went wrong. Please try again."); return; }
       const d = await res.json();
@@ -426,7 +429,7 @@ export default function AdminDashboard() {
         const res = await fetch("/api/members", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ name, council, gender: bulkGender || undefined }),
+          body: JSON.stringify({ name, council, gender: bulkGender || undefined, phone: bulkPhone.replace(/\D/g, "") || undefined }),
         });
         if (res.ok) { const d = await res.json(); newMembers.push(d.member); added++; addedNames.add(name); continue; }
         if (res.status === 409) serverDups.push(`${name} (already in DB)`);
@@ -586,7 +589,7 @@ export default function AdminDashboard() {
       const res = await fetch(`/api/members/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: editMemberName.trim(), council: editMemberCouncil, gender: editMemberGender || null }),
+        body: JSON.stringify({ name: editMemberName.trim(), council: editMemberCouncil, gender: editMemberGender || null, phone: editMemberPhone.replace(/\D/g, "") || null }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -1293,6 +1296,12 @@ export default function AdminDashboard() {
                     <option value="female">Female</option>
                   </select>
                 </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-muted">Phone (for SMS)</label>
+                  <input type="tel" value={newPhone} onChange={(e) => setNewPhone(e.target.value)}
+                    placeholder="07XX XXX XXX"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
+                </div>
                 <button type="submit"
                   className="w-full rounded-lg bg-nobuk py-2.5 text-sm font-bold text-white hover:bg-nobuk-light">
                   Add Member
@@ -1389,6 +1398,12 @@ export default function AdminDashboard() {
                     <option value="male">Male</option>
                     <option value="female">Female</option>
                   </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-muted">Phone for all (optional)</label>
+                  <input type="tel" value={bulkPhone} onChange={(e) => setBulkPhone(e.target.value)}
+                    placeholder="07XX XXX XXX"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" />
                 </div>
                 {bulkError && (
                   <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">{bulkError}</div>
@@ -1544,25 +1559,29 @@ export default function AdminDashboard() {
                               <div key={m.id} className="rounded-lg bg-cream px-3 py-2">
                                 {isEditing ? (
                                   <div className="flex items-center gap-2">
-                                    <input type="text" value={editMemberName}
-                                      onChange={e => setEditMemberName(e.target.value)}
-                                      className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-ink outline-none focus:border-nobuk" />
-                                    <select value={editMemberCouncil}
-                                      onChange={e => setEditMemberCouncil(e.target.value)}
-                                      className="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-ink outline-none focus:border-nobuk">
-                                      {councils.map(c => <option key={c.slug} value={c.slug}>{c.name}</option>)}
-                                    </select>
-                                    <select value={editMemberGender}
-                                      onChange={e => setEditMemberGender(e.target.value)}
-                                      className="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-ink outline-none focus:border-nobuk">
-                                      <option value="">Gender</option>
-                                      <option value="male">Male</option>
-                                      <option value="female">Female</option>
-                                    </select>
-                                    <button onClick={() => handleUpdateMember(m.id)}
-                                      className="rounded-md bg-nobuk px-2.5 py-1.5 text-xs font-bold text-white hover:bg-nobuk-light">Save</button>
-                                    <button onClick={() => setEditingMember(null)}
-                                      className="rounded-md border border-gray-300 px-2.5 py-1.5 text-xs font-bold text-muted hover:bg-gray-100">Cancel</button>
+                                      <input type="text" value={editMemberName}
+                                        onChange={e => setEditMemberName(e.target.value)}
+                                        className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-ink outline-none focus:border-nobuk" />
+                                      <select value={editMemberCouncil}
+                                        onChange={e => setEditMemberCouncil(e.target.value)}
+                                        className="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-ink outline-none focus:border-nobuk">
+                                        {councils.map(c => <option key={c.slug} value={c.slug}>{c.name}</option>)}
+                                      </select>
+                                      <select value={editMemberGender}
+                                        onChange={e => setEditMemberGender(e.target.value)}
+                                        className="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-ink outline-none focus:border-nobuk">
+                                        <option value="">Gender</option>
+                                        <option value="male">Male</option>
+                                        <option value="female">Female</option>
+                                      </select>
+                                      <input type="tel" value={editMemberPhone}
+                                        onChange={e => setEditMemberPhone(e.target.value)}
+                                        placeholder="07XX XXX XXX"
+                                        className="w-32 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-ink outline-none focus:border-nobuk" />
+                                      <button onClick={() => handleUpdateMember(m.id)}
+                                        className="rounded-md bg-nobuk px-2.5 py-1.5 text-xs font-bold text-white hover:bg-nobuk-light">Save</button>
+                                      <button onClick={() => setEditingMember(null)}
+                                        className="rounded-md border border-gray-300 px-2.5 py-1.5 text-xs font-bold text-muted hover:bg-gray-100">Cancel</button>
                                   </div>
                                 ) : (
                                   <div className="flex items-center justify-between">
@@ -1576,6 +1595,7 @@ export default function AdminDashboard() {
                                       </div>
                                       <div className="min-w-0">
                                         <p className="text-sm font-medium text-ink truncate">{m.name}</p>
+                                        {m.phone && <p className="text-[10px] text-muted">{m.phone}</p>}
                                       </div>
                                       {m.gender && (
                                         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${m.gender === "male" ? "bg-blue-100 text-blue-700" : "bg-pink-100 text-pink-700"}`}>
@@ -1584,7 +1604,7 @@ export default function AdminDashboard() {
                                       )}
                                     </div>
                                     <div className="flex items-center gap-1 shrink-0">
-                                      <button onClick={() => { setEditingMember(m.id); setEditMemberName(m.name); setEditMemberCouncil(m.council); setEditMemberGender(m.gender || ""); }}
+                                      <button onClick={() => { setEditingMember(m.id); setEditMemberName(m.name); setEditMemberCouncil(m.council); setEditMemberGender(m.gender || ""); setEditMemberPhone(m.phone || ""); }}
                                         className="rounded-lg p-1.5 text-muted transition hover:bg-blue-50 hover:text-blue-600" title="Edit">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                                       </button>

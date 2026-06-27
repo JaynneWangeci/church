@@ -2,6 +2,7 @@ import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
 import { sendSMS } from "../lib/sajsoft.js";
 import { REMINDER_VERSES, CONGRATULATION_VERSES, pickVerse } from "./verses.js";
+import { getPhoneForName, savePhoneForName } from "../lib/contacts.js";
 
 export const remindersRouter = Router();
 
@@ -35,21 +36,19 @@ remindersRouter.post("/send", async (req, res) => {
 
     const { data: due } = await db
       .from("pledges")
-      .select("id, donor_name, whatsapp_number, reminder_freq, amount, paid, remaining, created_at")
+      .select("id, donor_name, phone, whatsapp_number, reminder_freq, amount, paid, remaining, created_at")
       .neq("status", "fulfilled");
 
     const usedRefs = new Set<number>();
     let sent = 0;
     let skipped = 0;
     for (const pledge of due || []) {
-      // Look up latest WhatsApp number from donor_whatsapp, fall back to pledge's stored number
-      const { data: dw } = await db
-        .from("donor_whatsapp")
-        .select("whatsapp_number")
-        .eq("donor_name", pledge.donor_name)
-        .maybeSingle();
-      const phone = dw?.whatsapp_number || pledge.whatsapp_number;
+      // Use canonical phone (church_members.phone), fall back to pledge's stored number
+      const phone = await getPhoneForName(pledge.donor_name) || pledge.whatsapp_number || pledge.phone;
       if (!phone) { skipped++; continue; }
+
+      // Backfill: if we found a phone via the pledge but it's not yet on church_members, save it
+      if (pledge.phone) savePhoneForName(pledge.donor_name, pledge.phone).catch(() => {});
 
       const freq = parseFreq(pledge.reminder_freq);
       if (!shouldSendNow(pledge.created_at, freq)) { skipped++; continue; }

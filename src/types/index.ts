@@ -48,6 +48,8 @@ export interface ChurchMember {
   name: string;
   council: string;
   gender: string | null;
+  phone: string | null;
+  whatsapp_number: string | null;
   is_active: boolean;
   created_at: string;
 }

@@ -7,6 +7,7 @@ import {
   recalculatePledgeFulfillment,
 } from "../lib/admin.js";
 import { sendSMS, sendTestSMS } from "../lib/sajsoft.js";
+import { getPhoneForName, savePhoneForName } from "../lib/contacts.js";
 import { REMINDER_VERSES, CONGRATULATION_VERSES, pickVerse } from "./verses.js";
 
 export const adminRouter = Router();
@@ -669,35 +670,46 @@ adminRouter.post("/migrate-v11", requireAdmin, requireSuperAdmin, async (_req, r
   }
 });
 
-// Send bulk SMS campaign reminder to all members
+// Send bulk SMS campaign reminder to all members with a phone on record
 adminRouter.post("/send-bulk-sms", requireAdmin, requireAdminOrAbove, async (req, res) => {
   try {
     const db = requireService();
     const { message } = req.body;
     if (!message) return res.status(400).json({ error: "message required" });
 
+    // Get all members that have a phone number stored directly on church_members
     const { data: members } = await db
       .from("church_members")
-      .select("name")
-      .eq("is_active", true);
+      .select("name, phone")
+      .eq("is_active", true)
+      .not("phone", "is", null);
 
     const phones = new Set<string>();
     for (const m of members || []) {
-      const { data: dw } = await db.from("donor_whatsapp").select("whatsapp_number").eq("donor_name", m.name).maybeSingle();
-      if (dw?.whatsapp_number) phones.add(dw.whatsapp_number);
-      const { data: pledge } = await db.from("pledges").select("phone, whatsapp_number").ilike("donor_name", m.name).limit(1).maybeSingle();
-      if (pledge?.whatsapp_number) phones.add(pledge.whatsapp_number);
-      if (pledge?.phone) phones.add(pledge.phone);
+      if (m.phone) phones.add(m.phone);
     }
 
-    // Also collect phones from completed donations
+    // Also collect phones from pledges for people not yet in church_members
+    const { data: pledges } = await db
+      .from("pledges")
+      .select("phone")
+      .not("phone", "is", null);
+    for (const p of pledges || []) {
+      if (p.phone) phones.add(p.phone);
+    }
+
+    // Also collect phones from completed donations (M-Pesa numbers)
     const { data: donations } = await db
       .from("donations")
-      .select("phone")
+      .select("phone, donor_name")
       .eq("status", "completed")
       .not("phone", "is", null);
     for (const d of donations || []) {
-      if (d.phone) phones.add(d.phone);
+      if (d.phone) {
+        phones.add(d.phone);
+        // Backfill into church_members
+        if (d.donor_name) savePhoneForName(d.donor_name, d.phone).catch(() => {});
+      }
     }
 
     let sent = 0, failed = 0;
@@ -733,7 +745,7 @@ adminRouter.post("/send-portfolio-sms", requireAdmin, requireAdminOrAbove, async
     const usedRefs = new Set<number>();
     let sent = 0, failed = 0;
     for (const p of pledges || []) {
-      const phone = p.phone;
+      const phone = await getPhoneForName(p.donor_name) || p.phone;
       if (!phone) { failed++; continue; }
       const pct = p.amount > 0 ? Math.round((p.paid / p.amount) * 100) : 0;
       const remaining = Math.max(0, Number(p.amount) - Number(p.paid));
