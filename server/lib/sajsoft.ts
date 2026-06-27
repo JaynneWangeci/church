@@ -1,7 +1,8 @@
-const ENDPOINT = "https://bulksms.sajsoft.co.ke/sms/v3/sendsms";
-const PROFILE_EP = "https://bulksms.sajsoft.co.ke/sms/v3/profile";
+const ENDPOINT = process.env.SMS_URL || "https://bulksms.sajsoft.co.ke/sms/v3/sendsms";
+const PROFILE_EP = process.env.SMS_PROFILE_URL || "https://bulksms.sajsoft.co.ke/sms/v3/profile";
 const API_KEY = process.env.SMS_APIKEY || "";
 const SENDER_ID = process.env.SMS_SENDERID || "AIPCABahati";
+const SMS_USERNAME = process.env.SMS_USERNAME || "";
 
 export async function sendSMS(to: string, message: string): Promise<boolean> {
   try {
@@ -10,14 +11,16 @@ export async function sendSMS(to: string, message: string): Promise<boolean> {
       return false;
     }
     const phone = normalisePhone(to);
-    const body = JSON.stringify({
+    const payload: Record<string, unknown> = {
       api_key: API_KEY,
       service_id: 0,
       mobile: phone,
       response_type: "json",
       shortcode: SENDER_ID,
       message,
-    });
+    };
+    if (SMS_USERNAME) payload.username = SMS_USERNAME;
+    const body = JSON.stringify(payload);
     console.log("SAJSOFT sending to", phone, "sender", SENDER_ID);
     const res = await fetch(ENDPOINT, {
       method: "POST",
@@ -59,6 +62,7 @@ export async function sendTestSMS(phone: string): Promise<{ ok: boolean; error?:
         response_type: "json",
         shortcode: SENDER_ID,
         message: msg,
+        ...(SMS_USERNAME ? { username: SMS_USERNAME } : {}),
       }),
     });
     const text = await res.text();
