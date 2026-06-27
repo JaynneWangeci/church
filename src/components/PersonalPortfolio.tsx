@@ -57,6 +57,7 @@ export default function PersonalPortfolio({ name, onClose }: Props) {
     }
     setEditingPledge(null); setEditAmount(''); setEditFreq('');
     load();
+    window.dispatchEvent(new Event('pledge:changed'));
   }
 
   async function handlePay(pledgeId: string) {
@@ -89,6 +90,7 @@ export default function PersonalPortfolio({ name, onClose }: Props) {
         setPayProcessing(false);
         setPayingPledge(null); setPayAmount(''); setPayPhone('');
         load();
+        window.dispatchEvent(new Event('pledge:changed'));
       } else if (statusData.status === "failed") {
         clearInterval(pollId);
         setPayProcessing(false);

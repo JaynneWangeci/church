@@ -10,21 +10,26 @@ export default function PledgePot() {
 
   const pct = total > 0 ? Math.min((paid / total) * 100, 100) : 0;
 
+  function fetchData() {
+    fetch("/api/pledges")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.pledges?.length) {
+          setTotal(d.pledges.reduce((s: number, p: any) => s + Number(p.amount), 0));
+          setPaid(d.pledges.reduce((s: number, p: any) => s + Number(p.paid), 0));
+        }
+      })
+      .catch(() => {});
+  }
+
   useEffect(() => {
-    function fetchData() {
-      fetch("/api/pledges")
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => {
-          if (d?.pledges?.length) {
-            setTotal(d.pledges.reduce((s: number, p: any) => s + Number(p.amount), 0));
-            setPaid(d.pledges.reduce((s: number, p: any) => s + Number(p.paid), 0));
-          }
-        })
-        .catch(() => {});
-    }
     fetchData();
+    window.addEventListener("pledge:changed", fetchData);
     const iv = setInterval(fetchData, 15000);
-    return () => clearInterval(iv);
+    return () => {
+      clearInterval(iv);
+      window.removeEventListener("pledge:changed", fetchData);
+    };
   }, []);
 
   useEffect(() => {

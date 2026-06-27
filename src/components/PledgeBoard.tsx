@@ -171,6 +171,8 @@ export default function PledgeBoard() {
     } catch { setCommitLoading(false); }
   }
 
+
+
   async function handlePay(pledgeId: string) {
     const amt = payAmounts[pledgeId] || '';
     const ph = payPhones[pledgeId] || '';
@@ -202,6 +204,7 @@ export default function PledgeBoard() {
             setPayPhones(p => { const n = { ...p }; delete n[pledgeId]; return n; });
             setPayErrors(p => { const n = { ...p }; delete n[pledgeId]; return n; });
             handleCommitSearch();
+            window.dispatchEvent(new Event('pledge:changed'));
           } else if (s.status === 'failed') {
             clearInterval(id);
             setPayProcessing(false);
@@ -233,6 +236,7 @@ export default function PledgeBoard() {
     }
     setAdjustingId(null); setAdjustNewAmount('');
     handleCommitSearch();
+    window.dispatchEvent(new Event('pledge:changed'));
   }
 
   function renderDropdown(

@@ -114,6 +114,7 @@ export default function PledgeForm({ onClose, onCreated, donorName: initialName 
       });
       if (!res.ok) { const d = await res.json(); setError(d.error || t('Something went wrong. Please try again.', 'Kuna tatizo. Tafadhali jaribu tena.')); return; }
       setSuccess(true);
+      window.dispatchEvent(new Event('pledge:changed'));
       onCreated();
     } catch { setError(t('A connection issue occurred. Kindly try again.', 'Hitilafu ya muunganisho. Tafadhali jaribu tena.')); }
     finally { setSubmitting(false); }
