@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Droplets } from "lucide-react";
 
 export default function PledgePot() {
   const [total, setTotal] = useState(0);
@@ -50,7 +51,7 @@ export default function PledgePot() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const W = 200, H = 120;
+    const W = 200, H = 130;
     canvas.width = W;
     canvas.height = H;
     const p = 3, bw = W - p * 2, bh = H - p * 2, cr = 8;
@@ -123,8 +124,25 @@ export default function PledgePot() {
 
   return (
     <div className={`transition-all duration-1000 ease-out ${loaded ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"}`}>
-      <div className="relative mx-auto" style={{ width: 200, height: 120 }}>
-        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" width={200} height={120} />
+      <div className="relative mx-auto" style={{ width: 200, height: 130 }}>
+        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" width={200} height={130} />
+        {/* Total pledges — top */}
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 flex items-center gap-1">
+          <Droplets size={9} className="text-amber" />
+          <span className="text-[10px] font-bold text-white/90 tabular-nums tracking-tight">
+            KES {total.toLocaleString()}
+          </span>
+        </div>
+        {/* Total paid — bottom */}
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1">
+          <span className="text-[9px] font-medium text-green-400/80 tabular-nums tracking-tight">
+            KES {paid.toLocaleString()}
+          </span>
+          <span className="h-[1px] w-4 bg-green-400/40" />
+          <span className="text-[9px] font-medium text-green-400/60 tabular-nums">
+            {pct.toFixed(1)}%
+          </span>
+        </div>
       </div>
     </div>
   );
