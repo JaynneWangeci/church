@@ -50,34 +50,34 @@ export default function PledgePot() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const W = 160, H = 160;
+    const W = 180, H = 180;
     canvas.width = W;
     canvas.height = H;
-    const cx = W / 2, cy = H / 2, R = 72;
-    const innerR = 68;
+    const cx = W / 2, cy = H / 2;
+    const innerR = 78;
     let phase = 0;
 
     const draw = () => {
       ctx.clearRect(0, 0, W, H);
-      phase += 0.03;
+      phase += 0.035;
 
-      const waterH = innerR * 2;
       const waterBottom = cy + innerR;
+      const waterH = innerR * 2;
       const waterTop = waterBottom - waterH * (animPct / 100);
 
       // Outer glow
-      const glow = ctx.createRadialGradient(cx, cy, innerR * 0.5, cx, cy, innerR + 12);
-      glow.addColorStop(0, "rgba(196, 150, 74, 0.08)");
+      const glow = ctx.createRadialGradient(cx, cy, innerR * 0.3, cx, cy, innerR + 20);
+      glow.addColorStop(0, "rgba(196, 150, 74, 0.06)");
       glow.addColorStop(1, "rgba(196, 150, 74, 0)");
       ctx.fillStyle = glow;
       ctx.beginPath();
-      ctx.arc(cx, cy, innerR + 12, 0, Math.PI * 2);
+      ctx.arc(cx, cy, innerR + 20, 0, Math.PI * 2);
       ctx.fill();
 
-      // Subtle ring
+      // Thin ring
       ctx.beginPath();
-      ctx.arc(cx, cy, innerR + 2, 0, Math.PI * 2);
-      ctx.strokeStyle = "rgba(196, 150, 74, 0.12)";
+      ctx.arc(cx, cy, innerR + 3, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(196, 150, 74, 0.08)";
       ctx.lineWidth = 1;
       ctx.stroke();
 
@@ -90,57 +90,52 @@ export default function PledgePot() {
       if (animPct > 0) {
         ctx.beginPath();
         ctx.moveTo(cx - innerR, waterBottom);
-        for (let a = -Math.PI; a <= Math.PI; a += 0.05) {
+        for (let a = -Math.PI; a <= Math.PI; a += 0.04) {
           const x = cx + Math.cos(a) * innerR;
-          const waveOffset = Math.sin(a * 3 + phase) * 2 + Math.sin(a * 6 + phase * 0.7) * 1;
-          const yBase = waterTop + waveOffset;
-          const y = yBase + (waterBottom - yBase) * (1 - Math.abs(Math.cos(a))) * 0.15;
-          ctx.lineTo(x, y);
+          const wave = Math.sin(a * 3 + phase) * 3 + Math.sin(a * 5 + phase * 0.6) * 1.5;
+          const yBase = waterTop + wave;
+          const bulge = (waterBottom - yBase) * (1 - Math.abs(Math.cos(a * 0.5))) * 0.1;
+          ctx.lineTo(x, yBase + bulge);
         }
-        for (let a = Math.PI; a >= -Math.PI; a -= 0.05) {
-          const x = cx + Math.cos(a) * innerR;
-          ctx.lineTo(x, waterBottom);
-        }
+        ctx.lineTo(cx + innerR, waterBottom);
+        ctx.lineTo(cx - innerR, waterBottom);
         ctx.closePath();
 
         const g = ctx.createRadialGradient(cx, waterTop, 0, cx, waterBottom, innerR);
         g.addColorStop(0, "rgba(196, 150, 74, 0.6)");
-        g.addColorStop(0.5, "rgba(196, 150, 74, 0.35)");
-        g.addColorStop(1, "rgba(196, 150, 74, 0.08)");
+        g.addColorStop(0.5, "rgba(196, 150, 74, 0.3)");
+        g.addColorStop(1, "rgba(196, 150, 74, 0.06)");
         ctx.fillStyle = g;
         ctx.fill();
 
-        // Wave surface line
+        // Wave line
         ctx.beginPath();
-        for (let a = -Math.PI * 0.85; a <= Math.PI * 0.85; a += 0.03) {
+        let first = true;
+        for (let a = -Math.PI * 0.9; a <= Math.PI * 0.9; a += 0.03) {
           const x = cx + Math.cos(a) * innerR * 0.95;
-          const waveOffset = Math.sin(a * 3 + phase) * 2.5 + Math.sin(a * 6 + phase * 0.7) * 1.2;
-          const y = waterTop + waveOffset + (waterBottom - waterTop) * (1 - Math.abs(Math.cos(a))) * 0.15;
-          if (a === -Math.PI * 0.85) ctx.moveTo(x, y);
+          const wave = Math.sin(a * 3 + phase) * 3 + Math.sin(a * 5 + phase * 0.6) * 1.5;
+          const y = waterTop + wave + (waterBottom - waterTop) * (1 - Math.abs(Math.cos(a * 0.5))) * 0.1;
+          if (first) { ctx.moveTo(x, y); first = false; }
           else ctx.lineTo(x, y);
         }
         ctx.strokeStyle = "rgba(196, 150, 74, 0.5)";
         ctx.lineWidth = 1.5;
         ctx.stroke();
+
+        // Bubbles
+        for (let i = 0; i < 4; i++) {
+          const ba = Math.random() * Math.PI * 2;
+          const br = Math.random() * innerR * 0.7;
+          const bx = cx + Math.cos(ba) * br;
+          const by = waterBottom - 10 - Math.random() * (waterBottom - waterTop - 15);
+          ctx.beginPath();
+          ctx.arc(bx, by, 1 + Math.random() * 2, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(196, 150, 74, ${0.08 + Math.random() * 0.12})`;
+          ctx.fill();
+        }
       }
 
-      // Subtle inner ring (always visible)
-      ctx.beginPath();
-      ctx.arc(cx, cy, innerR - 1, 0, Math.PI * 2);
-      ctx.strokeStyle = "rgba(196, 150, 74, 0.06)";
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
       ctx.restore();
-
-      // Corner glints
-      const glint = ctx.createRadialGradient(cx - innerR * 0.5, cy - innerR * 0.5, 0, cx - innerR * 0.5, cy - innerR * 0.5, 40);
-      glint.addColorStop(0, "rgba(255,255,255,0.04)");
-      glint.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = glint;
-      ctx.beginPath();
-      ctx.arc(cx - innerR * 0.5, cy - innerR * 0.5, 40, 0, Math.PI * 2);
-      ctx.fill();
 
       raf.current = requestAnimationFrame(draw);
     };
@@ -150,19 +145,17 @@ export default function PledgePot() {
 
   return (
     <div className={`transition-all duration-1000 ease-out ${loaded ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"}`}>
-      <div className="relative mx-auto" style={{ width: 160, height: 160 }}>
-        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" width={160} height={160} />
-        {/* Total — top */}
-        <div className="absolute top-5 left-1/2 -translate-x-1/2 text-center">
-          <div className="text-[9px] font-medium text-white/40 uppercase tracking-wider">Pledged</div>
-          <div className="text-sm font-bold text-white/90 tabular-nums">KES {total.toLocaleString()}</div>
+      <div className="relative mx-auto" style={{ width: 180, height: 180 }}>
+        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" width={180} height={180} />
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 text-center">
+          <div className="text-[8px] font-medium text-white/40 uppercase tracking-widest">Pledged</div>
+          <div className="text-xs font-bold text-white/80 tabular-nums">KES {total.toLocaleString()}</div>
         </div>
-        {/* Paid — bottom */}
-        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 text-center">
-          <div className="text-[9px] font-medium text-green-400/50 uppercase tracking-wider">Paid</div>
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-center">
+          <div className="text-[8px] font-medium text-green-400/50 uppercase tracking-widest">Paid</div>
           <div className="flex items-baseline justify-center gap-1">
-            <span className="text-sm font-bold text-green-400 tabular-nums">KES {paid.toLocaleString()}</span>
-            <span className="text-[9px] text-green-400/60">{pct.toFixed(1)}%</span>
+            <span className="text-xs font-bold text-green-400 tabular-nums">KES {paid.toLocaleString()}</span>
+            <span className="text-[8px] text-green-400/50">{pct.toFixed(1)}%</span>
           </div>
         </div>
       </div>
