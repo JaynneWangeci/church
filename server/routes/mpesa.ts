@@ -89,7 +89,7 @@ export async function stkPushToPhone(
     return { ok: false, errorMessage: `Too many requests. Try again in ${phoneCheck.retryAfterMinutes} minutes.` };
   }
 
-  const flags = checkSuspiciousActivity(normalizedPhone, numericAmount, undefined);
+  const flags = checkSuspiciousActivity(normalizedPhone, numericAmount, null);
   if (flags.length) logSuspiciousActivity(flags, undefined);
 
   const accessToken = await getAccessToken();
@@ -331,29 +331,28 @@ mpesaRouter.get("/status/:checkoutRequestId", async (req, res) => {
 
     const data = await statusRes.json();
 
-      const receiptNumber = data.CallbackMetadata?.Item
-        ?.find((item: any) => item.Name === "MpesaReceiptNumber")?.Value;
+    const receiptNumber = data.CallbackMetadata?.Item
+      ?.find((item: any) => item.Name === "MpesaReceiptNumber")?.Value;
 
-      if (String(data.ResultCode) === "0" && receiptNumber && donation) {
-        await withRetry(async () => {
-          await db
-            .from("donations")
-            .update({
-              status: "completed",
-              receipt_number: receiptNumber,
-            })
-            .eq("id", donation.id);
+    if (String(data.ResultCode) === "0" && receiptNumber && donation) {
+      await withRetry(async () => {
+        await db
+          .from("donations")
+          .update({
+            status: "completed",
+            receipt_number: receiptNumber,
+          })
+          .eq("id", donation.id);
 
-          await db.rpc("increment_campaign_raised", {
-            campaign_id: donation.campaign_id,
-            amount: Number(donation.amount),
-          });
-        }, "status query complete");
+        await db.rpc("increment_campaign_raised", {
+          campaign_id: donation.campaign_id,
+          amount: Number(donation.amount),
+        });
+      }, "status query complete");
 
-        donationConfirmation({ ...donation, receipt_number: receiptNumber });
+      donationConfirmation({ ...donation, receipt_number: receiptNumber });
 
-        return res.json({ ResultCode: "0", status: "completed", receipt_number: receiptNumber });
-      }
+      return res.json({ ResultCode: "0", status: "completed", receipt_number: receiptNumber });
     }
 
     res.json({ status: "pending" });
