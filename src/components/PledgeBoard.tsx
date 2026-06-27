@@ -463,11 +463,11 @@ export default function PledgeBoard() {
                               <label className="text-xs font-semibold text-green-800">{t('Amount (KES)', 'Kiasi (KES)')}</label>
                               <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)}
                                 placeholder={t('Enter amount', 'Weka kiasi')}
-                                className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs outline-none focus:border-green-500" />
+                                className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs text-gray-900 outline-none focus:border-green-500" />
                               <label className="text-xs font-semibold text-green-800">{t('M-Pesa Number', 'Nambari ya M-Pesa')}</label>
                               <input type="tel" value={payPhone} onChange={e => setPayPhone(e.target.value)}
                                 placeholder="07XX XXX XXX"
-                                className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs outline-none focus:border-green-500" />
+                                className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs text-gray-900 outline-none focus:border-green-500" />
                               {payError && <p className={`text-xs font-medium ${payProcessing ? 'text-blue-600' : 'text-red-600'}`}>{payError}</p>}
                               <div className="flex gap-2">
                                 <button onClick={() => handlePay(p.id)} disabled={payProcessing}
@@ -490,24 +490,33 @@ export default function PledgeBoard() {
                       {/*
                         ── Adjust Pledge ──
                       */}
-                      <div className="mt-2 border-t border-gray-200 pt-2">
+                      <div className="mt-3 border-t border-gray-200 pt-3">
                         {adjustingId !== p.id ? (
-                          <button onClick={() => { setAdjustingId(p.id); setAdjustPhone(''); setAdjustPhoneVerified(false); setAdjustNewAmount(''); setAdjustError(''); }}
-                            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold">
-                            {t('Adjust Pledge', 'Badilisha Ahadi')}
-                          </button>
+                          <div className="flex gap-2">
+                            <button onClick={() => { setAdjustingId(p.id); setAdjustPhone(''); setAdjustPhoneVerified(false); setAdjustNewAmount(String(p.amount + 1000)); setAdjustError(''); }}
+                              className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 transition-all shadow-sm">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                              {t('Add to Pledge', 'Ongeza Ahadi')}
+                            </button>
+                            <button onClick={() => { setAdjustingId(p.id); setAdjustPhone(''); setAdjustPhoneVerified(false); setAdjustNewAmount(String(Math.max(10, p.amount - 1000))); setAdjustError(''); }}
+                              className="flex items-center gap-1.5 rounded-lg border border-orange-300 bg-orange-50 px-4 py-2 text-xs font-bold text-orange-700 hover:bg-orange-100 transition-all">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                              {t('Reduce Pledge', 'Punguza Ahadi')}
+                            </button>
+                          </div>
                         ) : (
-                          <div className="space-y-2">
+                          <div className="space-y-2 rounded-lg border border-blue-100 bg-blue-50 p-3">
+                            <p className="text-xs font-bold text-gray-700">{t('Current Pledge:', 'Ahadi ya Sasa:')} KES {p.amount.toLocaleString()} | {t('Paid:', 'Imelipwa:')} KES {p.paid.toLocaleString()}</p>
                             {!adjustPhoneVerified ? (
                               <>
-                                <label className="text-xs font-semibold text-gray-700">{t('Verify your phone number', 'Thibitisha nambari yako')}</label>
+                                <label className="text-xs font-semibold text-gray-700">{t('Enter phone used when pledging:', 'Weka nambari uliyotumia kuweka ahadi:')}</label>
                                 <div className="flex gap-2">
                                   <input type="tel" value={adjustPhone} onChange={e => setAdjustPhone(e.target.value)}
-                                    placeholder={t('Phone used when pledging', 'Nambari uliyotumia kuweka ahadi')}
-                                    className="flex-1 rounded-lg border border-blue-200 px-3 py-2 text-xs outline-none focus:border-blue-500" />
+                                    placeholder="07XX XXX XXX"
+                                    className="flex-1 rounded-lg border border-blue-200 px-3 py-2 text-xs text-gray-900 outline-none focus:border-blue-500" />
                                   <button onClick={() => handleVerifyPhone(p.id)} disabled={adjustVerifying}
-                                    className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">
-                                    {adjustVerifying ? '...' : t('Verify', 'Thibitisha')}
+                                    className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50 shadow-sm">
+                                    {adjustVerifying ? t('Verifying...', 'Inathibitisha...') : t('Verify Phone', 'Thibitisha Nambari')}
                                   </button>
                                 </div>
                               </>
@@ -515,12 +524,18 @@ export default function PledgeBoard() {
                               <>
                                 <p className="text-xs text-green-700 font-semibold">✓ {t('Phone verified', 'Nambari imethibitishwa')}</p>
                                 <label className="text-xs font-semibold text-gray-700">{t('New Pledge Amount (KES)', 'Kiasi Kipya cha Ahadi (KES)')}</label>
-                                <input type="number" value={adjustNewAmount} onChange={e => setAdjustNewAmount(e.target.value)}
-                                  placeholder={String(p.amount)}
-                                  className="w-full rounded-lg border border-blue-200 px-3 py-2 text-xs outline-none focus:border-blue-500" />
+                                <div className="flex items-center gap-2">
+                                  <button onClick={() => setAdjustNewAmount(String(Math.max(10, Number(adjustNewAmount) - 500)))}
+                                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 font-bold text-lg">−</button>
+                                  <input type="number" value={adjustNewAmount} onChange={e => setAdjustNewAmount(e.target.value)}
+                                    placeholder={String(p.amount)}
+                                    className="flex-1 rounded-lg border border-blue-200 px-3 py-2 text-xs text-gray-900 text-center font-bold outline-none focus:border-blue-500" />
+                                  <button onClick={() => setAdjustNewAmount(String(Number(adjustNewAmount) + 500))}
+                                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 font-bold text-lg">+</button>
+                                </div>
                                 <div className="flex gap-2">
                                   <button onClick={() => handleAdjustPledge(p.id)}
-                                    className="flex-1 rounded-lg bg-blue-600 py-2 text-xs font-bold text-white hover:bg-blue-700">
+                                    className="flex-1 rounded-lg bg-blue-600 py-2 text-xs font-bold text-white hover:bg-blue-700 shadow-sm">
                                     {t('Save Changes', 'Hifadhi Mabadiliko')}
                                   </button>
                                   <button onClick={() => { setAdjustingId(null); setAdjustPhoneVerified(false); }}

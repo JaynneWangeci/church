@@ -42,11 +42,19 @@ export default function PersonalPortfolio({ name, onClose }: Props) {
 
   useEffect(() => { load(); }, [name]);
 
+  const [modifyError, setModifyError] = useState('');
+
   async function handleModify(pledgeId: string) {
+    setModifyError('');
     const body: any = {};
     if (editAmount) body.amount = Number(editAmount);
     if (editFreq) body.reminder_freq = editFreq;
-    await fetch(`/api/pledges/${pledgeId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const res = await fetch(`/api/pledges/${pledgeId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Failed to update pledge' }));
+      setModifyError(err.error || 'Failed to update pledge');
+      return;
+    }
     setEditingPledge(null); setEditAmount(''); setEditFreq('');
     load();
   }
@@ -173,14 +181,15 @@ export default function PersonalPortfolio({ name, onClose }: Props) {
                       {editingPledge === p.id && (
                         <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-3 space-y-2">
                           <input type="number" value={editAmount} onChange={e => setEditAmount(e.target.value)}
-                            placeholder="New amount (KES)" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-xs outline-none focus:border-blue-500" />
+                            placeholder="New amount (KES)" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-xs text-gray-900 outline-none focus:border-blue-500" />
                           <select value={editFreq} onChange={e => setEditFreq(e.target.value)}
-                            className="w-full rounded-lg border border-blue-200 px-3 py-2 text-xs outline-none focus:border-blue-500">
+                            className="w-full rounded-lg border border-blue-200 px-3 py-2 text-xs text-gray-900 outline-none focus:border-blue-500">
                             <option value="">No change</option>
                             <option value="daily">Daily</option>
                             <option value="weekly">Weekly</option>
                             <option value="monthly">Monthly</option>
                           </select>
+                          {modifyError && <p className="text-xs text-red-600 font-medium">{modifyError}</p>}
                           <div className="flex gap-2">
                             <button onClick={() => handleModify(p.id)} className="flex-1 rounded-lg bg-blue-600 py-2 text-xs font-bold text-white hover:bg-blue-700">Save</button>
                             <button onClick={() => setEditingPledge(null)} className="rounded-lg border border-gray-200 px-4 py-2 text-xs text-gray-600 hover:bg-gray-100">Cancel</button>
@@ -192,10 +201,10 @@ export default function PersonalPortfolio({ name, onClose }: Props) {
                         <div className="mt-3 rounded-lg border border-green-100 bg-green-50 p-3 space-y-2">
                           <label className="text-xs font-semibold text-green-800">Amount (KES)</label>
                           <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)}
-                            placeholder="Enter amount" className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs outline-none focus:border-green-500" />
+                            placeholder="Enter amount" className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs text-gray-900 outline-none focus:border-green-500" />
                           <label className="text-xs font-semibold text-green-800">M-Pesa Number</label>
                           <input type="tel" value={payPhone} onChange={e => setPayPhone(e.target.value)}
-                            placeholder="07XX XXX XXX" className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs outline-none focus:border-green-500" />
+                            placeholder="07XX XXX XXX" className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs text-gray-900 outline-none focus:border-green-500" />
                           {payError && <p className={`text-xs font-medium ${payProcessing ? 'text-blue-600' : 'text-red-600'}`}>{payError}</p>}
                           <div className="flex gap-2">
                             <button onClick={() => handlePay(p.id)} disabled={payProcessing}
