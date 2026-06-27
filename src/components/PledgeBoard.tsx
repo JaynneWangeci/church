@@ -75,13 +75,10 @@ export default function PledgeBoard() {
   // Commit state
   const [commitSearch, setCommitSearch] = useState('');
   const [commitPledges, setCommitPledges] = useState<any[] | null>(null);
-  const [payingId, setPayingId] = useState<string | null>(null);
-  const [payAmount, setPayAmount] = useState('');
-  const [payPhone, setPayPhone] = useState('');
-  const [commitLoading, setCommitLoading] = useState(false);
-  const [payError, setPayError] = useState('');
+  const [payAmounts, setPayAmounts] = useState<Record<string, string>>({});
+  const [payPhones, setPayPhones] = useState<Record<string, string>>({});
+  const [payErrors, setPayErrors] = useState<Record<string, string>>({});
   const [payProcessing, setPayProcessing] = useState(false);
-  const [payPollInterval, setPayPollInterval] = useState<any>(null);
 
   // Adjust pledge state
   const [adjustingId, setAdjustingId] = useState<string | null>(null);
@@ -172,11 +169,13 @@ export default function PledgeBoard() {
   }
 
   async function handlePay(pledgeId: string) {
-    setPayError('');
-    const amt = Number(payAmount);
-    if (!payAmount || amt <= 0) { setPayError('Enter a valid payment amount'); return; }
-    const cleanPhone = payPhone.replace(/[\s\-\(\)]/g, '');
-    if (!cleanPhone) { setPayError('Enter your M-Pesa phone number'); return; }
+    const amount = payAmounts[pledgeId] || '';
+    const phone = payPhones[pledgeId] || '';
+    setPayErrors(prev => ({ ...prev, [pledgeId]: '' }));
+    const amt = Number(amount);
+    if (!amount || amt <= 0) { setPayErrors(prev => ({ ...prev, [pledgeId]: 'Enter a valid payment amount' })); return; }
+    const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+    if (!cleanPhone) { setPayErrors(prev => ({ ...prev, [pledgeId]: 'Enter your M-Pesa phone number' })); return; }
 
     setPayProcessing(true);
     const res = await fetch(`/api/pledges/${pledgeId}/pay-with-mpesa`, {
@@ -186,12 +185,12 @@ export default function PledgeBoard() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.CheckoutRequestID) {
-      setPayError(data.error || 'M-Pesa request failed. Please try again.');
+      setPayErrors(prev => ({ ...prev, [pledgeId]: data.error || 'M-Pesa request failed. Please try again.' }));
       setPayProcessing(false);
       return;
     }
 
-    setPayError('Check your phone and enter your M-Pesa PIN to complete payment...');
+    setPayErrors(prev => ({ ...prev, [pledgeId]: 'Check your phone and enter your M-Pesa PIN to complete payment...' }));
 
     // Poll for payment status
     const pollId = setInterval(async () => {
@@ -199,18 +198,17 @@ export default function PledgeBoard() {
       const statusData = await statusRes.json().catch(() => ({}));
       if (statusData.status === "completed") {
         clearInterval(pollId);
-        setPayPollInterval(null);
         setPayProcessing(false);
-        setPayingId(null); setPayAmount(''); setPayPhone('');
+        setPayAmounts(prev => { const n = { ...prev }; delete n[pledgeId]; return n; });
+        setPayPhones(prev => { const n = { ...prev }; delete n[pledgeId]; return n; });
+        setPayErrors(prev => { const n = { ...prev }; delete n[pledgeId]; return n; });
         handleCommitSearch();
       } else if (statusData.status === "failed") {
         clearInterval(pollId);
-        setPayPollInterval(null);
         setPayProcessing(false);
-        setPayError('Payment failed or was cancelled. Please try again.');
+        setPayErrors(prev => ({ ...prev, [pledgeId]: 'Payment failed or was cancelled. Please try again.' }));
       }
     }, 3000);
-    setPayPollInterval(pollId);
   }
 
   async function handleAdjustPledge(pledgeId: string) {
@@ -434,40 +432,25 @@ export default function PledgeBoard() {
                         <div className="h-full rounded-full bg-green-500 transition-all" style={{ width: `${pct}%` }} />
                       </div>
 
-                      {p.status !== 'fulfilled' && (
-                        <>
-                          {payingId !== p.id ? (
-                            <button onClick={() => { setPayingId(p.id); setPayAmount(''); setPayPhone(''); setPayError(''); if (payPollInterval) clearInterval(payPollInterval); setPayPollInterval(null); setPayProcessing(false); }}
-                              className="mt-3 flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-xs font-bold text-white hover:bg-green-700 transition-all">
-                              <DollarSign size={14} /> {t('Redeem Now', 'Komboa Sasa')}
-                            </button>
-                          ) : (
-                            <div className="mt-3 rounded-lg border border-green-200 bg-green-50 p-3 space-y-2">
-                              <label className="text-xs font-semibold text-green-800">{t('Amount (KES)', 'Kiasi (KES)')}</label>
-                              <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)}
-                                placeholder={t('Enter amount', 'Weka kiasi')}
-                                className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs text-gray-900 outline-none focus:border-green-500" />
-                              <label className="text-xs font-semibold text-green-800">{t('M-Pesa Number', 'Nambari ya M-Pesa')}</label>
-                              <input type="tel" value={payPhone} onChange={e => setPayPhone(e.target.value)}
-                                placeholder="07XX XXX XXX"
-                                className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs text-gray-900 outline-none focus:border-green-500" />
-                              {payError && <p className={`text-xs font-medium ${payProcessing ? 'text-blue-600' : 'text-red-600'}`}>{payError}</p>}
-                              <div className="flex gap-2">
-                                <button onClick={() => handlePay(p.id)} disabled={payProcessing}
-                                  className="flex-1 rounded-lg bg-green-600 py-2 text-xs font-bold text-white hover:bg-green-700 disabled:opacity-50">
-                                  {payProcessing
-                                    ? <span className="flex items-center justify-center gap-1"><span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" /> {t('Sending PIN...', 'Inatuma PIN...')}</span>
-                                    : <><Send size={14} className="inline mr-1" /> {t('Pay with M-Pesa', 'Lipa kwa M-Pesa')}</>
-                                  }
-                                </button>
-                                <button onClick={() => { if (payPollInterval) clearInterval(payPollInterval); setPayPollInterval(null); setPayingId(null); setPayError(''); setPayProcessing(false); }}
-                                  className="rounded-lg border border-gray-200 px-4 py-2 text-xs text-gray-600 hover:bg-gray-100">
-                                  <X size={14} className="inline" />
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </>
+                      {(p.status !== 'fulfilled') && (
+                        <div className="mt-3 rounded-lg border border-green-200 bg-green-50 p-3 space-y-2">
+                          <label className="text-xs font-semibold text-green-800">{t('Amount (KES)', 'Kiasi (KES)')}</label>
+                          <input type="number" value={payAmounts[p.id] || ''} onChange={e => setPayAmounts(prev => ({ ...prev, [p.id]: e.target.value }))}
+                            placeholder={t('Enter amount', 'Weka kiasi')}
+                            className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs text-gray-900 outline-none focus:border-green-500" />
+                          <label className="text-xs font-semibold text-green-800">{t('M-Pesa Number', 'Nambari ya M-Pesa')}</label>
+                          <input type="tel" value={payPhones[p.id] || ''} onChange={e => setPayPhones(prev => ({ ...prev, [p.id]: e.target.value }))}
+                            placeholder="07XX XXX XXX"
+                            className="w-full rounded-lg border border-green-200 px-3 py-2 text-xs text-gray-900 outline-none focus:border-green-500" />
+                          {payErrors[p.id] && <p className={`text-xs font-medium ${payProcessing ? 'text-blue-600' : 'text-red-600'}`}>{payErrors[p.id]}</p>}
+                          <button onClick={() => handlePay(p.id)} disabled={payProcessing}
+                            className="flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 py-2.5 text-xs font-bold text-white hover:bg-green-700 disabled:opacity-50 transition-all">
+                            {payProcessing
+                              ? <span className="flex items-center justify-center gap-1"><span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" /> {t('Sending PIN...', 'Inatuma PIN...')}</span>
+                              : <><Send size={14} className="inline mr-1" /> {t('Pay with M-Pesa', 'Lipa kwa M-Pesa')}</>
+                            }
+                          </button>
+                        </div>
                       )}
 
                       {/*

@@ -6,7 +6,7 @@ import {
   filterDonationsByRole, verifyPassword, hashPassword, getClientIp,
   recalculatePledgeFulfillment,
 } from "../lib/admin.js";
-import { sendSMS } from "../lib/sajsoft.js";
+import { sendSMS, sendTestSMS } from "../lib/sajsoft.js";
 import { REMINDER_VERSES, CONGRATULATION_VERSES, pickVerse } from "./verses.js";
 
 export const adminRouter = Router();
@@ -760,5 +760,16 @@ adminRouter.post("/send-portfolio-sms", requireAdmin, requireAdminOrAbove, async
   } catch (err) {
     console.error("portfolio sms error:", err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+adminRouter.post("/test-sms", requireAdmin, async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ error: "Phone required" });
+    const result = await sendTestSMS(phone);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err?.message || String(err) });
   }
 });
