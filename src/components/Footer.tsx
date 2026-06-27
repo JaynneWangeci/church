@@ -40,6 +40,9 @@ export default function Footer() {
               <Heart size={14} />
               {t("Give", "Toa")}
             </a>
+            <a href="/policy" className="text-sm text-white/50 transition hover:text-[#5B9BD5]">
+              {t("Privacy", "Sera")}
+            </a>
           </div>
 
           <div className="flex items-center gap-4">

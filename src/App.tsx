@@ -8,6 +8,7 @@ import AdminSetup from "./pages/AdminSetup";
 import AdminDashboard from "./pages/AdminDashboard";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import Policy from "./pages/Policy";
 
 function PageTracker() {
   const location = useLocation();
@@ -41,6 +42,7 @@ export default function App() {
         <Route path="/admin/reset-password" element={<ResetPassword />} />
         <Route path="/admin/setup" element={<AdminSetup />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/policy" element={<Policy />} />
       </Routes>
     </LangProvider>
   );
