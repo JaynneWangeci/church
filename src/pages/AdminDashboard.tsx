@@ -2411,7 +2411,7 @@ export default function AdminDashboard() {
                                                 method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                                                 body: JSON.stringify({ amount: Number(editPledgeAmount) }),
                                               });
-                                              if (res.ok) { setEditingPledge(null); fetchPledges(); }
+                                              if (res.ok) { setEditingPledge(null); fetchPledges(); window.dispatchEvent(new Event('pledge:changed')); }
                                             } catch {}
                                           }} className="rounded bg-nobuk px-2 py-1 text-[10px] font-bold text-white hover:bg-nobuk-light">Save</button>
                                           <button onClick={() => setEditingPledge(null)}
@@ -2430,7 +2430,7 @@ export default function AdminDashboard() {
                                                 method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                                                 body: JSON.stringify({ amount: Number(payAmount), receipt_number: payReceipt }),
                                               });
-                                              if (res.ok) { setPayingPledge(null); setPayAmount(""); setPayReceipt(""); fetchPledges(); }
+                                              if (res.ok) { setPayingPledge(null); setPayAmount(""); setPayReceipt(""); fetchPledges(); window.dispatchEvent(new Event('pledge:changed')); }
                                             } catch {}
                                           }} disabled={!payAmount} className="rounded bg-green-700 px-2 py-1 text-[10px] font-bold text-white hover:bg-green-800 disabled:opacity-40">Pay</button>
                                           <button onClick={() => { setPayingPledge(null); setPayAmount(""); setPayReceipt(""); }}
@@ -2450,7 +2450,7 @@ export default function AdminDashboard() {
                                             try {
                                               const token = localStorage.getItem("token");
                                               const res = await fetch(`/api/pledges/${p.id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-                                              if (res.ok) fetchPledges();
+                                              if (res.ok) { fetchPledges(); window.dispatchEvent(new Event('pledge:changed')); }
                                             } catch {}
                                           }} className="rounded bg-red-100 px-2 py-1 text-[10px] font-bold text-red-700 hover:bg-red-200">Delete</button>
                                         </>
