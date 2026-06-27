@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Globe, MapPin, Heart, HandHeart, Phone, Share2 } from 'lucide-react';
 import { useLang } from '../context/LanguageContext';
 import { useInView } from '../hooks/useInView';
+import useParallax from '../hooks/useParallax';
 import SlideshowBackground from "../components/SlideshowBackground";
 import Ambient3D from "../components/Ambient3D";
 import ChurchHero from "../components/ChurchHero";
@@ -31,6 +32,7 @@ export default function HomePage() {
   const { ref: mapRef, inView: mapInView } = useInView();
   const [activeSection, setActiveSection] = useState('hero');
   const [phone, setPhone] = useState("0727278577");
+  useParallax();
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
       for (const entry of entries) {
@@ -94,13 +96,13 @@ export default function HomePage() {
       <div className="relative z-10 pt-4">
         <section id="hero"><ChurchHero /></section>
 
-        <section id="register"><MemberRegistration /></section>
-        <ContributeSection />
-        <section id="pledge-board"><PledgeBoard /></section>
-        <section id="live-progress"><LiveProgress /></section>
-        <section id="fellowships"><FellowshipProgress /></section>
-        <GenderCompetition />
-        <AboutSection />
+        <section id="register" data-parallax="0.08"><MemberRegistration /></section>
+        <div data-parallax="-0.05"><ContributeSection /></div>
+        <section id="pledge-board" data-parallax="0.06"><PledgeBoard /></section>
+        <section id="live-progress" data-parallax="-0.04"><LiveProgress /></section>
+        <section id="fellowships" data-parallax="0.05"><FellowshipProgress /></section>
+        <div data-parallax="-0.03"><GenderCompetition /></div>
+        <section data-parallax="0.04"><AboutSection /></section>
 
         {/* Map section — static OpenStreetMap tile with directions CTA */}
         <section ref={mapRef} className={`relative overflow-hidden px-4 py-16 transition-all duration-700 ${mapInView ? "animate-fade-in" : "opacity-0"}`}>
