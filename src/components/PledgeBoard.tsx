@@ -158,57 +158,68 @@ export default function PledgeBoard() {
   }
 
   async function handleCommitSearch() {
-    if (!commitSearch.trim()) { setCommitPledges(null); return; }
-    setCommitLoading(true);
-    const res = await fetch(`/api/pledges/search/name?q=${encodeURIComponent(commitSearch.trim())}`);
-    if (res.ok) {
-      const data = await res.json();
-      setCommitPledges(data.pledges || []);
-    }
-    setCommitLoading(false);
+    try {
+      if (!commitSearch.trim()) { setCommitPledges(null); return; }
+      setCommitLoading(true);
+      const res = await fetch(`/api/pledges/search/name?q=${encodeURIComponent(commitSearch.trim())}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCommitPledges(data.pledges || []);
+      }
+      setCommitLoading(false);
+    } catch { setCommitLoading(false); }
   }
 
   async function handlePay(pledgeId: string) {
-    const amount = payAmounts[pledgeId] || '';
-    const phone = payPhones[pledgeId] || '';
-    setPayErrors(prev => ({ ...prev, [pledgeId]: '' }));
-    const amt = Number(amount);
-    if (!amount || amt <= 0) { setPayErrors(prev => ({ ...prev, [pledgeId]: 'Enter a valid payment amount' })); return; }
-    const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
-    if (!cleanPhone) { setPayErrors(prev => ({ ...prev, [pledgeId]: 'Enter your M-Pesa phone number' })); return; }
+    try {
+      const amount = payAmounts[pledgeId] || '';
+      const phone = payPhones[pledgeId] || '';
+      if (!amount || Number(amount) <= 0) { setPayErrors(prev => ({ ...prev, [pledgeId]: 'Enter a valid payment amount' })); return; }
+      const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+      if (!cleanPhone) { setPayErrors(prev => ({ ...prev, [pledgeId]: 'Enter your M-Pesa phone number' })); return; }
 
-    setPayProcessing(true);
-    const res = await fetch(`/api/pledges/${pledgeId}/pay-with-mpesa`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: cleanPhone, amount: amt }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.CheckoutRequestID) {
-      setPayErrors(prev => ({ ...prev, [pledgeId]: data.error || 'M-Pesa request failed. Please try again.' }));
-      setPayProcessing(false);
-      return;
-    }
-
-    setPayErrors(prev => ({ ...prev, [pledgeId]: 'Check your phone and enter your M-Pesa PIN to complete payment...' }));
-
-    // Poll for payment status
-    const pollId = setInterval(async () => {
-      const statusRes = await fetch(`/api/mpesa/status/${data.CheckoutRequestID}`);
-      const statusData = await statusRes.json().catch(() => ({}));
-      if (statusData.status === "completed") {
-        clearInterval(pollId);
+      setPayProcessing(true);
+      setPayErrors(prev => ({ ...prev, [pledgeId]: '' }));
+      const res = await fetch(`/api/pledges/${pledgeId}/pay-with-mpesa`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: cleanPhone, amount: Number(amount) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.CheckoutRequestID) {
+        setPayErrors(prev => ({ ...prev, [pledgeId]: data.error || 'M-Pesa request failed. Please try again.' }));
         setPayProcessing(false);
-        setPayAmounts(prev => { const n = { ...prev }; delete n[pledgeId]; return n; });
-        setPayPhones(prev => { const n = { ...prev }; delete n[pledgeId]; return n; });
-        setPayErrors(prev => { const n = { ...prev }; delete n[pledgeId]; return n; });
-        handleCommitSearch();
-      } else if (statusData.status === "failed") {
-        clearInterval(pollId);
-        setPayProcessing(false);
-        setPayErrors(prev => ({ ...prev, [pledgeId]: 'Payment failed or was cancelled. Please try again.' }));
+        return;
       }
-    }, 3000);
+
+      setPayErrors(prev => ({ ...prev, [pledgeId]: 'Check your phone and enter your M-Pesa PIN to complete payment...' }));
+
+      const pollId = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`/api/mpesa/status/${data.CheckoutRequestID}`);
+          const statusData = await statusRes.json().catch(() => ({}));
+          if (statusData.status === "completed") {
+            clearInterval(pollId);
+            setPayProcessing(false);
+            setPayAmounts(prev => { const n = { ...prev }; delete n[pledgeId]; return n; });
+            setPayPhones(prev => { const n = { ...prev }; delete n[pledgeId]; return n; });
+            setPayErrors(prev => { const n = { ...prev }; delete n[pledgeId]; return n; });
+            handleCommitSearch().catch(() => {});
+          } else if (statusData.status === "failed") {
+            clearInterval(pollId);
+            setPayProcessing(false);
+            setPayErrors(prev => ({ ...prev, [pledgeId]: 'Payment failed or was cancelled. Please try again.' }));
+          }
+        } catch {
+          clearInterval(pollId);
+          setPayProcessing(false);
+          setPayErrors(prev => ({ ...prev, [pledgeId]: 'Payment check failed. Try again.' }));
+        }
+      }, 3000);
+    } catch {
+      setPayProcessing(false);
+      setPayErrors(prev => ({ ...prev, [pledgeId]: 'Something went wrong. Please try again.' }));
+    }
   }
 
   async function handleAdjustPledge(pledgeId: string) {
