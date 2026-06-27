@@ -2,6 +2,7 @@ import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
 import { requireAdmin, requireAdminOrAbove, logAudit, maskSensitiveData } from "../lib/admin.js";
 import { sendSMS } from "../lib/sajsoft.js";
+import { PAYMENT_VERSES, HONOUR_VERSES, pickVerse } from "./verses.js";
 
 export const donationsRouter = Router();
 
@@ -128,6 +129,15 @@ donationsRouter.post("/", async (req, res) => {
       }
       return res.status(500).json({ error: error.message });
     }
+
+    // Send SMS confirmation if this is a completed donation with phone
+    if (data?.phone && data?.status === "completed") {
+      const amt = Number(data.amount).toLocaleString("en-KE");
+      const v = pickVerse(PAYMENT_VERSES, "en");
+      const msg = `Donation Confirmation - AIPCA Bahati Cathedral\n\nThank you ${data.donor_name || "dear giver"}! Your gift of KES ${amt} has been received.\n\n"${v.text}" - ${v.ref}\n\nBaraka tele!`;
+      sendSMS(data.phone, msg).catch(e => console.error("✉ SMS failed (donation create):", e));
+    }
+
     res.status(201).json({ donation: data });
   } catch (err) {
     console.error("donation create error:", err);
@@ -230,8 +240,9 @@ donationsRouter.patch("/:id/honour", requireAdmin, requireAdminOrAbove, async (r
       const phone = donorPhone?.whatsapp_number || data.phone;
       if (phone) {
         const amt = Number(data.amount).toLocaleString("en-KE");
-        const msg = `🙏 AIPCA Bahati Cathedral — You have been honoured!\n\n${data.donor_name || "Someone"} has donated KES ${amt} in your honour.\n\n"Honour the Lord with your wealth." — Proverbs 3:9\n\nBaraka tele! 🇰🇪`;
-        sendSMS(phone, msg).catch(() => {});
+        const v = pickVerse(HONOUR_VERSES, "en");
+        const msg = `You Have Been Honoured - AIPCA Bahati Cathedral\n\n${data.donor_name || "Someone"} has donated KES ${amt} in your honour.\n\n"${v.text}" - ${v.ref}\n\nBaraka tele!`;
+        sendSMS(phone, msg).catch(e => console.error("✉ SMS failed (donation honour):", e));
       }
     }
 

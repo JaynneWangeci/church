@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Heart, Phone, ChevronDown, Check, Loader2, Search, Church, Users, Medal } from 'lucide-react';
+import { Heart, Phone, Check, Loader2, Search, Church, Users, Medal, CheckCircle } from 'lucide-react';
 import { useLang } from '../context/LanguageContext';
 
 interface Props {
@@ -40,6 +40,7 @@ export default function PledgeForm({ onClose, onCreated, donorName: initialName 
   const [phone, setPhone] = useState('');
   const [reminderFreq, setReminderFreq] = useState('weekly');
   const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -88,6 +89,7 @@ export default function PledgeForm({ onClose, onCreated, donorName: initialName 
     if (!name.trim()) { setError(t('Kindly enter your name', 'Tafadhali ingiza jina lako')); return; }
     const amt = Number(amount);
     if (!amt || amt < 10) { setError(t('Please enter an amount of KES 10 or more', 'Kiasi lazima kiwe angalau KES 10')); return; }
+    if (!phone.trim()) { setError(t('Phone number is required for SMS confirmation', 'Nambari ya simu inahitajika kwa uthibitisho wa SMS')); return; }
 
     // Auto-save typed name if not in DB
     const exists = members.some(m => m.name.toLowerCase() === name.trim().toLowerCase());
@@ -111,15 +113,39 @@ export default function PledgeForm({ onClose, onCreated, donorName: initialName 
         body: JSON.stringify({ donor_name: name.trim(), amount: amt, phone: phone || null, reminder_freq: reminderFreq }),
       });
       if (!res.ok) { const d = await res.json(); setError(d.error || t('Something went wrong. Please try again.', 'Kuna tatizo. Tafadhali jaribu tena.')); return; }
+      setSuccess(true);
       onCreated();
-      onClose();
     } catch { setError(t('A connection issue occurred. Kindly try again.', 'Hitilafu ya muunganisho. Tafadhali jaribu tena.')); }
     finally { setSubmitting(false); }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm" onClick={success ? undefined : onClose}>
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={e => e.stopPropagation()}>
+        {success ? (
+          <>
+            <div className="py-6 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+                <CheckCircle size={32} className="text-green-600" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-900">{t('Pledge Submitted!', 'Ahadi Imewasilishwa!')}</h2>
+              <p className="mt-2 text-sm text-gray-600 max-w-xs mx-auto">
+                {t('Check your phone for an SMS confirmation message. You can track your progress and make payments at any time.',
+                  'Angalia simu yako kwa ujumbe wa SMS wa uthibitisho. Unaweza kufuatilia maendeleo yako na kufanya malipo wakati wowote.')}
+              </p>
+              {phone && (
+                <p className="mt-3 text-xs text-gray-500">
+                  {t('SMS sent to:', 'SMS imetumwa kwa:')} {phone}
+                </p>
+              )}
+            </div>
+            <button onClick={onClose}
+              className="w-full rounded-full bg-blue-600 py-3.5 text-sm font-bold text-white hover:bg-blue-700 transition-all">
+              {t('Done', 'Sawa')}
+            </button>
+          </>
+        ) : (
+        <>
         <div className="mb-5 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
             <Heart size={20} className="text-blue-600" />
@@ -189,7 +215,7 @@ export default function PledgeForm({ onClose, onCreated, donorName: initialName 
 
           <div>
             <label className="mb-1 flex items-center gap-1.5 text-xs font-bold text-gray-700">
-              <Phone size={12} /> {t('Phone Number (for SMS reminders)', 'Nambari ya Simu (kwa vikumbusho vya SMS)')}
+              <Phone size={12} /> {t('Phone Number * (for SMS confirmation)', 'Nambari ya Simu * (kwa uthibitisho wa SMS)')}
             </label>
             <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="07XX XXX XXX"
               className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-500" />
@@ -222,6 +248,8 @@ export default function PledgeForm({ onClose, onCreated, donorName: initialName 
               : t('Submit Pledge', 'Wasilisha Ahadi')}
           </button>
         </form>
+        </>
+        )}
       </div>
     </div>
   );

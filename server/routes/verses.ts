@@ -25,9 +25,13 @@ export const PLEDGE_VERSES: Verse[] = [
   { ref: "Exodus 36:5", en: "The people are bringing more than enough for doing the work the Lord commanded to be done.", sw: "Watu wanaleta zaidi ya ile inayotosha kwa ajili ya kazi aliyoamuru Bwana ifanyike." },
   { ref: "2 Corinthians 9:11", en: "You will be enriched in every way so that you can be generous on every occasion, and through us your generosity will result in thanksgiving to God.", sw: "Mtawekwa tajirika katika kila njia ili mpate kuwa wakarimu kila wakati, na ukarimu wenu utamleta Mungu shukrani kwa njia yetu." },
   { ref: "1 Timothy 6:18", en: "Command them to do good, to be rich in good deeds, and to be generous and willing to share.", sw: "Waamuru wafanye wema, wawe matajiri katika matendo mema, wawe wakarimu na tayari kushirikiana." },
+  { ref: "Numbers 18:29", en: "You must present as the Lord's portion the best and holiest part of everything given to you.", sw: "Mtaitoa kwa Bwana sehemu bora na takatifu zaidi ya vyote mtakavyopokea." },
+  { ref: "Haggai 1:8", en: "Go up into the mountains and bring down timber and build my house, so that I may take pleasure in it and be honoured, says the Lord.", sw: "Pandeni milimani, leteni miti, na kujenga nyumba yangu ili nipate furaha na kuheshimiwa, asema Bwana." },
+  { ref: "Ezra 3:11", en: "With praise and thanksgiving they sang to the Lord: He is good; his love toward Israel endures forever. And all the people gave a great shout of praise to the Lord, because the foundation of the house of the Lord was laid.", sw: "Wakamwimbia Bwana kwa sifa na shukrani: Yeye ni mwema; upendo wake kwa Israeli ni wa milele. Na watu wote wakamshangilia Bwana kwa sauti kuu, kwa sababu msingi wa nyumba ya Bwana ulikuwa umewekwa." },
+  { ref: "Psalm 126:3", en: "The Lord has done great things for us, and we are filled with joy.", sw: "Bwana alitutendea makuu; tulijaa furaha." },
 ];
 
-// ── Verses for payment confirmations (appreciating the contribution) ──
+// ── Verses for payment/donation confirmations (appreciating the contribution) ──
 export const PAYMENT_VERSES: Verse[] = [
   { ref: "Proverbs 11:25", en: "A generous person will prosper; whoever refreshes others will be refreshed.", sw: "Mtu mkarimu atastawi; yeyote ambaye anawaburudisha wengine ataburudishwa." },
   { ref: "Hebrews 13:16", en: "Do not forget to do good and to share with others, for with such sacrifices God is pleased.", sw: "Msilinde kufanya wema na kushirikiana na wengine, kwa maana sadaka kama hizo ndizo zimpendezazo Mungu." },
@@ -41,6 +45,9 @@ export const PAYMENT_VERSES: Verse[] = [
   { ref: "Psalm 24:1", en: "The earth is the Lord's, and everything in it, the world, and all who live in it.", sw: "Dunia ni ya Bwana na yote yaliyomo, ulimwengu na wote wanaoishi ndani yake." },
   { ref: "2 Corinthians 9:11", en: "You will be enriched in every way so that you can be generous on every occasion, and through us your generosity will result in thanksgiving to God.", sw: "Mtawekwa tajirika katika kila njia ili mpate kuwa wakarimu kila wakati, na ukarimu wenu utamleta Mungu shukrani kwa njia yetu." },
   { ref: "Malachi 3:10", en: "Bring the whole tithe into the storehouse, that there may be food in my house. Test me in this, says the Lord Almighty, and see if I will not throw open the floodgates of heaven and pour out so much blessing that there will not be room enough to store it.", sw: "Leteni zaka kamili ghalani, ili chakula kiwe katika nyumba yangu. Nijaribuni kwa hili, asema Bwana Mwenye Nguvu, nanyi mtaona kama sitakufungulieni madirisha ya mbinguni na kumwagieni baraka nyingi mpaka kutakuwa na nafasi ya kutosha kuzihifadhi." },
+  { ref: "Psalm 37:21", en: "The wicked borrow and do not repay, but the righteous give generously.", sw: "Waovu hukopa na hawalipi, bali wenye haki hutoa kwa ukarimu." },
+  { ref: "Proverbs 3:27-28", en: "Do not withhold good from those to whom it is due, when it is in your power to act. Do not say to your neighbor, Come back tomorrow and I'll give it to you when you already have it with you.", sw: "Usiwanyime wema wanaostahili, wakati uko katika uwezo wako wa kufanya mema. Usimwambie jirani yako, Nenda rudi kesho nami nitakupa, wakati tayari unacho." },
+  { ref: "Psalm 112:5", en: "Good will come to those who are generous and lend freely, who conduct their affairs with justice.", sw: "Mema yamwandalia yeye aliye mkarimu na anayekopa bure, anayefanya mambo yake kwa haki." },
 ];
 
 // ── Verses for pledge reminders (gentle encouragement to follow through) ──
@@ -57,11 +64,35 @@ export const REMINDER_VERSES: Verse[] = [
   { ref: "Matthew 10:8", en: "Freely you have received; freely give.", sw: "Mmepewa bure, toeni bure." },
   { ref: "Ecclesiastes 11:1", en: "Ship your grain across the sea; after many days you may receive a return.", sw: "Tia mkate wako juu ya maji, kwani baada ya siku nyingi utapata tena." },
   { ref: "Proverbs 28:27", en: "Those who give to the poor will lack nothing, but those who close their eyes to them receive many curses.", sw: "Anayempa maskini hana upungufu; bali anayefumba macho yake hulaaniwa sana." },
+  { ref: "Galatians 6:9", en: "Let us not become weary in doing good, for at the proper time we will reap a harvest if we do not give up.", sw: "Tusichoke kufanya mema, kwani kwa wakati wake tutavuna ikiwa hatutakata tamaa." },
+  { ref: "Hebrews 6:10", en: "God is not unjust; he will not forget your work and the love you have shown him as you have helped his people and continue to help them.", sw: "Mungu si mwongo; hatasahau kazi yenu na upendo mliomwonyesha kwa kuwasaidia watu wake na kuendelea kuwasaidia." },
+];
+
+// ── Verses for fulfilled pledges (congratulations) ──
+export const CONGRATULATION_VERSES: Verse[] = [
+  { ref: "Philippians 4:13", en: "I can do all this through him who gives me strength.", sw: "Naweza yote kwa njia yake anitiaye nguvu." },
+  { ref: "Psalm 126:3", en: "The Lord has done great things for us, and we are filled with joy.", sw: "Bwana alitutendea makuu; tulijaa furaha." },
+  { ref: "Numbers 6:24-26", en: "The Lord bless you and keep you; the Lord make his face shine on you and be gracious to you; the Lord turn his face toward you and give you peace.", sw: "Bwana akubariki na kukulinda; Bwana akuangazie uso wake na kukufadhili; Bwana akutazame kwa wema na kukupa amani." },
+  { ref: "2 Timothy 4:7", en: "I have fought the good fight, I have finished the race, I have kept the faith.", sw: "Nimepiga vita vilivyo vyema, nimemaliza mbio, nimeilinda imani." },
+  { ref: "Psalm 20:4", en: "May he give you the desire of your heart and make all your plans succeed.", sw: "Na akufanye utimie matakwa ya moyo wako, na kukamilisha makusudio yako yote." },
+  { ref: "Deuteronomy 28:6", en: "You will be blessed when you come in and blessed when you go out.", sw: "Utabarikiwa kuingia kwako na kutoka kwako." },
+  { ref: "Psalm 37:4", en: "Take delight in the Lord, and he will give you the desires of your heart.", sw: "Jifurahie Bwana, naye atakupa staha za moyo wako." },
+  { ref: "Joshua 1:9", en: "Be strong and courageous. Do not be afraid; do not be discouraged, for the Lord your God will be with you wherever you go.", sw: "Uwe hodari na mwenye ujasiri. Usiogope wala usife moyo, kwa maana Bwana Mungu wako yuko pamoja nawe popote uendako." },
+];
+
+// ── Verses for honour notifications ──
+export const HONOUR_VERSES: Verse[] = [
+  { ref: "Proverbs 3:9", en: "Honour the Lord with your wealth, with the firstfruits of all your crops.", sw: "Mheshimu Bwana kwa mali yako, kwa mazao ya kwanza ya mapato yako yote." },
+  { ref: "Psalm 8:5", en: "You have made them a little lower than the angels and crowned them with glory and honour.", sw: "Umemfanya mdogo kidogo kuliko malaika, na kumvika taji ya utukufu na heshima." },
+  { ref: "Proverbs 22:4", en: "Humility is the fear of the Lord; its wages are riches and honour and life.", sw: "Unyenyekevu ni kumcha Bwana; thawabu yake ni utajiri na heshima na uzima." },
+  { ref: "Romans 12:10", en: "Be devoted to one another in love. Honour one another above yourselves.", sw: "Penaneni kwa upendo wa kidugu. Katika kuheshimiana, tangulizeni wengine." },
+  { ref: "Psalm 91:15", en: "He will call on me, and I will answer him; I will be with him in trouble, I will deliver him and honour him.", sw: "Ataniita, nami nitamjibu; nami nitakuwa pamoja naye katika dhiki; nitamwokoa na kumheshimu." },
+  { ref: "1 Samuel 2:30", en: "Those who honour me I will honour, but those who despise me will be disdained.", sw: "Wale wanaoniheshimu, nitawaheshimu; lakini wale wanaonidharau, watadhalilishwa." },
 ];
 
 // ── Daily verse ──
 const ALL_VERSES: Verse[] = [
-  ...PLEDGE_VERSES, ...PAYMENT_VERSES, ...REMINDER_VERSES,
+  ...PLEDGE_VERSES, ...PAYMENT_VERSES, ...REMINDER_VERSES, ...CONGRATULATION_VERSES, ...HONOUR_VERSES,
 ];
 
 // Deduplicate by `ref`
@@ -71,9 +102,12 @@ for (const v of ALL_VERSES) {
   if (!seen.has(v.ref)) { seen.add(v.ref); UNIQUE_VERSES.push(v); }
 }
 
-export function pickVerse(list: Verse[], lang: "en" | "sw" = "en"): { text: string; ref: string } {
-  const v = list[Math.floor(Math.random() * list.length)];
-  return { text: lang === "sw" ? v.sw : v.en, ref: v.ref };
+export function pickVerse(list: Verse[], lang: "en" | "sw" = "en", avoidRefs?: Set<number>): { text: string; ref: string; idx: number } {
+  const pool = list.filter((_, i) => !avoidRefs?.has(i));
+  const available = pool.length > 0 ? pool : list;
+  const idx = list.indexOf(available[Math.floor(Math.random() * available.length)]);
+  const v = list[idx];
+  return { text: lang === "sw" ? v.sw : v.en, ref: v.ref, idx };
 }
 
 versesRouter.get("/today", (_req, res) => {

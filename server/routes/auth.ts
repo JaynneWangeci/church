@@ -7,7 +7,6 @@ import {
   checkLoginRateLimit, recordFailedAttempt, resetFailedAttempts, invalidateAllAdminSessions,
 } from "../lib/admin.js";
 import { sendSMS } from "../lib/sajsoft.js";
-import { sendWhatsApp } from "../lib/meta-whatsapp.js";
 import { v4 as uuid } from "uuid";
 
 export const authRouter = Router();
@@ -303,7 +302,7 @@ authRouter.post("/forgot-password", async (req, res) => {
       expires_at: expiresAt,
     });
 
-    await sendWhatsApp(admin.phone, `AIPCA Bahati Cathedral: Your password reset code is ${code}. It expires in 1 hour.`);
+    await sendSMS(admin.phone, `AIPCA Bahati Cathedral: Your password reset code is ${code}. It expires in 1 hour.`);
 
     await logAudit({
       adminId: admin.id,

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
 import { sendWhatsApp } from "../lib/meta-whatsapp.js";
+import { sendSMS } from "../lib/sajsoft.js";
 import { requireAdmin } from "../lib/admin.js";
 import { PAYMENT_VERSES, pickVerse } from "./verses.js";
 import { enqueueFollowUp } from "../lib/queue.js";
@@ -68,23 +69,20 @@ async function getAccessToken(): Promise<string> {
   return data.access_token;
 }
 
-function whatsAppConfirmation(donation: any): void {
+function donationConfirmation(donation: any): void {
   const name = donation.donor_name || "Mungu anakupenda";
   const amount = Number(donation.amount).toLocaleString("en-KE");
   const receipt = donation.receipt_number || "";
-  const v = pickVerse(PAYMENT_VERSES);
+  const v = pickVerse(PAYMENT_VERSES, "en");
   const msg =
-    `🙏 *Harambee Donation Confirmation* — AIPCA Bahati Cathedral\n\n` +
+    `Donation Confirmation - AIPCA Bahati Cathedral\n\n` +
     `Asante sana ${name}!\n` +
-    `Your gift of *KES ${amount}* has been received successfully.\n` +
+    `Your gift of KES ${amount} has been received successfully.\n` +
     `${receipt ? `Receipt: ${receipt}\n` : ""}` +
-    `\n📖 *${v.ref}* — "${v.text}"\n` +
-    `\n_Baraka tele, familia yako ya AIPCA inakuombea._ 🇰🇪\n\n` +
-    `*EN* — Thank you for building His house. Your generosity is building the Kingdom of God in Bahati and beyond. May the Lord bless you abundantly.\n` +
-    `*SW* — Asante kwa kujenga Nyumba Yake. Mungu akubariki sana, na tujenge pamoja!`;
+    `\n"${v.text}" - ${v.ref}\n` +
+    `Thank you for building His house. May the Lord bless you abundantly.`;
 
-  sendWhatsApp(donation.phone, msg).catch((err) => console.error("Donation message failed:", err));
-
+  sendSMS(donation.phone, msg).catch((err) => console.error("✉ SMS failed (donation confirm):", err));
   enqueueFollowUp("payment", donation.phone, name, donation.amount, donation.receipt_number);
 }
 
@@ -194,7 +192,7 @@ mpesaRouter.post("/stkpush", async (req, res) => {
             });
           }, "stkpush sandbox complete");
 
-          whatsAppConfirmation({ ...donation, receipt_number: `SANDBOX-${Date.now()}` });
+          donationConfirmation({ ...donation, receipt_number: `SANDBOX-${Date.now()}` });
         }
       }
     }
@@ -281,7 +279,7 @@ mpesaRouter.post("/callback", async (req, res) => {
       // Mark callback as processed (idempotency)
       await markCallbackProcessed(CheckoutRequestID);
 
-      whatsAppConfirmation({ ...donation, receipt_number: receiptNumber });
+      donationConfirmation({ ...donation, receipt_number: receiptNumber });
     } else {
       await db
         .from("donations")
@@ -311,7 +309,7 @@ mpesaRouter.post("/resend-whatsapp/:id", requireAdmin, async (req, res) => {
     if (!data) return res.status(404).json({ error: "Completed donation not found" });
     if (!data.phone) return res.status(400).json({ error: "No phone number on record" });
 
-    whatsAppConfirmation(data);
+    donationConfirmation(data);
     res.json({ ok: true });
   } catch (err) {
     console.error("resend wa error:", err);
@@ -380,7 +378,7 @@ mpesaRouter.get("/status/:checkoutRequestId", async (req, res) => {
           });
         }, "status query complete");
 
-        whatsAppConfirmation({ ...donation, receipt_number: receiptNumber });
+        donationConfirmation({ ...donation, receipt_number: receiptNumber });
 
         return res.json({ ResultCode: "0", status: "completed", receipt_number: receiptNumber });
       }
@@ -456,7 +454,7 @@ async function handleC2BConfirmation(req: any, res: any) {
       await db.rpc("increment_campaign_raised", { campaign_id: campaign.id, amount }).catch(() => {});
     }
     if (donation && phone) {
-      whatsAppConfirmation({ ...donation, receipt_number: receiptNumber });
+      donationConfirmation({ ...donation, receipt_number: receiptNumber });
     }
     console.log("C2B: recorded donation", donorName, amount, receiptNumber);
   } catch (err) {

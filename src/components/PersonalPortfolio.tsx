@@ -47,7 +47,7 @@ export default function PersonalPortfolio({ name, onClose }: Props) {
   async function handleModify(pledgeId: string) {
     setModifyError('');
     const body: any = {};
-    if (editAmount) body.amount = Number(editAmount);
+    if (editAmount) body.amount = editAmount.replace(/[^0-9]/g, '');
     if (editFreq) body.reminder_freq = editFreq;
     const res = await fetch(`/api/pledges/${pledgeId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (!res.ok) {
@@ -164,7 +164,7 @@ export default function PersonalPortfolio({ name, onClose }: Props) {
                           {p.status !== 'fulfilled' && (
                             <>
                               <button onClick={() => { setEditingPledge(p.id); setEditAmount(''); setEditFreq(p.reminder_freq || ''); }} className="rounded p-1 text-blue-500 hover:bg-blue-50"><Edit3 size={14} /></button>
-                              <button onClick={() => { setPayingPledge(p.id); setPayAmount(''); setPayReceipt(''); setPayError(''); }} className="rounded p-1 text-green-500 hover:bg-green-50"><DollarSign size={14} /></button>
+                              <button onClick={() => { setPayingPledge(p.id); setPayAmount(''); setPayError(''); }} className="rounded p-1 text-green-500 hover:bg-green-50"><DollarSign size={14} /></button>
                             </>
                           )}
                         </div>
@@ -180,7 +180,7 @@ export default function PersonalPortfolio({ name, onClose }: Props) {
 
                       {editingPledge === p.id && (
                         <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-3 space-y-2">
-                          <input type="number" value={editAmount} onChange={e => setEditAmount(e.target.value)}
+                          <input type="text" inputMode="numeric" pattern="[0-9]*" value={editAmount} onChange={e => setEditAmount(e.target.value.replace(/[^0-9]/g, ''))}
                             placeholder="New amount (KES)" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-xs text-gray-900 outline-none focus:border-blue-500" />
                           <select value={editFreq} onChange={e => setEditFreq(e.target.value)}
                             className="w-full rounded-lg border border-blue-200 px-3 py-2 text-xs text-gray-900 outline-none focus:border-blue-500">

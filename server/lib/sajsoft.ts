@@ -1,7 +1,7 @@
 const ENDPOINT = "https://bulksms.sajsoft.co.ke/sms/v3/sendsms";
 const PROFILE_EP = "https://bulksms.sajsoft.co.ke/sms/v3/profile";
 const API_KEY = process.env.SMS_APIKEY || "";
-const SENDER_ID = process.env.SMS_SENDERID || "AIPCABAHATI";
+const SENDER_ID = process.env.SMS_SENDERID || "AIPCABahati";
 
 export async function sendSMS(to: string, message: string): Promise<boolean> {
   try {

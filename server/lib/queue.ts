@@ -5,6 +5,7 @@
 import { Queue, Worker, Job } from "bullmq";
 import { getRedis } from "./redis.js";
 import { requireService } from "./supabase.js";
+import { PLEDGE_VERSES, PAYMENT_VERSES, pickVerse } from "../routes/verses.js";
 
 const REDIS_URL = process.env.REDIS_URL || process.env.KV_URL || "";
 
@@ -79,11 +80,17 @@ export async function enqueueFollowUp(
     const delayMs = context === "pledge" ? 3 * 24 * 60 * 60 * 1000 : 5 * 60 * 1000;
     const sendAt = new Date(Date.now() + delayMs).toISOString();
     const type = context === "pledge" ? "pledge_followup" : "donation_thanks";
+    const amt = Number(amount).toLocaleString("en-KE");
+    const v = pickVerse(context === "pledge" ? PLEDGE_VERSES : PAYMENT_VERSES, "en");
+    const message = context === "pledge"
+      ? `Reminder - AIPCA Bahati Cathedral\n\nHi ${donorName}! Just checking in on your pledge of KES ${amt}.\n\n"${v.text}" - ${v.ref}\n\nYou can make payments at any time.`
+      : `Thank You - AIPCA Bahati Cathedral\n\nHi ${donorName}! Thank you again for your generous gift of KES ${amt}.\n\n"${v.text}" - ${v.ref}\n\nBaraka tele!`;
     await db.from("pending_notifications").insert({
       type,
       phone,
       donor_name: donorName,
       amount,
+      message,
       receipt: receipt || null,
       send_at: sendAt,
     });

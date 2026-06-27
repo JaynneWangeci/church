@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
-import { sendWhatsApp } from "../lib/meta-whatsapp.js";
-import { REMINDER_VERSES, PAYMENT_VERSES, pickVerse } from "./verses.js";
+import { sendSMS } from "../lib/sajsoft.js";
+import { REMINDER_VERSES, CONGRATULATION_VERSES, pickVerse } from "./verses.js";
 
 export const remindersRouter = Router();
 
@@ -38,6 +38,7 @@ remindersRouter.post("/send", async (req, res) => {
       .select("id, donor_name, whatsapp_number, reminder_freq, amount, paid, remaining, created_at")
       .neq("status", "fulfilled");
 
+    const usedRefs = new Set<number>();
     let sent = 0;
     let skipped = 0;
     for (const pledge of due || []) {
@@ -53,21 +54,24 @@ remindersRouter.post("/send", async (req, res) => {
       const freq = parseFreq(pledge.reminder_freq);
       if (!shouldSendNow(pledge.created_at, freq)) { skipped++; continue; }
 
-      const enV = pickVerse(REMINDER_VERSES, "en");
-      const swV = pickVerse(REMINDER_VERSES, "sw");
       const pct = pledge.amount > 0 ? Math.round((pledge.paid / pledge.amount) * 100) : 0;
       const remaining = Math.max(0, pledge.amount - pledge.paid);
 
       let milestone = "";
+      let verseList = REMINDER_VERSES;
       if (remaining === 0 && pledge.amount > 0) {
-        milestone = `\n\n🎉 CONGRATULATIONS! You have fully paid your pledge! Thank you for your faithfulness! Mungu akubariki sana! 🎉`;
+        milestone = `\nCONGRATULATIONS! You have fully paid your pledge! Thank you for your faithfulness! May the Lord bless you abundantly.`;
+        verseList = CONGRATULATION_VERSES;
       } else if (pct >= 50 && pct < 100) {
-        milestone = `\n\n🌟 You're over halfway there! Keep going — every shilling builds His house!`;
+        milestone = `\nYou are over halfway there! Keep going — every shilling builds His house!`;
       }
 
-      const message = `⛪ AIPCA Bahati Cathedral\n\nHabari ${pledge.donor_name}!\n\nYour Pledge Summary:\n• Pledged: KES ${pledge.amount.toLocaleString()}\n• Paid: KES ${pledge.paid.toLocaleString()} (${pct}%)\n• Remaining: KES ${remaining.toLocaleString()}\n\nEncouragement:\n"${enV.text}" — ${enV.ref}\n\n"${swV.text}" — ${swV.ref}${milestone}\n\nMungu akubariki! AIPCA Bahati Cathedral`;
+      const v = pickVerse(verseList, "en", usedRefs);
+      usedRefs.add(v.idx);
+      if (usedRefs.size >= verseList.length) usedRefs.clear();
+      const message = `Pledge Progress - AIPCA Bahati Cathedral\n\nHi ${pledge.donor_name}!\n\nPledged: KES ${pledge.amount.toLocaleString()}\nPaid: KES ${pledge.paid.toLocaleString()} (${pct}%)\nRemaining: KES ${remaining.toLocaleString()}${milestone}\n\n"${v.text}" - ${v.ref}\n\nMungu akubariki!`;
 
-      const ok = await sendWhatsApp(phone, message);
+      const ok = await sendSMS(phone, message);
       if (ok) sent++;
     }
 
@@ -80,15 +84,10 @@ remindersRouter.post("/send", async (req, res) => {
 
     let followUpSent = 0;
     for (const n of pending || []) {
-      // Look up latest number from donor_whatsapp, fall back to queued phone
-      const { data: dw } = await db
-        .from("donor_whatsapp")
-        .select("whatsapp_number")
-        .eq("donor_name", n.donor_name)
-        .maybeSingle();
-      const phone = dw?.whatsapp_number || n.phone;
+      const phone = n.phone;
       if (!phone) continue;
-      const sentFollowUp = await sendWhatsApp(phone, n.message);
+      const msg = n.message || `AIPCA Bahati Cathedral - Thank you for your generosity!`;
+      const sentFollowUp = await sendSMS(phone, msg);
       if (sentFollowUp) {
         await db.from("pending_notifications").delete().eq("id", n.id);
         followUpSent++;

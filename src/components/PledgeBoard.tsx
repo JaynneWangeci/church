@@ -85,11 +85,8 @@ export default function PledgeBoard() {
 
   // Adjust pledge state
   const [adjustingId, setAdjustingId] = useState<string | null>(null);
-  const [adjustPhone, setAdjustPhone] = useState('');
-  const [adjustPhoneVerified, setAdjustPhoneVerified] = useState(false);
   const [adjustNewAmount, setAdjustNewAmount] = useState('');
   const [adjustError, setAdjustError] = useState('');
-  const [adjustVerifying, setAdjustVerifying] = useState(false);
 
   // Member dropdown shared state
   const [members, setMembers] = useState<Member[]>([]);
@@ -216,39 +213,23 @@ export default function PledgeBoard() {
     setPayPollInterval(pollId);
   }
 
-  async function handleVerifyPhone(pledgeId: string) {
-    setAdjustError('');
-    if (!adjustPhone.trim()) { setAdjustError('Enter your phone number'); return; }
-    setAdjustVerifying(true);
-    const res = await fetch(`/api/pledges/${pledgeId}/verify-phone`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: adjustPhone.trim() }),
-    });
-    const data = await res.json().catch(() => ({ verified: false }));
-    if (data.verified) {
-      setAdjustPhoneVerified(true);
-    } else {
-      setAdjustError('Phone number does not match. Use the number you entered when making this pledge.');
-    }
-    setAdjustVerifying(false);
-  }
-
   async function handleAdjustPledge(pledgeId: string) {
     setAdjustError('');
-    const amt = Number(adjustNewAmount);
-    if (!adjustNewAmount || amt < 10) { setAdjustError('Minimum pledge is KES 10'); return; }
+    const raw = adjustNewAmount.replace(/[^0-9]/g, '');
+    if (!raw) { setAdjustError('Enter a valid amount'); return; }
+    const amt = parseInt(raw, 10);
+    if (amt < 10) { setAdjustError('Minimum pledge is KES 10'); return; }
     const res = await fetch(`/api/pledges/${pledgeId}/adjust`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: adjustPhone.trim(), new_amount: amt }),
+      body: JSON.stringify({ new_amount: amt }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'Failed to adjust' }));
       setAdjustError(err.error || 'Failed to adjust pledge');
       return;
     }
-    setAdjustingId(null); setAdjustPhone(''); setAdjustPhoneVerified(false); setAdjustNewAmount('');
+    setAdjustingId(null); setAdjustNewAmount('');
     handleCommitSearch();
   }
 
@@ -490,67 +471,53 @@ export default function PledgeBoard() {
                       )}
 
                       {/*
-                        ── Adjust Pledge ──
+                        ── Adjust Pledge (Add / Reduce) ──
                       */}
-                      <div className="mt-3 border-t border-gray-200 pt-3">
-                        {adjustingId !== p.id ? (
-                          <div className="flex gap-2">
-                            <button onClick={() => { setAdjustingId(p.id); setAdjustPhone(''); setAdjustPhoneVerified(false); setAdjustNewAmount(String(p.amount + 1000)); setAdjustError(''); }}
-                              className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 transition-all shadow-sm">
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                              {t('Add to Pledge', 'Ongeza Ahadi')}
+                      {p.status !== 'fulfilled' && adjustingId !== p.id && (
+                        <div className="mt-3 flex gap-2">
+                          <button onClick={() => { setAdjustingId(p.id); setAdjustNewAmount(String(p.amount + 1000)); setAdjustError(''); }}
+                            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/30 hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-600/40 active:scale-[0.97] transition-all">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            {t('Add to Pledge', 'Ongeza Ahadi')}
+                          </button>
+                          <button onClick={() => { setAdjustingId(p.id); setAdjustNewAmount(String(Math.max(10, p.amount - 1000))); setAdjustError(''); }}
+                            className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-orange-400 bg-orange-50 py-3 text-sm font-bold text-orange-700 shadow-sm hover:bg-orange-100 hover:shadow-md active:scale-[0.97] transition-all">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            {t('Reduce Pledge', 'Punguza Ahadi')}
+                          </button>
+                        </div>
+                      )}
+                      {adjustingId === p.id && (
+                        <div className="mt-3 space-y-3 rounded-xl border-2 border-blue-200 bg-blue-50 p-4">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-bold text-gray-800">{t('Current Pledge:', 'Ahadi ya Sasa:')} KES {p.amount.toLocaleString()}</p>
+                            <p className="text-sm font-bold text-green-700">{t('Paid:', 'Imelipwa:')} KES {p.paid.toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="mb-1.5 text-sm font-bold text-gray-700">{t('New Pledge Amount (KES)', 'Kiasi Kipya cha Ahadi (KES)')}</p>
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => setAdjustNewAmount(String(Math.max(10, Number(adjustNewAmount) - 1000)))}
+                                className="flex h-12 w-12 items-center justify-center rounded-xl border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-100 hover:border-gray-400 font-bold text-xl transition-all shadow-sm active:scale-95">−</button>
+                              <input type="text" inputMode="numeric" pattern="[0-9]*" value={adjustNewAmount} onChange={e => setAdjustNewAmount(e.target.value.replace(/[^0-9]/g, ''))}
+                                placeholder={String(p.amount)}
+                                className="flex-1 rounded-xl border-2 border-blue-300 bg-white px-4 py-3 text-base text-gray-900 text-center font-bold outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
+                              <button onClick={() => setAdjustNewAmount(String(Number(adjustNewAmount) + 1000))}
+                                className="flex h-12 w-12 items-center justify-center rounded-xl border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-100 hover:border-gray-400 font-bold text-xl transition-all shadow-sm active:scale-95">+</button>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 pt-1">
+                            <button onClick={() => handleAdjustPledge(p.id)}
+                              className="flex-1 rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white hover:bg-blue-700 shadow-lg shadow-blue-600/30 transition-all active:scale-[0.97]">
+                              {t('Save Changes', 'Hifadhi Mabadiliko')}
                             </button>
-                            <button onClick={() => { setAdjustingId(p.id); setAdjustPhone(''); setAdjustPhoneVerified(false); setAdjustNewAmount(String(Math.max(10, p.amount - 1000))); setAdjustError(''); }}
-                              className="flex items-center gap-1.5 rounded-lg border border-orange-300 bg-orange-50 px-4 py-2 text-xs font-bold text-orange-700 hover:bg-orange-100 transition-all">
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                              {t('Reduce Pledge', 'Punguza Ahadi')}
+                            <button onClick={() => setAdjustingId(null)}
+                              className="rounded-xl border-2 border-gray-300 bg-white px-6 py-3.5 text-sm font-bold text-gray-600 hover:bg-gray-100 transition-all">
+                              {t('Cancel', 'Ghairi')}
                             </button>
                           </div>
-                        ) : (
-                          <div className="space-y-2 rounded-lg border border-blue-100 bg-blue-50 p-3">
-                            <p className="text-xs font-bold text-gray-700">{t('Current Pledge:', 'Ahadi ya Sasa:')} KES {p.amount.toLocaleString()} | {t('Paid:', 'Imelipwa:')} KES {p.paid.toLocaleString()}</p>
-                            {!adjustPhoneVerified ? (
-                              <>
-                                <label className="text-xs font-semibold text-gray-700">{t('Enter phone used when pledging:', 'Weka nambari uliyotumia kuweka ahadi:')}</label>
-                                <div className="flex gap-2">
-                                  <input type="tel" value={adjustPhone} onChange={e => setAdjustPhone(e.target.value)}
-                                    placeholder="07XX XXX XXX"
-                                    className="flex-1 rounded-lg border border-blue-200 px-3 py-2 text-xs text-gray-900 outline-none focus:border-blue-500" />
-                                  <button onClick={() => handleVerifyPhone(p.id)} disabled={adjustVerifying}
-                                    className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50 shadow-sm">
-                                    {adjustVerifying ? t('Verifying...', 'Inathibitisha...') : t('Verify Phone', 'Thibitisha Nambari')}
-                                  </button>
-                                </div>
-                              </>
-                            ) : (
-                              <>
-                                <p className="text-xs text-green-700 font-semibold">✓ {t('Phone verified', 'Nambari imethibitishwa')}</p>
-                                <label className="text-xs font-semibold text-gray-700">{t('New Pledge Amount (KES)', 'Kiasi Kipya cha Ahadi (KES)')}</label>
-                                <div className="flex items-center gap-2">
-                                  <button onClick={() => setAdjustNewAmount(String(Math.max(10, Number(adjustNewAmount) - 500)))}
-                                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 font-bold text-lg">−</button>
-                                  <input type="number" value={adjustNewAmount} onChange={e => setAdjustNewAmount(e.target.value)}
-                                    placeholder={String(p.amount)}
-                                    className="flex-1 rounded-lg border border-blue-200 px-3 py-2 text-xs text-gray-900 text-center font-bold outline-none focus:border-blue-500" />
-                                  <button onClick={() => setAdjustNewAmount(String(Number(adjustNewAmount) + 500))}
-                                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 font-bold text-lg">+</button>
-                                </div>
-                                <div className="flex gap-2">
-                                  <button onClick={() => handleAdjustPledge(p.id)}
-                                    className="flex-1 rounded-lg bg-blue-600 py-2 text-xs font-bold text-white hover:bg-blue-700 shadow-sm">
-                                    {t('Save Changes', 'Hifadhi Mabadiliko')}
-                                  </button>
-                                  <button onClick={() => { setAdjustingId(null); setAdjustPhoneVerified(false); }}
-                                    className="rounded-lg border border-gray-200 px-4 py-2 text-xs text-gray-600 hover:bg-gray-100">
-                                    <X size={14} className="inline" />
-                                  </button>
-                                </div>
-                              </>
-                            )}
-                            {adjustError && <p className="text-xs text-red-600 font-medium">{adjustError}</p>}
-                          </div>
-                        )}
-                      </div>
+                          {adjustError && <p className="text-sm font-bold text-red-600">{adjustError}</p>}
+                        </div>
+                      )}
                     </div>
                   );
                 }) : (

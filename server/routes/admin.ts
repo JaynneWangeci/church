@@ -7,6 +7,7 @@ import {
   recalculatePledgeFulfillment,
 } from "../lib/admin.js";
 import { sendSMS } from "../lib/sajsoft.js";
+import { REMINDER_VERSES, CONGRATULATION_VERSES, pickVerse } from "./verses.js";
 
 export const adminRouter = Router();
 
@@ -689,6 +690,16 @@ adminRouter.post("/send-bulk-sms", requireAdmin, requireAdminOrAbove, async (req
       if (pledge?.phone) phones.add(pledge.phone);
     }
 
+    // Also collect phones from completed donations
+    const { data: donations } = await db
+      .from("donations")
+      .select("phone")
+      .eq("status", "completed")
+      .not("phone", "is", null);
+    for (const d of donations || []) {
+      if (d.phone) phones.add(d.phone);
+    }
+
     let sent = 0, failed = 0;
     for (const phone of phones) {
       const ok = await sendSMS(phone, message);
@@ -707,6 +718,47 @@ adminRouter.post("/send-bulk-sms", requireAdmin, requireAdminOrAbove, async (req
     res.json({ ok: true, total: phones.size, sent, failed });
   } catch (err) {
     console.error("bulk sms error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Send personal portfolio progress to all pledgers
+adminRouter.post("/send-portfolio-sms", requireAdmin, requireAdminOrAbove, async (req, res) => {
+  try {
+    const db = requireService();
+    const { data: pledges } = await db
+      .from("pledges")
+      .select("id, donor_name, phone, amount, paid, remaining, status");
+
+    const usedRefs = new Set<number>();
+    let sent = 0, failed = 0;
+    for (const p of pledges || []) {
+      const phone = p.phone;
+      if (!phone) { failed++; continue; }
+      const pct = p.amount > 0 ? Math.round((p.paid / p.amount) * 100) : 0;
+      const remaining = Math.max(0, Number(p.amount) - Number(p.paid));
+      const isFulfilled = p.status === "fulfilled";
+      const verseList = isFulfilled ? CONGRATULATION_VERSES : REMINDER_VERSES;
+      const v = pickVerse(verseList, "en", usedRefs);
+      usedRefs.add(v.idx);
+      if (usedRefs.size >= verseList.length) usedRefs.clear();
+      const msg = `Portfolio Update - AIPCA Bahati Cathedral\n\nHi ${p.donor_name}!\n\nPledge: KES ${Number(p.amount).toLocaleString()}\nPaid: KES ${Number(p.paid).toLocaleString()} (${pct}%)\nRemaining: KES ${remaining.toLocaleString()}\nStatus: ${p.status}\n\n"${v.text}" - ${v.ref}\n\nTrack your progress at any time.`;
+      const ok = await sendSMS(phone, msg);
+      if (ok) sent++; else failed++;
+    }
+
+    const admin = (req as any).admin;
+    await logAudit({
+      adminId: admin.id,
+      action: "portfolio_sms",
+      details: { recipients: pledges?.length || 0, sent, failed },
+      ipAddress: (req as any).adminIp,
+      userAgent: (req as any).userAgent,
+    });
+
+    res.json({ ok: true, total: pledges?.length || 0, sent, failed });
+  } catch (err) {
+    console.error("portfolio sms error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

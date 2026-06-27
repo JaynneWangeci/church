@@ -43,9 +43,10 @@ pledgesRouter.post("/", async (req, res) => {
     if (data?.phone) {
         const amt = Number(data.amount).toLocaleString("en-KE");
         const added = newAmount.toLocaleString("en-KE");
-        const msg = `Pledge Updated - AIPCA Bahati Cathedral\n\nHi ${data.donor_name}! You added KES ${added} to your pledge. Your new total is KES ${amt}.\n\nThank you for building His house. May the Lord bless you abundantly.`;
+        const v = pickVerse(PLEDGE_VERSES, "en");
+        const msg = `Pledge Updated - AIPCA Bahati Cathedral\n\nHi ${data.donor_name}! You added KES ${added} to your pledge. Your new total is KES ${amt}.\n\n"${v.text}" - ${v.ref}\n\nThank you for building His house. May the Lord bless you abundantly.`;
 
-        sendSMS(data.phone, msg).catch(() => {});
+        sendSMS(data.phone, msg).catch(e => console.error("✉ SMS failed (pledge update):", e));
       }
 
       return res.status(200).json({ pledge: data, updated: true });
@@ -76,9 +77,10 @@ pledgesRouter.post("/", async (req, res) => {
 
     if (data?.phone) {
       const amt = Number(data.amount).toLocaleString("en-KE");
-      const msg = `Pledge Confirmation - AIPCA Bahati Cathedral\n\nHi ${data.donor_name}! Thank you for your pledge of KES ${amt} towards the Harambee Development Fund.\n\nYou can track your progress and make payments at any time.\nThank you for building His house. May the Lord bless you abundantly.`;
+      const v = pickVerse(PLEDGE_VERSES, "en");
+      const msg = `Pledge Confirmation - AIPCA Bahati Cathedral\n\nHi ${data.donor_name}! Thank you for your pledge of KES ${amt} towards the Harambee Development Fund.\n\n"${v.text}" - ${v.ref}\n\nYou can track your progress and make payments at any time.\nThank you for building His house. May the Lord bless you abundantly.`;
 
-      sendSMS(data.phone, msg).catch(() => {});
+      sendSMS(data.phone, msg).catch(e => console.error("✉ SMS failed (pledge create):", e));
 
       enqueueFollowUp("pledge", data.phone, data.donor_name, data.amount);
     }
@@ -200,7 +202,9 @@ pledgesRouter.post("/:id/verify-phone", async (req, res) => {
     const cleanInput = phone.replace(/[^0-9]/g, "");
 
     if (!cleanStored) {
-      return res.status(400).json({ verified: false, error: "No phone number on record. Contact admin to adjust." });
+      // No phone on record — save this phone and allow the adjustment
+      await db.from("pledges").update({ phone }).eq("id", req.params.id);
+      return res.json({ verified: true, donor_name: pledge.donor_name, phone_saved: true });
     }
 
     const verified = cleanStored === cleanInput;
@@ -287,19 +291,16 @@ pledgesRouter.post("/:id/pay-with-mpesa", async (req, res) => {
 pledgesRouter.post("/:id/adjust", async (req, res) => {
   try {
     const db = requireService();
-    const { phone, new_amount } = req.body;
-    if (!phone || !new_amount) return res.status(400).json({ error: "phone and new_amount required" });
+    const { new_amount } = req.body;
+    if (!new_amount) return res.status(400).json({ error: "new_amount required" });
+
+    const raw = String(new_amount).replace(/[^0-9]/g, "");
+    if (!raw || raw.length > 9) return res.status(400).json({ error: "Invalid amount" });
+    const newAmount = parseInt(raw, 10);
+    if (newAmount < 10) return res.status(400).json({ error: "Minimum pledge is KES 10" });
 
     const { data: pledge } = await db.from("pledges").select("*").eq("id", req.params.id).single();
     if (!pledge) return res.status(404).json({ error: "Pledge not found" });
-
-    const cleanStored = (pledge.phone || "").replace(/[^0-9]/g, "");
-    const cleanInput = phone.replace(/[^0-9]/g, "");
-    if (!cleanStored) return res.status(400).json({ error: "No phone number on record. Contact admin to adjust." });
-    if (cleanStored !== cleanInput) return res.status(403).json({ error: "Phone verification failed" });
-
-    const newAmount = Number(new_amount);
-    if (newAmount < 10) return res.status(400).json({ error: "Minimum pledge is KES 10" });
     if (newAmount < Number(pledge.paid)) return res.status(400).json({ error: "New amount cannot be less than already paid" });
 
     const newRemaining = Math.max(0, newAmount - Number(pledge.paid));
@@ -313,6 +314,17 @@ pledgesRouter.post("/:id/adjust", async (req, res) => {
       .single();
 
     if (error) return res.status(500).json({ error: error.message });
+
+    // Send SMS confirmation
+    if (data?.phone) {
+      const amt = Number(data.amount).toLocaleString("en-KE");
+      const diff = Math.abs(newAmount - Number(pledge.amount)).toLocaleString("en-KE");
+      const direction = newAmount > Number(pledge.amount) ? "increased" : "reduced";
+      const v = pickVerse(PLEDGE_VERSES, "en");
+      const msg = `Pledge ${direction === "increased" ? "Increased" : "Reduced"} - AIPCA Bahati Cathedral\n\nHi ${data.donor_name}! Your pledge has been ${direction} by KES ${diff}. Your new total is KES ${amt}.\n\n"${v.text}" - ${v.ref}\n\nThank you for building His house. May the Lord bless you abundantly.`;
+      sendSMS(data.phone, msg).catch(e => console.error("✉ SMS failed (pledge adjust):", e));
+    }
+
     res.json({ pledge: data });
   } catch (err) {
     console.error("pledge adjust error:", err);
@@ -330,7 +342,9 @@ pledgesRouter.patch("/:id", async (req, res) => {
 
     const updates: any = {};
     if (amount !== undefined) {
-      const newAmount = Number(amount);
+      const raw = String(amount).replace(/[^0-9]/g, "");
+      if (!raw || raw.length > 9) return res.status(400).json({ error: "Invalid amount" });
+      const newAmount = parseInt(raw, 10);
       if (newAmount < Number(pledge.paid)) return res.status(400).json({ error: "Amount cannot be less than already paid" });
       updates.amount = newAmount;
       updates.remaining = Math.max(0, newAmount - Number(pledge.paid));
@@ -345,6 +359,15 @@ pledgesRouter.patch("/:id", async (req, res) => {
       .single();
 
     if (error) return res.status(500).json({ error: error.message });
+
+    // Send SMS confirmation
+    if (data?.phone && amount !== undefined) {
+      const amt = Number(data.amount).toLocaleString("en-KE");
+      const v = pickVerse(PLEDGE_VERSES, "en");
+      const msg = `Pledge Updated - AIPCA Bahati Cathedral\n\nHi ${data.donor_name}! Your pledge has been updated to KES ${amt}.\n\n"${v.text}" - ${v.ref}\n\nThank you for building His house. May the Lord bless you abundantly.`;
+      sendSMS(data.phone, msg).catch(e => console.error("✉ SMS failed (pledge edit):", e));
+    }
+
     res.json({ pledge: data });
   } catch (err) {
     console.error("pledge update error:", err);
