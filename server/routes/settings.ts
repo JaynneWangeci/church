@@ -54,7 +54,7 @@ settingsRouter.get("/harambee", async (_req, res) => {
     const eventDate = new Date(dateStr + "T23:59:59+03:00");
     const now = new Date();
     const diffMs = eventDate.getTime() - now.getTime();
-    const daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+    const daysRemaining = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
     res.json({ date: dateStr, days_remaining: daysRemaining, passed: diffMs < 0 });
   } catch {
     res.json({ date: "2026-09-27", days_remaining: 99, passed: false });

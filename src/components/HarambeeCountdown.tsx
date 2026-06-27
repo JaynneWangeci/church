@@ -17,11 +17,11 @@ export default function HarambeeCountdown() {
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         const dateStr = data?.date || "2026-09-27";
-        const d = new Date(dateStr + "T10:00:00+03:00");
+        const d = new Date(dateStr + "T23:59:59+03:00");
         setTarget(d);
       })
       .catch(() => {
-        const d = new Date("2026-09-27T10:00:00+03:00");
+        const d = new Date("2026-09-27T23:59:59+03:00");
         setTarget(d);
       });
   }, []);
