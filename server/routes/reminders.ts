@@ -16,11 +16,15 @@ function shouldSendNow(createdAt: string, freq: "daily" | "weekly" | "monthly"):
   const now = new Date();
   const diffMs = now.getTime() - created.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays < 1) return true; // always send at least once
-  if (freq === "daily") return true;
-  if (freq === "weekly") return diffDays % 7 === 0;
-  if (freq === "monthly") return diffDays % 30 === 0;
-  return true;
+  // Send initial reminder within first 2 hours of creation
+  if (diffDays < 1 && diffMs < 2 * 60 * 60 * 1000) return true;
+  if (freq === "daily") {
+    // 9 AM EAT = 6 AM UTC — send once per day
+    return now.getUTCHours() === 6;
+  }
+  if (freq === "weekly") return diffDays >= 1 && diffDays % 7 === 0;
+  if (freq === "monthly") return diffDays >= 1 && diffDays % 30 === 0;
+  return false;
 }
 
 // ── Send pending reminders (callable by cron every hour) ──
