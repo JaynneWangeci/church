@@ -165,7 +165,7 @@ export default function Policy() {
             </p>
             <div className="mt-3 space-y-1 text-gray-600">
               <p><strong>AIPCA Bahati Cathedral</strong></p>
-              <p>Bahati, Nakuru County, Kenya</p>
+              <p>Jogoo Road, Nairobi, Kenya</p>
               <p>Phone: <a href="tel:0727278577" className="text-[#5B9BD5] hover:underline">0727 278 577</a></p>
               <p>Email: <a href="mailto:jkama3@gmail.com" className="text-[#5B9BD5] hover:underline">jkama3@gmail.com</a></p>
             </div>

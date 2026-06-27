@@ -127,7 +127,7 @@ export default function HomePage() {
               {t('We welcome you to worship with us.', 'Tunakukaribisha kuabudu pamoja nasi.')}
             </p>
             <p className="mb-6 font-mono text-xs text-blue-300/60">
-              1.29098°S 36.85438°E &middot; Bahati, Nakuru County
+              1.29098°S 36.85438°E &middot; Jogoo Road, Nairobi
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-3">

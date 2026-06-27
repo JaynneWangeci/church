@@ -488,7 +488,7 @@ contributionsRouter.get("/export/pdf", requireAdmin, async (req, res) => {
     doc.fontSize(10).font("Helvetica-Bold").fillColor("#0F2847").text("— End of Report —", m, cy, { align: "center", width: pw });
     cy += 20;
     doc.fontSize(7).font("Helvetica").fillColor("#94A3B8");
-    doc.text("AIPCA Bahati Cathedral | Bahati, Nakuru County, Kenya", m, cy, { align: "center", width: pw });
+    doc.text("AIPCA Bahati Cathedral | Jogoo Road, Nairobi, Kenya", m, cy, { align: "center", width: pw });
     doc.text("Tujenge Pamoja — Building our house of worship together.", m, cy + 10, { align: "center", width: pw });
 
     doc.end();
