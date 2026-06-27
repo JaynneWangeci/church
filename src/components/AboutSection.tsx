@@ -65,7 +65,7 @@ export default function AboutSection() {
         setActiveCard(prev => (prev + 1) % cards.length);
         setExiting(false);
       }, 700);
-    }, 60000);
+    }, 15000);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [activeCard, cards.length]);
 

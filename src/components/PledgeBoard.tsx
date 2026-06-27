@@ -109,24 +109,7 @@ export default function PledgeBoard() {
       .catch(() => {});
   }, []);
 
-  const interacted = useRef(false);
-  const sectionOrder: Section[] = ['pledge', 'commit', 'track'];
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (interacted.current) return;
-      setActiveSection(prev => {
-        const idx = sectionOrder.indexOf(prev);
-        return sectionOrder[(idx + 1) % sectionOrder.length];
-      });
-    }, 15000);
-    return () => clearInterval(id);
-  }, []);
-  // Reset interaction timer when user clicks a tab
-  const onTabClick = (s: Section) => {
-    interacted.current = true;
-    setActiveSection(s);
-    setTimeout(() => { interacted.current = false; }, 30000);
-  };
+
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -336,7 +319,7 @@ export default function PledgeBoard() {
               const Icon = s.icon;
               const isActive = activeSection === s.key;
               return (
-                <button key={s.key} onClick={() => onTabClick(s.key)}
+                <button key={s.key} onClick={() => setActiveSection(s.key)}
                   className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-all ${
                     isActive ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
                   }`}>
