@@ -2,6 +2,8 @@ import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
 import { requireAdmin, requireAdminOrAbove, recalculatePledgeFulfillment } from "../lib/admin.js";
 import { sendSMS } from "../lib/sajsoft.js";
+import { withRetry } from "../lib/financial-safety.js";
+import { stkPushToPhone, donationConfirmation } from "./mpesa.js";
 import { PLEDGE_VERSES, pickVerse } from "./verses.js";
 import { enqueueFollowUp } from "../lib/queue.js";
 
@@ -258,30 +260,27 @@ pledgesRouter.post("/:id/pay-with-mpesa", async (req, res) => {
 
     if (donErr || !donation) return res.status(500).json({ error: "Failed to create payment record" });
 
-    // Call STK Push via internal request
-    const protocol = req.headers["x-forwarded-proto"] || "http";
-    const host = req.headers.host || "localhost:3000";
-    const mpesaRes = await fetch(`${protocol}://${host}/api/mpesa/stkpush`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        phone,
-        amount: Number(amount),
-        donation_id: donation.id,
-        account_reference: `PLD:${req.params.id}`,
-        transaction_desc: "Pledge Payment",
-      }),
-    });
+    // Call STK Push directly (no self-HTTP request)
+    const result = await stkPushToPhone(phone, Number(amount), `PLD:${req.params.id}`, "Pledge Payment");
 
-    const mpesaData = await mpesaRes.json();
-
-    if (!mpesaData.CheckoutRequestID) {
-      // STK Push failed, delete the donation
+    if (!result.ok || !result.CheckoutRequestID) {
       await db.from("donations").delete().eq("id", donation.id).limit(1);
-      return res.status(400).json({ error: mpesaData.errorMessage || "M-Pesa request failed" });
+      return res.status(400).json({ error: result.errorMessage || "M-Pesa request failed" });
     }
 
-    res.json({ CheckoutRequestID: mpesaData.CheckoutRequestID, donation_id: donation.id });
+    // Save the checkout request ID on the donation
+    await db.from("donations").update({ checkout_request_id: result.CheckoutRequestID }).eq("id", donation.id);
+
+    const ENV = (process.env.MPESA_ENV || "sandbox") as string;
+    if (ENV === "sandbox") {
+      await withRetry(async () => {
+        await db.from("donations").update({ status: "completed", receipt_number: `SANDBOX-${Date.now()}` }).eq("id", donation.id);
+        await db.rpc("increment_campaign_raised", { campaign_id: donation.campaign_id, amount: Number(donation.amount) });
+      }, "pay-with-mpesa sandbox");
+      donationConfirmation({ ...donation, receipt_number: `SANDBOX-${Date.now()}` });
+    }
+
+    res.json({ CheckoutRequestID: result.CheckoutRequestID, donation_id: donation.id });
   } catch (err) {
     console.error("pledge pay-with-mpesa error:", err);
     res.status(500).json({ error: "Server error" });

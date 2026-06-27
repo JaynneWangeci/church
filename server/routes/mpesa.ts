@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
-import { sendWhatsApp } from "../lib/meta-whatsapp.js";
 import { sendSMS } from "../lib/sajsoft.js";
 import { requireAdmin } from "../lib/admin.js";
 import { PAYMENT_VERSES, pickVerse } from "./verses.js";
@@ -69,7 +68,64 @@ async function getAccessToken(): Promise<string> {
   return data.access_token;
 }
 
-function donationConfirmation(donation: any): void {
+/** Call Safaricom STK Push directly. Returns { ok, CheckoutRequestID?, errorMessage? }. */
+export async function stkPushToPhone(
+  phone: string,
+  amount: number,
+  accountReference: string,
+  transactionDesc: string,
+): Promise<{ ok: boolean; CheckoutRequestID?: string; errorMessage?: string }> {
+  const numericAmount = Math.round(Number(amount));
+  const amountCheck = validateDonationAmount(numericAmount);
+  if (!amountCheck.valid) return { ok: false, errorMessage: amountCheck.error };
+
+  let normalizedPhone = phone.replace(/[\s\-\(\)]/g, "");
+  if (normalizedPhone.startsWith("0")) normalizedPhone = "254" + normalizedPhone.slice(1);
+  else if (normalizedPhone.startsWith("+")) normalizedPhone = normalizedPhone.slice(1);
+  if (normalizedPhone.length < 10) return { ok: false, errorMessage: "Invalid phone number" };
+
+  const phoneCheck = checkPhoneStkRateLimit(normalizedPhone);
+  if (!phoneCheck.allowed) {
+    return { ok: false, errorMessage: `Too many requests. Try again in ${phoneCheck.retryAfterMinutes} minutes.` };
+  }
+
+  const flags = checkSuspiciousActivity(normalizedPhone, numericAmount, null);
+  if (flags.length) logSuspiciousActivity(flags, null);
+
+  const accessToken = await getAccessToken();
+  const ts = timestamp();
+  const password = Buffer.from(`${SHORTCODE}${PASSKEY}${ts}`).toString("base64");
+
+  const payload = {
+    BusinessShortCode: SHORTCODE,
+    Password: password,
+    Timestamp: ts,
+    TransactionType: "CustomerPayBillOnline",
+    Amount: numericAmount,
+    PartyA: normalizedPhone,
+    PartyB: SHORTCODE,
+    PhoneNumber: normalizedPhone,
+    CallBackURL: CALLBACK_URL,
+    AccountReference: accountReference?.slice(0, 12) || "Harambee",
+    TransactionDesc: transactionDesc?.slice(0, 13) || "Harambee Donation",
+  };
+
+  const stkRes = await fetch(`${BASE_URL}/mpesa/stkpush/v1/processrequest`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const stkData = await stkRes.json();
+
+  if (String(stkData.ResponseCode) === "0") {
+    return { ok: true, CheckoutRequestID: stkData.CheckoutRequestID };
+  }
+
+  return { ok: false, errorMessage: stkData.errorMessage || stkData.ResponseDescription || "M-Pesa request failed" };
+}
+
+export function donationConfirmation(donation: any): void {
   const name = donation.donor_name || "Mungu anakupenda";
   const amount = Number(donation.amount).toLocaleString("en-KE");
   const receipt = donation.receipt_number || "";
@@ -91,83 +147,14 @@ function donationConfirmation(donation: any): void {
 mpesaRouter.post("/stkpush", async (req, res) => {
   try {
     const { phone, amount, account_reference, transaction_desc, donation_id } = req.body;
+    if (!phone || !amount) return res.status(400).json({ error: "phone and amount required" });
 
-    if (!phone || !amount) {
-      return res.status(400).json({ error: "phone and amount required" });
-    }
+    const result = await stkPushToPhone(phone, amount, account_reference || "Harambee", transaction_desc || "Harambee Donation");
+    if (!result.ok) return res.status(400).json({ error: result.errorMessage });
 
-    const numericAmount = Math.round(Number(amount));
-
-    // Safety check 1: validate amount
-    const amountCheck = validateDonationAmount(numericAmount);
-    if (!amountCheck.valid) {
-      return res.status(400).json({ error: amountCheck.error });
-    }
-
-    // Normalize phone
-    let normalizedPhone = phone.replace(/[\s\-\(\)]/g, "");
-    if (normalizedPhone.startsWith("0")) {
-      normalizedPhone = "254" + normalizedPhone.slice(1);
-    } else if (normalizedPhone.startsWith("+")) {
-      normalizedPhone = normalizedPhone.slice(1);
-    }
-
-    if (normalizedPhone.length < 10) {
-      return res.status(400).json({ error: "Invalid phone number" });
-    }
-
-    // Safety check 2: per-phone rate limiting (max 3 STK Push per hour per phone)
-    const phoneCheck = checkPhoneStkRateLimit(normalizedPhone);
-    if (!phoneCheck.allowed) {
-      const { logAudit } = await import("../lib/audit.js");
-      logAudit({ action: "stk_rate_limited" as any, details: { phone: normalizedPhone } }).catch(() => {});
-      return res.status(429).json({
-        error: `Too many requests to this phone. Try again in ${phoneCheck.retryAfterMinutes} minutes.`,
-      });
-    }
-
-    // Safety check 3: flag suspicious activity (non-blocking)
-    const flags = checkSuspiciousActivity(normalizedPhone, numericAmount, null);
-    if (flags.length) {
-      logSuspiciousActivity(flags, donation_id);
-    }
-
-    const accessToken = await getAccessToken();
-    const ts = timestamp();
-    const password = Buffer.from(`${SHORTCODE}${PASSKEY}${ts}`).toString("base64");
-
-    const payload = {
-      BusinessShortCode: SHORTCODE,
-      Password: password,
-      Timestamp: ts,
-      TransactionType: "CustomerPayBillOnline",
-      Amount: numericAmount,
-      PartyA: normalizedPhone,
-      PartyB: SHORTCODE,
-      PhoneNumber: normalizedPhone,
-      CallBackURL: CALLBACK_URL,
-      AccountReference: account_reference?.slice(0, 12) || "Harambee",
-      TransactionDesc: transaction_desc?.slice(0, 13) || "Harambee Donation",
-    };
-
-    const stkRes = await fetch(`${BASE_URL}/mpesa/stkpush/v1/processrequest`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const stkData = await stkRes.json();
-
-    if (String(stkData.ResponseCode) === "0" && donation_id) {
+    if (donation_id && result.CheckoutRequestID) {
       const db = requireService();
-
-      await db
-        .from("donations")
-        .update({ checkout_request_id: stkData.CheckoutRequestID })
-        .eq("id", donation_id);
+      await db.from("donations").update({ checkout_request_id: result.CheckoutRequestID }).eq("id", donation_id);
 
       if (ENV === "sandbox") {
         const { data: donation } = await db
@@ -178,32 +165,18 @@ mpesaRouter.post("/stkpush", async (req, res) => {
 
         if (donation) {
           await withRetry(async () => {
-            await db
-              .from("donations")
-              .update({
-                status: "completed",
-                receipt_number: `SANDBOX-${Date.now()}`,
-              })
-              .eq("id", donation.id);
-
-            await db.rpc("increment_campaign_raised", {
-              campaign_id: donation.campaign_id,
-              amount: Number(donation.amount),
-            });
+            await db.from("donations").update({ status: "completed", receipt_number: `SANDBOX-${Date.now()}` }).eq("id", donation.id);
+            await db.rpc("increment_campaign_raised", { campaign_id: donation.campaign_id, amount: Number(donation.amount) });
           }, "stkpush sandbox complete");
-
           donationConfirmation({ ...donation, receipt_number: `SANDBOX-${Date.now()}` });
         }
       }
     }
 
-    res.json(stkData);
+    res.json({ CheckoutRequestID: result.CheckoutRequestID });
   } catch (e) {
     console.error("mpesa stkpush error:", e);
-    res.status(200).json({
-      errorCode: "500",
-      errorMessage: "M-Pesa request failed",
-    });
+    res.status(500).json({ error: "M-Pesa request failed" });
   }
 });
 
