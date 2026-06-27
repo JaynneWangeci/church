@@ -3,7 +3,7 @@ import { requireService } from "../lib/supabase.js";
 import { requireAdmin, requireAdminOrAbove, recalculatePledgeFulfillment } from "../lib/admin.js";
 import { sendSMS } from "../lib/sajsoft.js";
 import { withRetry } from "../lib/financial-safety.js";
-import { stkPushToPhone, donationConfirmation } from "./mpesa.js";
+import { stkPushToPhone } from "./mpesa.js";
 import { PLEDGE_VERSES, pickVerse } from "./verses.js";
 import { enqueueFollowUp } from "../lib/queue.js";
 
@@ -223,23 +223,11 @@ pledgesRouter.post("/:id/pay-with-mpesa", async (req, res) => {
     const { phone, amount } = req.body;
     if (!phone || !amount) return res.status(400).json({ error: "phone and amount required" });
 
-    const { data: pledge } = await db.from("pledges").select("*").eq("id", req.params.id).single();
+    const { data: pledge } = await db.from("pledges").select("id, donor_name, campaign_id").eq("id", req.params.id).single();
     if (!pledge) return res.status(404).json({ error: "Pledge not found" });
 
     // Try to find campaign
-    const { data: campaign } = await db
-      .from("campaigns")
-      .select("id")
-      .eq("slug", "development-fund")
-      .single();
-
-    // Auto-resolve church_member_id from donor name
-    const { data: member } = await db
-      .from("church_members")
-      .select("id")
-      .eq("is_active", true)
-      .ilike("name", pledge.donor_name);
-    const churchMemberId = member?.[0]?.id || null;
+    const { data: campaign } = await db.from("campaigns").select("id").eq("slug", "development-fund").single();
 
     // Create a donation record linked to this pledge
     const { data: donation, error: donErr } = await db
@@ -251,7 +239,6 @@ pledgesRouter.post("/:id/pay-with-mpesa", async (req, res) => {
         status: "pending",
         method: "mpesa",
         campaign_id: campaign?.id,
-        church_member_id: churchMemberId,
         account_reference: `PLD:${req.params.id}`,
         transaction_desc: "Pledge Payment",
       })
@@ -260,7 +247,7 @@ pledgesRouter.post("/:id/pay-with-mpesa", async (req, res) => {
 
     if (donErr || !donation) return res.status(500).json({ error: "Failed to create payment record" });
 
-    // Call STK Push directly (no self-HTTP request)
+    // Call STK Push directly
     const result = await stkPushToPhone(phone, Number(amount), `PLD:${req.params.id}`, "Pledge Payment");
 
     if (!result.ok || !result.CheckoutRequestID) {
@@ -271,13 +258,16 @@ pledgesRouter.post("/:id/pay-with-mpesa", async (req, res) => {
     // Save the checkout request ID on the donation
     await db.from("donations").update({ checkout_request_id: result.CheckoutRequestID }).eq("id", donation.id);
 
-    const ENV = (process.env.MPESA_ENV || "sandbox") as string;
-    if (ENV === "sandbox") {
+    // Sandbox auto-complete
+    if ((process.env.MPESA_ENV || "sandbox") === "sandbox") {
       await withRetry(async () => {
         await db.from("donations").update({ status: "completed", receipt_number: `SANDBOX-${Date.now()}` }).eq("id", donation.id);
-        await db.rpc("increment_campaign_raised", { campaign_id: donation.campaign_id, amount: Number(donation.amount) });
+        await db.rpc("increment_campaign_raised", { campaign_id: donation.campaign_id, amount: Number(donation.amount) }).catch(() => {});
       }, "pay-with-mpesa sandbox");
-      donationConfirmation({ ...donation, receipt_number: `SANDBOX-${Date.now()}` });
+      const { PAYMENT_VERSES, pickVerse } = await import("./verses.js");
+      const v = pickVerse(PAYMENT_VERSES, "en");
+      const msg = `Donation Confirmation - AIPCA Bahati Cathedral\n\nAsante sana ${pledge.donor_name}!\nYour gift of KES ${Number(amount).toLocaleString("en-KE")} has been received successfully.\n\n"${v.text}" - ${v.ref}\n\nThank you for building His house. May the Lord bless you abundantly.`;
+      sendSMS(phone, msg).catch(e => console.error("✉ SMS failed:", e));
     }
 
     res.json({ CheckoutRequestID: result.CheckoutRequestID, donation_id: donation.id });
