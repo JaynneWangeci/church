@@ -90,25 +90,6 @@ export default function LiveProgress() {
     return () => clearInterval(timer);
   }, [raised, pct, inView]);
 
-  useEffect(() => {
-    if (!inView) return;
-    setPledgeWidth(0);
-    const duration = 1200;
-    const steps = 35;
-    const stepInterval = duration / steps;
-    let step = 0;
-    const timer = setInterval(() => {
-      step++;
-      const eased = 1 - Math.pow(1 - step / steps, 3);
-      setPledgeWidth(pledgePct * eased);
-      if (step >= steps) {
-        clearInterval(timer);
-        setPledgeWidth(pledgePct);
-      }
-    }, stepInterval);
-    return () => clearInterval(timer);
-  }, [pledgePct, inView]);
-
   function handleShare() {
     const text = `🏛️ AIPCA Bahati Cathedral Harambee Progress\n\n💰 Raised: KES ${displayRaised.toLocaleString()}\n🎯 Goal: KES ${goal.toLocaleString()}\n📊 ${pct.toFixed(2)}% Complete\n\n👉 Give at https://aipcaharambee.com`;
     if (navigator.share) { navigator.share({ title: 'AIPCA Bahati Cathedral', text }).catch(() => {}); }
