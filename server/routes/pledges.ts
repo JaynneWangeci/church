@@ -408,6 +408,15 @@ pledgesRouter.patch("/:id/pay", requireAdmin, requireAdminOrAbove, async (req, r
   }
 });
 
+// TEMPORARY: Debug SMS endpoint — no auth required
+pledgesRouter.get("/debug-sms", async (req, res) => {
+  const phone = String(req.query.phone || "");
+  if (!phone) return res.json({ error: "Add ?phone=2547XXXXXXX to test" });
+  const { sendTestSMS } = await import("../lib/sajsoft.js");
+  const result = await sendTestSMS(phone);
+  res.json(result);
+});
+
 pledgesRouter.delete("/:id", requireAdmin, requireAdminOrAbove, async (req, res) => {
   try {
     const db = requireService();
