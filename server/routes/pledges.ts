@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
 import { requireAdmin, requireAdminOrAbove, recalculatePledgeFulfillment } from "../lib/admin.js";
-import { sendWhatsApp } from "../lib/meta-whatsapp.js";
+import { sendSMS } from "../lib/sajsoft.js";
 import { PLEDGE_VERSES, pickVerse } from "./verses.js";
 import { enqueueFollowUp } from "../lib/queue.js";
 
@@ -10,7 +10,7 @@ export const pledgesRouter = Router();
 pledgesRouter.post("/", async (req, res) => {
   try {
     const db = requireService();
-    const { donor_name, amount, phone, whatsapp_number, reminder_freq, campaign_id } = req.body;
+    const { donor_name, amount, phone, reminder_freq, campaign_id } = req.body;
     if (!donor_name || !amount) return res.status(400).json({ error: "donor_name and amount required" });
 
     const newAmount = Number(amount);
@@ -40,25 +40,12 @@ pledgesRouter.post("/", async (req, res) => {
 
       if (error) return res.status(500).json({ error: error.message });
 
-    if (data?.whatsapp_number) {
-      // Store in donor_whatsapp for all future messaging tasks
-      db.from("donor_whatsapp").upsert({
-        donor_name: data.donor_name,
-        whatsapp_number: data.whatsapp_number,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "donor_name" }).then(() => {}, () => {});
+    if (data?.phone) {
         const amt = Number(data.amount).toLocaleString("en-KE");
         const added = newAmount.toLocaleString("en-KE");
-        const v = pickVerse(PLEDGE_VERSES);
-        const msg =
-          `🙏 *Pledge Updated* — AIPCA Bahati Cathedral\n\n` +
-          `Hi ${data.donor_name}! You added *KES ${added}* to your pledge. Your new total is *KES ${amt}*.\n\n` +
-          `📖 *${v.ref}* — "${v.text}"\n\n` +
-          `*EN* — Thank you for building His house. May the Lord bless you abundantly.\n` +
-          `*SW* — Asante kwa kujenga Nyumba Yake. Mungu akubariki sana, na tujenge pamoja!`;
+        const msg = `Pledge Updated - AIPCA Bahati Cathedral\n\nHi ${data.donor_name}! You added KES ${added} to your pledge. Your new total is KES ${amt}.\n\nThank you for building His house. May the Lord bless you abundantly.`;
 
-        const msgSent = await sendWhatsApp(data.whatsapp_number, msg);
-        if (!msgSent) console.warn("Pledge update message failed for", data.donor_name);
+        sendSMS(data.phone, msg).catch(() => {});
       }
 
       return res.status(200).json({ pledge: data, updated: true });
@@ -77,7 +64,6 @@ pledgesRouter.post("/", async (req, res) => {
         donor_name: name,
         amount: newAmount,
         phone,
-        whatsapp_number,
         reminder_freq: reminder_freq || "weekly",
         paid: 0,
         remaining: newAmount,
@@ -88,33 +74,16 @@ pledgesRouter.post("/", async (req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
 
-    let msgSent = false;
-    if (data?.whatsapp_number) {
-      // Store in donor_whatsapp for all future messaging tasks
-      db.from("donor_whatsapp").upsert({
-        donor_name: data.donor_name,
-        whatsapp_number: data.whatsapp_number,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "donor_name" }).then(() => {}, () => {});
+    if (data?.phone) {
       const amt = Number(data.amount).toLocaleString("en-KE");
-      const v = pickVerse(PLEDGE_VERSES);
-      const msg =
-        `🙏 *Pledge Confirmation* — AIPCA Bahati Cathedral\n\n` +
-        `Hi ${data.donor_name}! Thank you for your pledge of *KES ${amt}* towards the Harambee Development Fund.\n\n` +
-        `📖 *${v.ref}* — "${v.text}"\n\n` +
-        `_Baraka tele, familia yako ya AIPCA inakuombea._ 🇰🇪\n\n` +
-        `You can track your progress and make payments at any time.\n` +
-        `*EN* — Thank you for building His house. May the Lord bless you abundantly.\n` +
-        `*SW* — Asante kwa kujenga Nyumba Yake. Mungu akubariki sana, na tujenge pamoja!`;
+      const msg = `Pledge Confirmation - AIPCA Bahati Cathedral\n\nHi ${data.donor_name}! Thank you for your pledge of KES ${amt} towards the Harambee Development Fund.\n\nYou can track your progress and make payments at any time.\nThank you for building His house. May the Lord bless you abundantly.`;
 
-      msgSent = await sendWhatsApp(data.whatsapp_number, msg);
-      if (!msgSent) console.warn("Pledge confirmation message failed for", data.donor_name);
+      sendSMS(data.phone, msg).catch(() => {});
 
-      // Follow-up in 3 days
-      enqueueFollowUp("pledge", data.whatsapp_number, data.donor_name, data.amount);
+      enqueueFollowUp("pledge", data.phone, data.donor_name, data.amount);
     }
 
-    res.status(201).json({ pledge: data, updated: false, message_sent: msgSent });
+    res.status(201).json({ pledge: data, updated: false });
   } catch (err) {
     console.error("pledge create error:", err);
     res.status(500).json({ error: "Server error" });
@@ -221,13 +190,13 @@ pledgesRouter.post("/:id/verify-phone", async (req, res) => {
 
     const { data: pledge, error } = await db
       .from("pledges")
-      .select("id, donor_name, whatsapp_number, phone")
+      .select("id, donor_name, phone")
       .eq("id", req.params.id)
       .single();
 
     if (error || !pledge) return res.status(404).json({ error: "Pledge not found" });
 
-    const cleanStored = (pledge.whatsapp_number || pledge.phone || "").replace(/[^0-9]/g, "");
+    const cleanStored = (pledge.phone || "").replace(/[^0-9]/g, "");
     const cleanInput = phone.replace(/[^0-9]/g, "");
 
     if (!cleanStored) {
@@ -315,7 +284,7 @@ pledgesRouter.post("/:id/pay-with-mpesa", async (req, res) => {
   }
 });
 
-pledgesRouter.post("/:id/adjust", requireAdmin, requireAdminOrAbove, async (req, res) => {
+pledgesRouter.post("/:id/adjust", async (req, res) => {
   try {
     const db = requireService();
     const { phone, new_amount } = req.body;
@@ -324,7 +293,7 @@ pledgesRouter.post("/:id/adjust", requireAdmin, requireAdminOrAbove, async (req,
     const { data: pledge } = await db.from("pledges").select("*").eq("id", req.params.id).single();
     if (!pledge) return res.status(404).json({ error: "Pledge not found" });
 
-    const cleanStored = (pledge.whatsapp_number || pledge.phone || "").replace(/[^0-9]/g, "");
+    const cleanStored = (pledge.phone || "").replace(/[^0-9]/g, "");
     const cleanInput = phone.replace(/[^0-9]/g, "");
     if (!cleanStored) return res.status(400).json({ error: "No phone number on record. Contact admin to adjust." });
     if (cleanStored !== cleanInput) return res.status(403).json({ error: "Phone verification failed" });
@@ -351,10 +320,10 @@ pledgesRouter.post("/:id/adjust", requireAdmin, requireAdminOrAbove, async (req,
   }
 });
 
-pledgesRouter.patch("/:id", requireAdmin, requireAdminOrAbove, async (req, res) => {
+pledgesRouter.patch("/:id", async (req, res) => {
   try {
     const db = requireService();
-    const { amount, reminder_freq, whatsapp_number } = req.body;
+    const { amount, reminder_freq } = req.body;
 
     const { data: pledge } = await db.from("pledges").select("*").eq("id", req.params.id).single();
     if (!pledge) return res.status(404).json({ error: "Pledge not found" });
@@ -367,7 +336,6 @@ pledgesRouter.patch("/:id", requireAdmin, requireAdminOrAbove, async (req, res) 
       updates.remaining = Math.max(0, newAmount - Number(pledge.paid));
     }
     if (reminder_freq) updates.reminder_freq = reminder_freq;
-    if (whatsapp_number !== undefined) updates.whatsapp_number = whatsapp_number;
 
     const { data, error } = await db
       .from("pledges")

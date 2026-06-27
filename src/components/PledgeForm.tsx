@@ -108,7 +108,7 @@ export default function PledgeForm({ onClose, onCreated, donorName: initialName 
       const res = await fetch('/api/pledges', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ donor_name: name.trim(), amount: amt, whatsapp_number: phone || null, reminder_freq: reminderFreq }),
+        body: JSON.stringify({ donor_name: name.trim(), amount: amt, phone: phone || null, reminder_freq: reminderFreq }),
       });
       if (!res.ok) { const d = await res.json(); setError(d.error || t('Something went wrong. Please try again.', 'Kuna tatizo. Tafadhali jaribu tena.')); return; }
       onCreated();
@@ -189,7 +189,7 @@ export default function PledgeForm({ onClose, onCreated, donorName: initialName 
 
           <div>
             <label className="mb-1 flex items-center gap-1.5 text-xs font-bold text-gray-700">
-              <Phone size={12} /> {t('WhatsApp Number (for reminders)', 'Nambari ya WhatsApp (kwa vikumbusho)')}
+              <Phone size={12} /> {t('Phone Number (for SMS reminders)', 'Nambari ya Simu (kwa vikumbusho vya SMS)')}
             </label>
             <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="07XX XXX XXX"
               className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-500" />
