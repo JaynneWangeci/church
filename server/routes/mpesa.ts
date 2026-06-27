@@ -89,8 +89,8 @@ export async function stkPushToPhone(
     return { ok: false, errorMessage: `Too many requests. Try again in ${phoneCheck.retryAfterMinutes} minutes.` };
   }
 
-  const flags = checkSuspiciousActivity(normalizedPhone, numericAmount, null);
-  if (flags.length) logSuspiciousActivity(flags, null);
+  const flags = checkSuspiciousActivity(normalizedPhone, numericAmount, undefined);
+  if (flags.length) logSuspiciousActivity(flags, undefined);
 
   const accessToken = await getAccessToken();
   const ts = timestamp();
@@ -309,28 +309,27 @@ mpesaRouter.get("/status/:checkoutRequestId", async (req, res) => {
       return res.json({ status: "pending" });
     }
 
-    if (ENV !== "sandbox") {
-      const accessToken = await getAccessToken();
-      const ts = timestamp();
-      const password = Buffer.from(`${SHORTCODE}${PASSKEY}${ts}`).toString("base64");
+    const accessToken = await getAccessToken();
+    const ts = timestamp();
+    const password = Buffer.from(`${SHORTCODE}${PASSKEY}${ts}`).toString("base64");
 
-      const payload = {
-        BusinessShortCode: SHORTCODE,
-        Password: password,
-        Timestamp: ts,
-        CheckoutRequestID: checkoutRequestId,
-      };
+    const payload = {
+      BusinessShortCode: SHORTCODE,
+      Password: password,
+      Timestamp: ts,
+      CheckoutRequestID: checkoutRequestId,
+    };
 
-      const statusRes = await fetch(`${BASE_URL}/mpesa/stkpushquery/v1/query`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+    const statusRes = await fetch(`${BASE_URL}/mpesa/stkpushquery/v1/query`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
 
-      const data = await statusRes.json();
+    const data = await statusRes.json();
 
       const receiptNumber = data.CallbackMetadata?.Item
         ?.find((item: any) => item.Name === "MpesaReceiptNumber")?.Value;
