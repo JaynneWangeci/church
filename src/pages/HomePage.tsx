@@ -3,6 +3,7 @@ import { Globe, MapPin, Clock, Heart, HandHeart, Phone, Share2 } from 'lucide-re
 import { useLang } from '../context/LanguageContext';
 import { useInView } from '../hooks/useInView';
 import SlideshowBackground from "../components/SlideshowBackground";
+import Ambient3D from "../components/Ambient3D";
 import ChurchHero from "../components/ChurchHero";
 import HarambeeCountdown from "../components/HarambeeCountdown";
 import LiveProgress from "../components/LiveProgress";
@@ -10,6 +11,7 @@ import AboutSection from "../components/AboutSection";
 import ContributeSection from "../components/ContributeSection";
 import MemberRegistration from "../components/MemberRegistration";
 import PledgeBoard from "../components/PledgeBoard";
+import PledgePot from "../components/PledgePot";
 import Footer from "../components/Footer";
 import FellowshipProgress from "../components/FellowshipProgress";
 import GenderCompetition from "../components/GenderCompetition";
@@ -89,6 +91,7 @@ export default function HomePage() {
       </div>
 
       <SlideshowBackground />
+      <Ambient3D />
       <div className="relative z-10 pt-4">
         {/* Countdown at top — above everything */}
         <section className="relative z-10 mb-2 px-4">
@@ -100,6 +103,9 @@ export default function HomePage() {
             <HarambeeCountdown />
           </div>
         </section>
+
+        {/* Pledge Pot — animated water-fill progress between countdown and hero */}
+        <PledgePot />
 
         <section id="hero"><ChurchHero /></section>
 
