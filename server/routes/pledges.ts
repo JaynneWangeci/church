@@ -401,11 +401,17 @@ pledgesRouter.patch("/:id/pay", requireAdmin, requireAdminOrAbove, async (req, r
     const newRemaining = Math.max(0, Number(pledge.amount) - newPaid);
     const newStatus = newRemaining <= 0 ? "fulfilled" : "pending";
 
-    await db.from("pledge_payments").insert({
-      pledge_id: req.params.id,
+    // Record payment as a real donation so recalculation picks it up
+    const { error: donErr } = await db.from("donations").insert({
+      donor_name: pledge.donor_name,
       amount: payAmount,
-      receipt_number,
+      method: "cash",
+      status: "completed",
+      campaign_id: pledge.campaign_id,
+      channel: "admin",
+      receipt_number: receipt_number || `ADMIN-${Date.now()}`,
     });
+    if (donErr) console.error("donation insert error:", donErr);
 
     const { data, error } = await db
       .from("pledges")
@@ -427,7 +433,6 @@ pledgesRouter.delete("/:id", requireAdmin, requireAdminOrAbove, async (req, res)
     const db = requireService();
     const { data: pledge } = await db.from("pledges").select("id").eq("id", req.params.id).single();
     if (!pledge) return res.status(404).json({ error: "Pledge not found" });
-    await db.from("pledge_payments").delete().eq("pledge_id", req.params.id);
     const { error } = await db.from("pledges").delete().eq("id", req.params.id);
     if (error) return res.status(500).json({ error: error.message });
     res.json({ success: true });

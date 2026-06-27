@@ -358,22 +358,13 @@ export async function recalculatePledgeFulfillment(db: any): Promise<void> {
   const { data: members } = await db.from("church_members").select("id, name").eq("is_active", true);
   const { data: donations } = await db
     .from("donations")
-    .select("id, donor_name, amount, church_member_id, honored_member_id, account_reference")
+    .select("id, donor_name, amount, church_member_id, honored_member_id")
     .eq("status", "completed");
-
-  // Also fetch pledge_payments (admin-recorded + PLD callback payments)
-  const { data: pledgePayments } = await db.from("pledge_payments").select("pledge_id, amount");
 
   if (!pledges?.length) return;
 
   const memberByName = new Map<string, string>();
   for (const m of members || []) memberByName.set(m.name.toLowerCase().trim().replace(/\s+/g, " "), m.id);
-
-  // Sum pledge_payments per pledge
-  const paymentByPledge = new Map<string, number>();
-  for (const pp of pledgePayments || []) {
-    paymentByPledge.set(pp.pledge_id, (paymentByPledge.get(pp.pledge_id) || 0) + Number(pp.amount));
-  }
 
   const updates: { id: string; paid: number; remaining: number; status: string }[] = [];
 
@@ -382,11 +373,9 @@ export async function recalculatePledgeFulfillment(db: any): Promise<void> {
     const pledgeName = pledge.donor_name.toLowerCase().trim().replace(/\s+/g, " ");
     const memberId = memberByName.get(pledgeName);
 
-    // Sum non-PLD donations linked to this member
+    // Sum all completed donations linked to this member (including PLD)
     let totalPaid = 0;
     for (const d of donations || []) {
-      const isPld = d.account_reference && String(d.account_reference).startsWith("PLD:");
-      if (isPld) continue; // already counted via pledge_payments
       const dName = d.donor_name?.toLowerCase().trim().replace(/\s+/g, " ");
       const nameMatch = dName && dName === pledgeName.replace(/\s+/g, " ");
       const memberIdMatch = memberId && (d.church_member_id === memberId || d.honored_member_id === memberId);
@@ -394,9 +383,6 @@ export async function recalculatePledgeFulfillment(db: any): Promise<void> {
         totalPaid += Number(d.amount);
       }
     }
-
-    // Add pledge_payments (admin + PLD callback)
-    totalPaid += paymentByPledge.get(pledge.id) || 0;
 
     if (totalPaid !== Number(pledge.paid)) {
       updates.push({

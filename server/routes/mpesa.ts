@@ -274,11 +274,6 @@ mpesaRouter.post("/callback", async (req, res) => {
             const newRemaining = Math.max(0, Number(pledge.amount) - newPaid);
             const newStatus = newRemaining <= 0 ? "fulfilled" : "pending";
             await db.from("pledges").update({ paid: newPaid, remaining: newRemaining, status: newStatus }).eq("id", pledgeId);
-            await db.from("pledge_payments").insert({
-              pledge_id: pledgeId,
-              amount: payAmount,
-              receipt_number: receiptNumber || `MPESA-${Date.now()}`,
-            });
           }
         }, "callback update pledge");
       }
