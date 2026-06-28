@@ -780,38 +780,51 @@ adminRouter.post("/fix-donor-phones", async (_req, res) => {
   try {
     const db = requireService();
 
-    const { data: allDons } = await db
+    // 1. Load all members into a map by id
+    const { data: allMembers } = await db.from("church_members").select("id, phone").not("phone", "is", null);
+    const memberPhone = new Map((allMembers || []).map(m => [m.id, m.phone]));
+
+    // 2. Load donations with hash in donor_phone
+    const { data: hashDons } = await db
       .from("donations")
-      .select("id, donor_name, donor_phone, church_member_id, transaction_desc");
-    if (!allDons?.length) return res.json({ message: "No donations found" });
+      .select("id, donor_phone, church_member_id")
+      .not("donor_phone", "is", null);
+    if (!hashDons?.length) return res.json({ message: "No donations with hash phone found" });
 
     const hashPattern = /^[a-f0-9]{30,}$|^\d{30,}$/;
-    let moved = 0;
-    let backfilled = 0;
+    const toSaveVc: { id: string; td: string }[] = [];
+    const toClearPhone: string[] = [];
+    const toSetPhone: { id: string; phone: string }[] = [];
 
-    for (const d of allDons) {
+    for (const d of hashDons) {
       const dp = d.donor_phone || "";
-      const isHash = hashPattern.test(dp);
+      if (!hashPattern.test(dp)) continue;
 
-      if (isHash) {
-        await db.from("donations").update({
-          transaction_desc: `VC:${dp}`,
-          donor_phone: null,
-        }).eq("id", d.id);
+      toSaveVc.push({ id: d.id, td: `VC:${dp}` });
+      toClearPhone.push(d.id);
+
+      if (d.church_member_id) {
+        const p = memberPhone.get(d.church_member_id);
+        if (p) toSetPhone.push({ id: d.id, phone: p });
+      }
+    }
+
+    let moved = 0, backfilled = 0;
+
+    if (toSaveVc.length) {
+      const ids = toSaveVc.map(x => x.id);
+      for (const { id, td } of toSaveVc) {
+        await db.from("donations").update({ transaction_desc: td }).eq("id", id);
         moved++;
       }
-
-      if (d.church_member_id && (!d.donor_phone || isHash)) {
-        const { data: member } = await db
-          .from("church_members")
-          .select("phone")
-          .eq("id", d.church_member_id)
-          .not("phone", "is", null)
-          .maybeSingle();
-        if (member?.phone) {
-          await db.from("donations").update({ donor_phone: member.phone }).eq("id", d.id);
-          backfilled++;
-        }
+    }
+    if (toClearPhone.length) {
+      await db.from("donations").update({ donor_phone: null }).in("id", toClearPhone);
+    }
+    if (toSetPhone.length) {
+      for (const { id, phone } of toSetPhone) {
+        await db.from("donations").update({ donor_phone: phone }).eq("id", id);
+        backfilled++;
       }
     }
 
