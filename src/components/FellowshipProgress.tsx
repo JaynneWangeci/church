@@ -37,17 +37,17 @@ export default function FellowshipProgress() {
   const maxTotal = Math.max(...fellowships.map(f => f.total_amount), 1);
 
   return (
-    <section className="bg-white/5 backdrop-blur-sm px-4 py-16 md:py-24">
+    <section className="sky-card-glass px-4 py-16 md:py-24">
       <div className="mx-auto max-w-5xl">
         <div className="mb-8 text-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-4 py-1.5 text-xs font-bold text-blue-300 uppercase tracking-widest">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-4 py-1.5 text-xs font-bold text-sky-700 uppercase tracking-widest">
             <Users size={12} />
             Fellowships
           </span>
-          <h2 className="mt-4 text-2xl font-bold text-white md:text-3xl">
+          <h2 className="mt-4 text-2xl font-bold text-gray-900 md:text-3xl">
             Fellowship Contributions
           </h2>
-          <p className="mx-auto mt-2 max-w-md text-sm text-blue-200/60">
+          <p className="mx-auto mt-2 max-w-md text-sm text-gray-600">
             See how each fellowship is contributing to the Harambee Development Fund
           </p>
         </div>
@@ -55,9 +55,9 @@ export default function FellowshipProgress() {
         {/* Mobile: compact ranked list */}
         <div className="space-y-1 md:hidden">
           {fellowships.map((f, i) => (
-            <div key={f.council} className="flex items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2">
+            <div key={f.council} className="flex items-center gap-2 rounded-xl border border-sky-100 bg-white px-3 py-2">
               <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold ${
-                i === 0 ? "bg-amber/20 text-amber" : i === 1 ? "bg-white/10 text-white/60" : i === 2 ? "bg-amber/10 text-amber/60" : "bg-white/5 text-white/40"
+                i === 0 ? "bg-amber text-white" : i === 1 ? "bg-sky-100 text-sky-700" : i === 2 ? "bg-amber/20 text-amber-800" : "bg-gray-100 text-gray-500"
               }`}>
                 {i + 1}
               </span>
@@ -65,14 +65,14 @@ export default function FellowshipProgress() {
                 <div className="flex items-center justify-between gap-1">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <div className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: f.color }} />
-                    <span className="text-xs font-bold text-white truncate">{f.label}</span>
+                    <span className="text-xs font-bold text-gray-800 truncate">{f.label}</span>
                   </div>
-                  <span className="text-xs font-bold text-white/80 tabular-nums shrink-0">KES {f.total_amount.toLocaleString()}</span>
+                  <span className="text-xs font-bold text-gray-600 tabular-nums shrink-0">KES {f.total_amount.toLocaleString()}</span>
                 </div>
-                <div className="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                <div className="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
                   <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${(f.total_amount / maxTotal) * 100}%`, backgroundColor: f.color }} />
                 </div>
-                <div className="flex items-center gap-1.5 text-[9px] text-white/40 mt-0.5">
+                <div className="flex items-center gap-1.5 text-[9px] text-gray-400 mt-0.5">
                   <span>{f.member_count} members</span>
                   <span>·</span>
                   <span>{f.donation_count} donations</span>
@@ -89,26 +89,26 @@ export default function FellowshipProgress() {
           {fellowships.map((f) => (
             <div
               key={f.council}
-              className="group rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-sm transition-all hover:border-white/20 hover:bg-white/[0.06]"
+              className="group rounded-2xl border border-sky-100 bg-white p-5 shadow-sm transition-all hover:shadow-md"
             >
               <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="flex h-3 w-3 rounded-full" style={{ backgroundColor: f.color }} />
-                  <h3 className="text-sm font-bold text-white">{f.label}</h3>
+                  <h3 className="text-sm font-bold text-gray-900">{f.label}</h3>
                 </div>
-                <span className="text-xs font-bold text-white/40">{f.member_count} members</span>
+                <span className="text-xs font-bold text-gray-500">{f.member_count} members</span>
               </div>
 
               <div className="mb-2 flex items-baseline justify-between">
-                <span className="text-lg font-bold text-white tabular-nums">
+                <span className="text-lg font-bold text-gray-900 tabular-nums">
                   KES {f.total_amount.toLocaleString()}
                 </span>
-                <span className="text-xs font-medium text-blue-300/70">
+                <span className="text-xs font-medium text-sky-600">
                   {f.donation_count} donation{f.donation_count !== 1 ? "s" : ""}
                 </span>
               </div>
 
-              <div className="relative h-3 overflow-hidden rounded-full bg-white/10">
+              <div className="relative h-3 overflow-hidden rounded-full bg-gray-100">
                 <div
                   className="h-full rounded-full transition-all duration-1000 ease-out"
                   style={{
@@ -119,11 +119,11 @@ export default function FellowshipProgress() {
               </div>
 
               <div className="mt-1.5 flex items-center justify-between">
-                <span className="text-xs text-white/30">
+                <span className="text-xs text-gray-500">
                   {f.percentage.toFixed(2)}% of goal
                 </span>
                 {f.donation_count > 0 && (
-                  <span className="flex items-center gap-1 text-xs text-green-400">
+                  <span className="flex items-center gap-1 text-xs text-emerald-600">
                     <TrendingUp size={10} />
                     Avg KES {Math.round(f.total_amount / f.donation_count).toLocaleString()}
                   </span>

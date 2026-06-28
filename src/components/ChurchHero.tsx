@@ -4,6 +4,7 @@ import { useLang } from '../context/LanguageContext';
 import DonationModal from './DonationModal';
 import HarambeeCountdown from './HarambeeCountdown';
 import NobukProgress from './NobukProgress';
+import LiveProgress from './LiveProgress';
 
 const TITLE = 'Building His House, Together.';
 const SW_TITLE = 'Kujenga Nyumba Yake, Pamoja.';
@@ -13,7 +14,6 @@ export default function ChurchHero() {
   const [showGive, setShowGive] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [stats, setStats] = useState({ raised: 0, goal: 0 });
 
   const heading = lang === 'en' ? TITLE : SW_TITLE;
 
@@ -28,17 +28,8 @@ export default function ChurchHero() {
     return () => clearTimeout(timer);
   }, []);
 
-  useEffect(() => {
-    fetch('/api/stats')
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (d) setStats({ raised: Number(d.total_raised) || 0, goal: Number(d.goal) || 20000000 });
-      })
-      .catch(() => {});
-  }, []);
-
   return (
-    <section className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 pt-28 pb-8">
+    <section className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 pt-16 pb-8 sm:pt-28">
       {/* Nav */}
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out ${
@@ -81,25 +72,13 @@ export default function ChurchHero() {
         </div>
       </nav>
 
-      {/* Compact progress bar */}
+      {/* Badge */}
       <div
-        className="mb-4 w-full max-w-md"
+        className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1 backdrop-blur-sm"
         style={{
           opacity: revealed ? 1 : 0,
           transform: revealed ? 'translateY(0)' : 'translateY(10px)',
           transition: 'opacity 0.6s ease-out 0.1s, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.1s',
-        }}
-      >
-        <NobukProgress raised={stats.raised} goal={stats.goal} />
-      </div>
-
-      {/* Badge */}
-      <div
-        className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1 backdrop-blur-sm"
-        style={{
-          opacity: revealed ? 1 : 0,
-          transform: revealed ? 'translateY(0)' : 'translateY(10px)',
-          transition: 'opacity 0.6s ease-out 0.15s, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.15s',
         }}
       >
         <span className="relative flex h-2 w-2">
@@ -113,13 +92,13 @@ export default function ChurchHero() {
 
       {/* Heading */}
       <h1
-        className="text-center text-[2rem] leading-[1] font-bold tracking-tight text-white sm:text-4xl md:text-5xl"
+        className="mt-3 text-center text-[2rem] leading-[1] font-bold tracking-tight text-white sm:text-4xl md:text-5xl"
         style={{
           fontFamily: '"Neue Haas Grotesk Display Pro 55 Roman", "Helvetica Neue", Arial, sans-serif',
           letterSpacing: '-0.04em',
           opacity: revealed ? 1 : 0,
           transform: revealed ? 'translateY(0) scale(1)' : 'translateY(20px) scale(0.95)',
-          transition: 'opacity 0.6s ease-out 0.3s, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.3s',
+          transition: 'opacity 0.6s ease-out 0.2s, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.2s',
         }}
       >
         {heading}
@@ -131,7 +110,7 @@ export default function ChurchHero() {
         style={{
           opacity: revealed ? 1 : 0,
           transform: revealed ? 'translateY(0)' : 'translateY(10px)',
-          transition: 'opacity 0.6s ease-out 0.4s, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.4s',
+          transition: 'opacity 0.6s ease-out 0.3s, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.3s',
         }}
       >
         <span className="italic text-[#38BDF8]/70">&ldquo;{t('Unless the Lord builds the house, its builders labour in vain.', 'Bwana asipoijenga nyumba, wajengi hufanya kazi bure.')}&rdquo;</span>
@@ -145,7 +124,7 @@ export default function ChurchHero() {
         style={{
           opacity: revealed ? 1 : 0,
           transform: revealed ? 'translateY(0)' : 'translateY(10px)',
-          transition: 'opacity 0.6s ease-out 0.5s, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.5s',
+          transition: 'opacity 0.6s ease-out 0.4s, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.4s',
         }}
       >
         <button
@@ -162,10 +141,32 @@ export default function ChurchHero() {
         className="mt-4 w-full max-w-xs rounded-xl border border-white/10 bg-white/[0.03] p-3 text-center backdrop-blur-sm"
         style={{
           opacity: revealed ? 1 : 0,
-          transition: 'opacity 0.6s ease-out 0.6s',
+          transition: 'opacity 0.6s ease-out 0.5s',
         }}
       >
         <HarambeeCountdown />
+      </div>
+
+      {/* Harambee progress — minimized above pledges */}
+      <div
+        className="mt-4 w-full max-w-sm"
+        style={{
+          opacity: revealed ? 1 : 0,
+          transition: 'opacity 0.6s ease-out 0.55s',
+        }}
+      >
+        <LiveProgress compact />
+      </div>
+
+      {/* Pledges progress — below harambee progress */}
+      <div
+        className="mt-3 w-full max-w-sm"
+        style={{
+          opacity: revealed ? 1 : 0,
+          transition: 'opacity 0.6s ease-out 0.6s',
+        }}
+      >
+        <NobukProgress />
       </div>
 
       {/* Scroll indicator */}

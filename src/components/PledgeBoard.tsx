@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Medal, Search, Heart, HandHeart, DollarSign, ExternalLink, Check, X, Church, Users, User, Send } from 'lucide-react';
+import { Medal, Search, Heart, HandHeart, DollarSign, ExternalLink, Check, X, Church, Users, User, Send, Gift } from 'lucide-react';
 import { useLang } from '../context/LanguageContext';
 import PersonalPortfolio from './PersonalPortfolio';
 import PledgeForm from './PledgeForm';
+import DonationModal from './DonationModal';
 
 function PledgeRing({ pct, size = 56 }: { pct: number; size?: number }) {
   const r = 22;
@@ -60,17 +61,19 @@ function initials(name: string) {
   return name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
 }
 
-type Section = 'pledge' | 'commit' | 'track';
+type Section = 'pledge' | 'commit' | 'track' | 'give';
 
 export default function PledgeBoard() {
   const { t } = useLang();
   const [pledges, setPledges] = useState<Pledge[]>([]);
-  const [activeSection, setActiveSection] = useState<Section>('pledge');
+  const [activeSection, setActiveSection] = useState<Section>('give');
 
   const [search, setSearch] = useState('');
   const [result, setResult] = useState<{ pledges: Pledge[]; donations: any[]; honoured: any[] } | null>(null);
   const [portfolioName, setPortfolioName] = useState<string | null>(null);
   const [showPledgeForm, setShowPledgeForm] = useState(false);
+  const [showGive, setShowGive] = useState(false);
+  const [bulging, setBulging] = useState(false);
 
   // Commit state
   const [commitSearch, setCommitSearch] = useState('');
@@ -292,6 +295,7 @@ export default function PledgeBoard() {
   }
 
   const sections: { key: Section; icon: typeof Medal; label: string; labelSw: string }[] = [
+    { key: 'give', icon: Gift, label: 'Give Now', labelSw: 'Toa Sasa' },
     { key: 'pledge', icon: HandHeart, label: 'Make a Pledge', labelSw: 'Weka Ahadi' },
     { key: 'commit', icon: DollarSign, label: 'Redeem', labelSw: 'Komboa' },
     { key: 'track', icon: Search, label: 'Track Progress', labelSw: 'Fuatilia Maendeleo' },
@@ -309,17 +313,22 @@ export default function PledgeBoard() {
           <h2 className="mt-3 text-2xl font-bold text-gray-900">{t('See who has pledged and track fulfilment', 'Tazama walioahidi na ufuatilie utimilifu')}</h2>
 
           {/* Tab bar */}
-          <div className="mx-auto mt-6 flex max-w-lg rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
+          <div className="mx-auto mt-6 flex max-w-2xl gap-1.5 rounded-2xl bg-gray-100/80 p-1.5 shadow-inner">
             {TABS.map(s => {
               const Icon = s.icon;
               const isActive = activeSection === s.key;
               return (
                 <button key={s.key} onClick={() => setActiveSection(s.key)}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-all ${
-                    isActive ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  className={`relative flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold transition-all duration-200 ${
+                    isActive
+                      ? 'bg-white text-sky-900 shadow-lg shadow-sky-900/10 scale-[1.02]'
+                      : 'text-gray-500 hover:text-gray-800 hover:bg-white/50'
                   }`}>
-                  <Icon size={14} />
+                  <Icon size={15} className={isActive ? 'text-sky-600' : 'text-gray-400'} />
                   {t(s.label, s.labelSw)}
+                  {isActive && (
+                    <span className="absolute -bottom-0.5 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-sky-500" />
+                  )}
                 </button>
               );
             })}
@@ -610,7 +619,6 @@ export default function PledgeBoard() {
                             <Heart size={12} className="text-amber-500" />
                             <div>
                               <span className="text-xs text-gray-700">{h.honour_known_as || h.donor_name || t('Anonymous', 'Asiyejulikana')}</span>
-                              {h.phone && <p className="text-[10px] text-gray-400">{h.phone}</p>}
                             </div>
                           </div>
                           <span className="text-xs font-bold text-amber-700">KES {Number(h.amount).toLocaleString()}</span>
@@ -629,11 +637,37 @@ export default function PledgeBoard() {
                     <ExternalLink size={18} /> {t('View Full Portfolio', 'Tazama Wasifu Kamili')}
                   </button>
                 )}
-              </div>
-            )}
+            </div>
+          )}
+          </div>
+        )}
+
+        {/* ── Section 4: Give Now ── */}
+        {activeSection === 'give' && (
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
+              <Gift size={28} className="text-amber-600" />
+            </div>
+            <h3 className="mb-2 text-lg font-bold text-gray-900">{t('Give to the Harambee', 'Toa kwa Harambee')}</h3>
+            <p className="mb-6 text-sm text-gray-500 max-w-md mx-auto">
+              {t('Make a direct donation to the AIPCA Bahati Cathedral Development Fund. Every contribution makes a difference.',
+                'Toa mchango wa moja kwa moja kwa Mfuko wa Maendeleo wa AIPCA Bahati Cathedral. Kila mchango unaleta mabadiliko.')}
+            </p>
+            <button type="button" onClick={() => { setBulging(true); setShowGive(true); setTimeout(() => setBulging(false), 400); }}
+              className={`btn-lift inline-flex items-center gap-2 rounded-full bg-amber-600 px-8 py-3.5 text-sm font-bold text-white shadow-sm hover:bg-amber-700 transition-all ${bulging ? 'scale-110' : ''}`}>
+              <Gift size={18} />
+              {t('Give Now', 'Toa Sasa')}
+            </button>
           </div>
         )}
       </div>
+
+      {showGive && (
+        <DonationModal
+          member={{ id: 'general', name: '' }}
+          onClose={() => setShowGive(false)}
+        />
+      )}
 
       {portfolioName && (
         <PersonalPortfolio name={portfolioName} onClose={() => setPortfolioName(null)} />

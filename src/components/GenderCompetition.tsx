@@ -30,17 +30,17 @@ export default function GenderCompetition() {
   const diff = Math.abs(data.male - data.female);
 
   return (
-    <section id="gender-challenge" className="bg-white/5 backdrop-blur-sm px-4 py-16 md:py-24">
+    <section id="gender-challenge" className="sky-card-glass px-4 py-16 md:py-24">
       <div className="mx-auto max-w-3xl">
         <div className="mb-8 text-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-4 py-1.5 text-xs font-bold text-blue-300 uppercase tracking-widest">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-4 py-1.5 text-xs font-bold text-sky-700 uppercase tracking-widest">
             <Users size={12} />
             Men vs Women
           </span>
-          <h2 className="mt-4 text-2xl font-bold text-white md:text-3xl">
+          <h2 className="mt-4 text-2xl font-bold text-gray-900 md:text-3xl">
             Men vs Women Challenge
           </h2>
-          <p className="mx-auto mt-2 max-w-md text-sm text-blue-200/60">
+          <p className="mx-auto mt-2 max-w-md text-sm text-gray-600">
             See which group is leading in contributions to the Harambee Development Fund
           </p>
         </div>
@@ -48,13 +48,13 @@ export default function GenderCompetition() {
         {/* Live leader indicator */}
         <div className="mb-6 text-center">
           {leading === "tied" ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 px-4 py-2 text-sm font-bold text-amber-300">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-4 py-2 text-sm font-bold text-amber-800">
               <TrendingUp size={16} />
               It's a tie!
             </span>
           ) : (
             <span className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold ${
-              leading === "men" ? "bg-blue-500/20 text-blue-300" : "bg-pink-500/20 text-pink-300"
+              leading === "men" ? "bg-blue-100 text-blue-800" : "bg-pink-100 text-pink-800"
             }`}>
               <TrendingUp size={16} />
               {leading === "men" ? "Men" : "Women"} leading by KES {diff.toLocaleString()}
@@ -65,18 +65,18 @@ export default function GenderCompetition() {
         {/* Progress bars */}
         <div className="space-y-5">
           {/* Men */}
-          <div className="rounded-2xl border border-blue-400/20 bg-white/[0.03] p-4 backdrop-blur-sm">
+          <div className="rounded-2xl border border-blue-200 bg-white p-4 shadow-sm">
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="h-3 w-3 rounded-full bg-blue-500" />
-                <span className="text-sm font-bold text-white">Men</span>
+                <span className="text-sm font-bold text-gray-900">Men</span>
               </div>
               <div className="text-right">
-                <span className="text-lg font-bold text-blue-300 tabular-nums">KES {data.male.toLocaleString()}</span>
-                <span className="ml-2 text-xs text-white/40">({data.male_members} members)</span>
+                <span className="text-lg font-bold text-blue-700 tabular-nums">KES {data.male.toLocaleString()}</span>
+                <span className="ml-2 text-xs text-gray-500">({data.male_members} members)</span>
               </div>
             </div>
-            <div className="relative h-5 overflow-hidden rounded-full bg-white/10">
+            <div className="relative h-5 overflow-hidden rounded-full bg-gray-100">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-blue-600 to-blue-400 transition-all duration-1000 ease-out"
                 style={{ width: `${Math.max(malePct, 1)}%` }}
@@ -88,18 +88,18 @@ export default function GenderCompetition() {
           </div>
 
           {/* Women */}
-          <div className="rounded-2xl border border-pink-400/20 bg-white/[0.03] p-4 backdrop-blur-sm">
+          <div className="rounded-2xl border border-pink-200 bg-white p-4 shadow-sm">
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="h-3 w-3 rounded-full bg-pink-500" />
-                <span className="text-sm font-bold text-white">Women</span>
+                <span className="text-sm font-bold text-gray-900">Women</span>
               </div>
               <div className="text-right">
-                <span className="text-lg font-bold text-pink-300 tabular-nums">KES {data.female.toLocaleString()}</span>
-                <span className="ml-2 text-xs text-white/40">({data.female_members} members)</span>
+                <span className="text-lg font-bold text-pink-700 tabular-nums">KES {data.female.toLocaleString()}</span>
+                <span className="ml-2 text-xs text-gray-500">({data.female_members} members)</span>
               </div>
             </div>
-            <div className="relative h-5 overflow-hidden rounded-full bg-white/10">
+            <div className="relative h-5 overflow-hidden rounded-full bg-gray-100">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-pink-600 to-pink-400 transition-all duration-1000 ease-out"
                 style={{ width: `${Math.max(femalePct, 1)}%` }}
@@ -112,8 +112,8 @@ export default function GenderCompetition() {
         </div>
 
         {/* Total */}
-        <div className="mt-4 text-center text-xs text-blue-200/50">
-          Total contributed: KES {total.toLocaleString()}
+        <div className="mt-4 text-center text-xs text-gray-500">
+          Total contributions: KES {total.toLocaleString()}
         </div>
       </div>
     </section>

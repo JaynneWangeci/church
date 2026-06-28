@@ -107,12 +107,12 @@ export default function MemberRegistration() {
       <section className="px-4 py-16 sky-card-glass">
         <div className="mx-auto max-w-md text-center">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-emerald-500/20 px-4 py-1.5 backdrop-blur-sm">
-            <CheckCircle size={14} className="text-emerald-300" />
-            <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">{isUpdating ? 'Updated' : 'Registered'}</span>
+            <CheckCircle size={14} className="text-emerald-600" />
+            <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">{isUpdating ? 'Updated' : 'Registered'}</span>
           </div>
-          <p className="mb-4 text-lg font-bold text-white">{message}</p>
+          <p className="mb-4 text-lg font-bold text-gray-900">{message}</p>
           <button onClick={() => { setDone(false); setName(''); setCouncil(''); setGender(''); setMessage(''); setSelectedMemberId(null); }}
-            className="rounded-full bg-white/10 px-6 py-2 text-sm font-semibold text-white/80 backdrop-blur-sm hover:bg-white/20 transition">
+            className="rounded-full bg-white/60 px-6 py-2 text-sm font-semibold text-gray-700 backdrop-blur-sm hover:bg-white/80 transition">
             {isUpdating ? 'Update another' : 'Register another member'}
           </button>
         </div>
@@ -124,25 +124,25 @@ export default function MemberRegistration() {
     <section className="px-4 py-16 sky-card-glass">
       <div className="mx-auto max-w-md">
         <div className="mb-6 text-center">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-blue-500/20 px-4 py-1.5 backdrop-blur-sm">
-            <UserPlus size={14} className="text-blue-300" />
-            <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">{isUpdating ? 'Update' : t('Register', 'Jiandikisha')}</span>
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-sky-500/15 px-4 py-1.5 backdrop-blur-sm">
+            <UserPlus size={14} className="text-sky-600" />
+            <span className="text-xs font-bold text-sky-700 uppercase tracking-wider">{isUpdating ? 'Update' : t('Register', 'Jiandikisha')}</span>
           </div>
-          <h2 className="text-xl font-bold text-white">{isUpdating ? 'Update Your Details' : t('Join Our Church Family', 'Jiunge na Familia ya Kanisa')}</h2>
-          <p className="mt-1 text-sm text-blue-200/70">
+          <h2 className="text-xl font-bold text-gray-900">{isUpdating ? 'Update Your Details' : t('Join Our Church Family', 'Jiunge na Familia ya Kanisa')}</h2>
+          <p className="mt-1 text-sm text-gray-600">
             {isUpdating
               ? 'Change your fellowship or gender below, then save.'
               : t('Register your name and fellowship so your donations are counted.', 'Andika jina lako na ushirika ili michango yako ihesabiwe.')}
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-blue-400/20 bg-white/5 p-6 backdrop-blur-sm">
+        <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-sky-200 bg-white/70 p-6 backdrop-blur-sm">
           <div ref={dropdownRef} className="relative">
-            <label className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-white">
-              <UserPlus size={14} className="text-blue-300" /> {t('Your Name', 'Jina Lako')}
+            <label className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-gray-800">
+              <UserPlus size={14} className="text-sky-600" /> {t('Your Name', 'Jina Lako')}
             </label>
             <div className="relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-300/50" />
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input type="text" value={name} onChange={e => {
                 const val = e.target.value;
                 setName(val);
@@ -170,12 +170,12 @@ export default function MemberRegistration() {
                   }
                 }}
                 placeholder={t('Type your name or select from list...', 'Andika jina lako au chagua kutoka orodha...')}
-                className="w-full rounded-xl border border-blue-400/20 bg-white/10 pl-9 pr-3 py-3 text-sm text-white outline-none transition focus:border-blue-300 placeholder:text-blue-300/40" />
+                className="w-full rounded-xl border border-sky-200 bg-white pl-9 pr-3 py-3 text-sm text-gray-900 outline-none transition focus:border-sky-500 placeholder:text-gray-400" />
             </div>
             {showSuggestions && (name.trim() || suggestions.length > 0) && (
-              <div className="absolute top-full left-0 right-0 z-30 mt-1 max-h-60 overflow-y-auto rounded-xl border border-blue-400/20 bg-white/90 backdrop-blur-md shadow-xl backdrop-blur-sm">
+              <div className="absolute top-full left-0 right-0 z-30 mt-1 max-h-60 overflow-y-auto rounded-xl border border-sky-200 bg-white shadow-xl">
                 {searching ? (
-                  <div className="flex items-center justify-center py-4"><Loader2 size={16} className="animate-spin text-blue-300" /></div>
+                  <div className="flex items-center justify-center py-4"><Loader2 size={16} className="animate-spin text-sky-500" /></div>
                 ) : suggestions.length > 0 ? (
                   (() => {
                     const councilsInResults = [...new Set(suggestions.map((m: any) => m.council))];
@@ -183,21 +183,21 @@ export default function MemberRegistration() {
                       const members = suggestions.filter((m: any) => m.council === council);
                       return (
                         <div key={council}>
-                          <div className="sticky top-0 flex items-center gap-2 bg-blue-900/60 px-3 py-1.5">
-                            <Church size={10} className="text-blue-300" />
-                            <span className="text-[10px] font-bold text-blue-300 uppercase tracking-wider">{COUNCIL_LABELS[council] || council.replace(/_/g, " ")}</span>
+                          <div className="sticky top-0 flex items-center gap-2 bg-sky-50 px-3 py-1.5">
+                            <Church size={10} className="text-sky-500" />
+                            <span className="text-[10px] font-bold text-sky-700 uppercase tracking-wider">{COUNCIL_LABELS[council] || council.replace(/_/g, " ")}</span>
                           </div>
                           {members.map((m: any) => (
                             <button key={m.id} type="button" onClick={() => handleSelectMember(m)}
-                              className="flex w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-white/10">
-                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-400/20 text-xs font-bold text-blue-200">
+                              className="flex w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-sky-50">
+                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-100 text-xs font-bold text-sky-700">
                                 {m.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-white truncate">{m.name}</p>
-                                <p className="text-[10px] text-blue-300/60">{COUNCIL_LABELS[m.council] || m.council?.replace(/_/g, " ")}{m.gender ? ` · ${m.gender}` : ""}</p>
+                                <p className="text-sm font-medium text-gray-900 truncate">{m.name}</p>
+                                <p className="text-[10px] text-gray-500">{COUNCIL_LABELS[m.council] || m.council?.replace(/_/g, " ")}{m.gender ? ` · ${m.gender}` : ""}</p>
                               </div>
-                              <span className="shrink-0 text-[10px] text-blue-300 underline">Select</span>
+                              <span className="shrink-0 text-[10px] text-sky-600 underline">Select</span>
                             </button>
                           ))}
                         </div>
@@ -205,8 +205,8 @@ export default function MemberRegistration() {
                     });
                   })()
                 ) : (
-                  <div className="px-3 py-3 text-center text-xs text-blue-300/60">
-                    Will be registered as: <span className="font-bold text-white">{name}</span>
+                  <div className="px-3 py-3 text-center text-xs text-gray-400">
+                    Will be registered as: <span className="font-bold text-gray-900">{name}</span>
                   </div>
                 )}
               </div>
@@ -214,12 +214,12 @@ export default function MemberRegistration() {
           </div>
 
           <div>
-            <label className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-white">
-              <Church size={14} className="text-blue-300" /> {t('Fellowship', 'Ushirika')}
+            <label className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-gray-800">
+              <Church size={14} className="text-sky-600" /> {t('Fellowship', 'Ushirika')}
             </label>
             <select value={council} onChange={e => setCouncil(e.target.value)}
-              className="w-full rounded-xl border border-blue-400/20 bg-white/10 px-4 py-3 text-sm text-white outline-none transition focus:border-blue-300">
-              <option value="" className="text-gray-800">{t('Select your fellowship...', 'Chagua ushirika wako...')}</option>
+              className="w-full rounded-xl border border-sky-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-sky-500">
+              <option value="" className="text-gray-500">{t('Select your fellowship...', 'Chagua ushirika wako...')}</option>
               {councils.map(c => (
                 <option key={c.slug} value={c.slug} className="text-gray-800">{c.name}</option>
               ))}
@@ -227,12 +227,12 @@ export default function MemberRegistration() {
           </div>
 
           <div>
-            <label className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-white">
-              <Users size={14} className="text-blue-300" /> {t('Gender', 'Jinsia')} <span className="text-red-400">*</span>
+            <label className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-gray-800">
+              <Users size={14} className="text-sky-600" /> {t('Gender', 'Jinsia')} <span className="text-red-500">*</span>
             </label>
             <select value={gender} onChange={e => setGender(e.target.value)}
-              className="w-full rounded-xl border border-blue-400/20 bg-white/10 px-4 py-3 text-sm text-white outline-none transition focus:border-blue-300">
-              <option value="" className="text-gray-800">{t('Select gender...', 'Chagua jinsia...')}</option>
+              className="w-full rounded-xl border border-sky-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-sky-500">
+              <option value="" className="text-gray-500">{t('Select gender...', 'Chagua jinsia...')}</option>
               <option value="male" className="text-gray-800">{t('Male', 'Mwanaume')}</option>
               <option value="female" className="text-gray-800">{t('Female', 'Mwanamke')}</option>
             </select>
@@ -241,17 +241,16 @@ export default function MemberRegistration() {
           {message && (
             <div className={`rounded-xl px-4 py-3 text-sm ${
               message.includes('Thank you') || message.includes('Welcome back') || message.includes('Updated') || message.includes('Editing')
-                ? 'bg-blue-500/20 text-blue-200'
-                : 'bg-red-500/20 text-red-200'
+                ? 'bg-sky-50 text-sky-800'
+                : 'bg-red-50 text-red-700'
             }`}>
               {message}
             </div>
           )}
 
-          <button type="submit" disabled={loading || !name.trim() || !council || !gender}
-            className="btn-lift flex w-full items-center justify-center gap-2 rounded-full bg-amber px-5 py-3 text-sm font-bold text-ink shadow-lg hover:bg-amber/90 disabled:cursor-not-allowed disabled:opacity-40 transition">
-            {loading ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
-            {loading ? (isUpdating ? 'Updating...' : t('Registering...', 'Inaandikisha...')) : (isUpdating ? 'Save Changes' : t('Register', 'Jiandikisha'))}
+          <button type="submit" disabled={loading}
+            className="w-full rounded-full bg-sky-600 py-3.5 text-sm font-bold text-white hover:bg-sky-700 transition disabled:opacity-40">
+            {loading ? (isUpdating ? 'Saving...' : t('Registering...', 'Inaandikisha...')) : (isUpdating ? 'Save Changes' : t('Register Now', 'Jiandikisha Sasa'))}
           </button>
         </form>
       </div>

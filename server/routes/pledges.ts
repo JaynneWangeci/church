@@ -125,6 +125,26 @@ pledgesRouter.get("/", async (_req, res) => {
   }
 });
 
+pledgesRouter.get("/totals/public", async (_req, res) => {
+  try {
+    const db = requireService();
+    const { data } = await db
+      .from("pledges")
+      .select("amount, paid");
+    const totals = (data || []).reduce(
+      (acc, p) => ({
+        total_pledged: acc.total_pledged + Number(p.amount),
+        total_paid: acc.total_paid + Number(p.paid),
+      }),
+      { total_pledged: 0, total_paid: 0 }
+    );
+    res.json(totals);
+  } catch (err) {
+    console.error("pledge totals error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 pledgesRouter.get("/:name", async (req, res) => {
   try {
     const db = requireService();

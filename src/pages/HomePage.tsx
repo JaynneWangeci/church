@@ -6,7 +6,6 @@ import useParallax from '../hooks/useParallax';
 import SlideshowBackground from "../components/SlideshowBackground";
 import Ambient3D from "../components/Ambient3D";
 import ChurchHero from "../components/ChurchHero";
-import LiveProgress from "../components/LiveProgress";
 import AboutSection from "../components/AboutSection";
 import ContributeSection from "../components/ContributeSection";
 import MemberRegistration from "../components/MemberRegistration";
@@ -21,7 +20,7 @@ const SECTIONS = [
   { id: 'register', label: 'Register' },
   { id: 'contribute', label: 'Honour' },
   { id: 'pledge-board', label: 'Pledge' },
-  { id: 'live-progress', label: 'Progress' },
+
   { id: 'fellowships', label: 'Fellowships' },
   { id: 'gender-challenge', label: 'Men vs Women' },
   { id: 'about', label: 'About' },
@@ -102,7 +101,6 @@ export default function HomePage() {
 
         <section id="register" data-parallax="0.08"><MemberRegistration /></section>
         <div data-parallax="-0.05"><ContributeSection /></div>
-        <section id="live-progress" data-parallax="-0.04"><LiveProgress /></section>
         <section id="fellowships" data-parallax="0.05"><FellowshipProgress /></section>
         <div data-parallax="-0.03"><GenderCompetition /></div>
         <section data-parallax="0.04"><AboutSection /></section>

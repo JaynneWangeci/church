@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { TrendingUp, Target, Zap, ExternalLink, Clock, Share2 } from 'lucide-react';
 import { useInView } from '../hooks/useInView';
 
-export default function LiveProgress() {
+export default function LiveProgress({ compact }: { compact?: boolean }) {
   const [raised, setRaised] = useState(0);
   const [goal, setGoal] = useState(30000000);
   const [displayRaised, setDisplayRaised] = useState(0);
@@ -94,6 +94,66 @@ export default function LiveProgress() {
     const text = `🏛️ AIPCA Bahati Cathedral Harambee Progress\n\n💰 Raised: KES ${displayRaised.toLocaleString()}\n🎯 Goal: KES ${goal.toLocaleString()}\n📊 ${pct.toFixed(2)}% Complete\n\n👉 Give at https://aipcaharambee.com`;
     if (navigator.share) { navigator.share({ title: 'AIPCA Bahati Cathedral', text }).catch(() => {}); }
     else { window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank'); }
+  }
+
+  if (compact) {
+    return (
+      <div ref={ref} className="w-full rounded-xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-sm">
+        {recentDonations.length > 0 && (
+          <div className="mb-2 flex items-center gap-2 overflow-hidden rounded-lg border border-white/5 bg-white/[0.02] px-3 py-1.5">
+            <span className="relative flex h-1.5 w-1.5 shrink-0">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-400" />
+            </span>
+            <div className="relative flex-1 overflow-hidden" style={{ maskImage: 'linear-gradient(90deg, transparent 0, #000 20px, #000 calc(100% - 20px), transparent 100%)' }}>
+              <div className="flex animate-marquee gap-8" style={{ width: 'max-content' }}>
+                {[...recentDonations, ...recentDonations].map((d, i) => (
+                  <span key={i} className="flex shrink-0 items-center gap-1.5 text-[10px] whitespace-nowrap">
+                    <span className="font-medium text-white/70">{d.donor_name || 'Anonymous'}</span>
+                    <span className="font-semibold text-amber">KES {Number(d.amount).toLocaleString()}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="mb-2 flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-red-400" />
+            </span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-white/50">Harambee</span>
+          </div>
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-amber/30 bg-amber/10">
+            <span className="text-xs font-bold text-amber tabular-nums">{pct.toFixed(0)}%</span>
+          </div>
+        </div>
+        <div className="mb-3 flex items-end justify-between gap-2">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-widest text-white/40">Raised</p>
+            <p className="text-xl font-bold text-white tabular-nums leading-tight">KES {displayRaised.toLocaleString()}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs font-medium uppercase tracking-widest text-white/40">Goal</p>
+            <p className="text-sm font-semibold text-white/50 tabular-nums leading-tight">KES {goal.toLocaleString()}</p>
+          </div>
+        </div>
+        <div ref={barRef} className="h-3 overflow-hidden rounded-full bg-white/5 shadow-inner">
+          <div
+            className="relative h-full rounded-full transition-all duration-500 ease-out"
+            style={{
+              width: `${width}%`,
+              background: 'linear-gradient(90deg, #C4964A, #D4A853, #E8C06A, #C4964A)',
+              backgroundSize: '200% 100%',
+              animation: 'shimmer 3s linear infinite',
+            }}
+          >
+            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/30 to-transparent animate-progress-shine" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -241,7 +301,7 @@ export default function LiveProgress() {
           {/* Share button */}
           <div className="mt-6 flex justify-center">
             <button onClick={handleShare}
-              className="group inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-5 py-2 text-xs font-semibold text-white/50 transition-all duration-300 hover:border-amber/30 hover:bg-amber/5 hover:text-amber hover:shadow-lg hover:shadow-amber/10">
+              className="group inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-5 py-2 text-xs font-semibold text-white/50 transition-all duration-300 hover:border-amber/30 hover:bg-amber/5 hover:text-amber hover:shadow-lg hover:shadow-amber/10">
               <Share2 size={14} className="transition-all duration-300 group-hover:scale-110" />
               Share Progress
             </button>
