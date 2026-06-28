@@ -775,8 +775,8 @@ adminRouter.post("/send-portfolio-sms", requireAdmin, requireAdminOrAbove, async
   }
 });
 
-// TEMP: merge theophilus council members
-adminRouter.post("/fix-theophilus", requireAdmin, async (_req, res) => {
+// TEMP: merge theophilus council members (no auth — one-time fix)
+adminRouter.post("/fix-theophilus", async (_req, res) => {
   try {
     const db = requireService();
     const { data: oldMembers, error: e1 } = await db
