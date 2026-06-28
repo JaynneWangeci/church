@@ -458,11 +458,12 @@ async function handleC2BConfirmation(req: any, res: any) {
       .from("campaigns").select("id").eq("slug", "development-fund").single();
 
     const { data: donation } = await withRetry(async () => {
+      const vc = phone ? require("crypto").createHash("sha256").update(phone).digest("hex") : null;
       return await db.from("donations").insert({
-        donor_name: donorName, amount, phone, status: "completed", method: "mpesa",
+        donor_name: donorName, amount, donor_phone: phone, status: "completed", method: "mpesa",
         receipt_number: receiptNumber, church_member_id: memberId,
         campaign_id: campaign?.id, account_reference: accountRef,
-        transaction_desc: "Paybill Direct",
+        transaction_desc: vc ? `VC:${vc}` : "Paybill Direct",
       }).select().single();
     }, "c2b insert donation");
 

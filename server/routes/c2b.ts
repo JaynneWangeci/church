@@ -194,6 +194,7 @@ c2bRouter.post("/confirmation", async (req, res) => {
       }
     }
 
+    const vc = phone ? require("crypto").createHash("sha256").update(phone).digest("hex") : null;
     await db.from("donations").insert({
       campaign_id: campaign.id,
       donor_name: payerName,
@@ -204,9 +205,9 @@ c2bRouter.post("/confirmation", async (req, res) => {
       account_reference: accountRef || null,
       transaction_id: TransID,
       donor_phone: phone || null,
-      phone: phone || null,
       honored_member_id: honoredMemberId,
       church_member_id: memberId,
+      transaction_desc: vc ? `VC:${vc}` : null,
     });
 
     // Backfill phone into church_members

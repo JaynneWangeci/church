@@ -375,7 +375,7 @@ adminRouter.get("/fellowship-report", requireAdmin, async (req, res) => {
     // Campaign-scoped completed donations
     let donationQuery = db
       .from("donations")
-      .select("id, amount, donor_name, method, phone, church_member_id, created_at")
+      .select("id, amount, donor_name, method, donor_phone, church_member_id, created_at")
       .eq("status", "completed");
     if (campaignId) donationQuery = donationQuery.eq("campaign_id", campaignId);
     const { data: allDonations } = await donationQuery;
@@ -448,11 +448,11 @@ adminRouter.get("/fellowship-report", requireAdmin, async (req, res) => {
         const key = rawName.toLowerCase().trim();
         if (donorMap.has(key)) {
           donorMap.get(key)!.total += Number(d.amount);
-          if (d.phone && !donorMap.get(key)!.phones.includes(d.phone)) {
-            donorMap.get(key)!.phones.push(d.phone);
+          if (d.donor_phone && !donorMap.get(key)!.phones.includes(d.donor_phone)) {
+            donorMap.get(key)!.phones.push(d.donor_phone);
           }
         } else {
-          donorMap.set(key, { name: rawName, total: Number(d.amount), phones: d.phone ? [d.phone] : [] });
+          donorMap.set(key, { name: rawName, total: Number(d.amount), phones: d.donor_phone ? [d.donor_phone] : [] });
         }
       }
       const topDonors = Array.from(donorMap.values())
@@ -772,6 +772,52 @@ adminRouter.post("/send-portfolio-sms", requireAdmin, requireAdminOrAbove, async
   } catch (err) {
     console.error("portfolio sms error:", err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+// TEMP: move hash codes from donor_phone → transaction_desc, backfill real phones
+adminRouter.post("/fix-donor-phones", async (_req, res) => {
+  try {
+    const db = requireService();
+
+    const { data: allDons } = await db
+      .from("donations")
+      .select("id, donor_name, donor_phone, church_member_id, transaction_desc");
+    if (!allDons?.length) return res.json({ message: "No donations found" });
+
+    const hashPattern = /^[a-f0-9]{30,}$|^\d{30,}$/;
+    let moved = 0;
+    let backfilled = 0;
+
+    for (const d of allDons) {
+      const dp = d.donor_phone || "";
+      const isHash = hashPattern.test(dp);
+
+      if (isHash) {
+        await db.from("donations").update({
+          transaction_desc: `VC:${dp}`,
+          donor_phone: null,
+        }).eq("id", d.id);
+        moved++;
+      }
+
+      if (d.church_member_id && (!d.donor_phone || isHash)) {
+        const { data: member } = await db
+          .from("church_members")
+          .select("phone")
+          .eq("id", d.church_member_id)
+          .not("phone", "is", null)
+          .maybeSingle();
+        if (member?.phone) {
+          await db.from("donations").update({ donor_phone: member.phone }).eq("id", d.id);
+          backfilled++;
+        }
+      }
+    }
+
+    res.json({ hash_codes_moved: moved, phones_backfilled: backfilled });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || String(err) });
   }
 });
 
