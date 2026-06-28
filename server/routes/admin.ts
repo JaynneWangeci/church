@@ -775,48 +775,6 @@ adminRouter.post("/send-portfolio-sms", requireAdmin, requireAdminOrAbove, async
   }
 });
 
-// TEMP: rename fake PLD members to their real donor names
-adminRouter.post("/fix-pld-member-names", async (_req, res) => {
-  try {
-    const db = requireService();
-    const { data: fakeMembers } = await db
-      .from("church_members")
-      .select("id, name")
-      .ilike("name", "PLD:%");
-    if (!fakeMembers?.length) return res.json({ fixed: 0, message: "No PLD members found" });
-    const results: { id: string; old_name: string; new_name: string; merged: boolean }[] = [];
-    for (const fm of fakeMembers) {
-      const shortId = fm.name.replace("PLD:", "").toLowerCase();
-      const { data: pledges } = await db.from("pledges").select("id, donor_name");
-      const pledge = (pledges || []).find(p => p.id.toLowerCase().startsWith(shortId));
-      if (!pledge) {
-        results.push({ id: fm.id, old_name: fm.name, new_name: "UNMATCHED", merged: false });
-        continue;
-      }
-      const realName = pledge.donor_name;
-      // Check if a real member with this name already exists
-      const { data: existing } = await db
-        .from("church_members")
-        .select("id")
-        .eq("is_active", true)
-        .ilike("name", realName);
-      if (existing?.length && existing[0].id !== fm.id) {
-        // Merge: reassign donations to real member, then delete fake member
-        await db.from("donations").update({ church_member_id: existing[0].id }).eq("church_member_id", fm.id);
-        await db.from("church_members").delete().eq("id", fm.id);
-        results.push({ id: fm.id, old_name: fm.name, new_name: realName, merged: true });
-      } else {
-        // Rename the fake member to the real name
-        await db.from("church_members").update({ name: realName }).eq("id", fm.id);
-        results.push({ id: fm.id, old_name: fm.name, new_name: realName, merged: false });
-      }
-    }
-    res.json({ fixed: results.length, results });
-  } catch (err: any) {
-    res.status(500).json({ error: err?.message || String(err) });
-  }
-});
-
 adminRouter.post("/test-sms", requireAdmin, async (req, res) => {
   try {
     const { phone } = req.body;
