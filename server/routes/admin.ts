@@ -792,40 +792,30 @@ adminRouter.post("/send-portfolio-sms", requireAdmin, requireAdminOrAbove, async
   }
 });
 
-// TEMP: create sms_logs table
+// TEMP: show SQL to create sms_logs table via Supabase dashboard SQL editor
 adminRouter.post("/create-sms-logs-table", async (_req, res) => {
-  try {
-    const { default: { Pool } } = await import("pg");
-    const candidates = ["DATABASE_URL", "DIRECT_URL", "POSTGRES_URL", "SUPABASE_DB_URL", "SUPABASE_URL"];
-    let dbUrl: string | undefined;
-    for (const key of candidates) {
-      const val = process.env[key];
-      if (val && (val.includes("postgres") || val.includes("supabase"))) { dbUrl = val; break; }
-    }
-    if (!dbUrl) return res.json({ created: false, error: "No database URL available", checked: candidates.map(k => ({ key: k, exists: !!process.env[k] })) });
-    const pool = new Pool({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
-    await pool.query(`
-      create table if not exists sms_logs (
-        id uuid primary key default gen_random_uuid(),
-        phone text not null,
-        message_preview text,
-        status text not null default 'sent',
-        message_id text,
-        cost numeric,
-        error text,
-        context text,
-        context_id text,
-        created_at timestamptz not null default now()
-      );
-      create index if not exists idx_sms_logs_created on sms_logs(created_at desc);
-      create index if not exists idx_sms_logs_status on sms_logs(status);
-      create index if not exists idx_sms_logs_context on sms_logs(context);
-    `);
-    await pool.end();
-    res.json({ created: true });
-  } catch (err: any) {
-    res.status(500).json({ created: false, error: err?.message || String(err) });
-  }
+  res.json({
+    created: false,
+    manual: true,
+    sql: `-- Run this SQL in the Supabase dashboard SQL editor
+create table if not exists sms_logs (
+  id uuid primary key default gen_random_uuid(),
+  phone text not null,
+  recipient_name text,
+  message_preview text,
+  status text not null default 'sent',
+  message_id text,
+  cost numeric,
+  error text,
+  context text,
+  context_id text,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_sms_logs_created on sms_logs(created_at desc);
+create index if not exists idx_sms_logs_status on sms_logs(status);
+create index if not exists idx_sms_logs_context on sms_logs(context);`,
+    tip: "Paste the SQL above into your Supabase dashboard SQL editor (go to https://supabase.com → SQL Editor → New Query) and run it. After that, SMS logging will start working.",
+  });
 });
 
 adminRouter.post("/test-sms", requireAdmin, async (req, res) => {
