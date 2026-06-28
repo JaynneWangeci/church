@@ -775,55 +775,6 @@ adminRouter.post("/send-portfolio-sms", requireAdmin, requireAdminOrAbove, async
   }
 });
 
-// TEMP: fix donations referencing fake PLD-named members to point to real members
-adminRouter.post("/fix-pld-member-refs", async (_req, res) => {
-  try {
-    const db = requireService();
-    // Find all fake members whose names start with "PLD:"
-    const { data: fakeMembers } = await db
-      .from("church_members")
-      .select("id, name")
-      .ilike("name", "PLD:%");
-    if (!fakeMembers?.length) return res.json({ fixed: 0, message: "No fake PLD members found" });
-    const results: { fake_id: string; fake_name: string; action: string; real_name?: string; real_id?: string }[] = [];
-    for (const fm of fakeMembers) {
-      const shortId = fm.name.replace("PLD:", "").toLowerCase();
-      const { data: pledges, error: ple } = await db.from("pledges").select("id, donor_name");
-      if (ple) results.push({ fake_id: fm.id, fake_name: fm.name, action: "query_error", error: ple.message });
-      const pledge = (ple ? [] : pledges || []).find(p => p.id.toLowerCase().startsWith(shortId));
-      if (!pledge) {
-        const names = ((pledges || []).slice(0, 3)).map((p: any) => p.id.slice(0, 8));
-        results.push({ fake_id: fm.id, fake_name: fm.name, action: "no_match", shortId, sample_ids: names, total_pledges: (pledges || []).length });
-        continue;
-      }
-      const realName = pledge.donor_name;
-      // Find real member by name
-      const { data: realMembers } = await db
-        .from("church_members")
-        .select("id")
-        .eq("is_active", true)
-        .ilike("name", realName);
-      let realId = realMembers?.[0]?.id || null;
-      if (!realId) {
-        // Update the fake member's name to the real name
-        await db.from("church_members").update({ name: realName }).eq("id", fm.id);
-        realId = fm.id;
-      }
-      if (realId && realId !== fm.id) {
-        // Update all donations referencing the fake member to use the real member
-        await db.from("donations").update({ church_member_id: realId }).eq("church_member_id", fm.id);
-      }
-      results.push({ fake_id: fm.id, fake_name: fm.name, action: "updated", real_name: realName, real_id: realId });
-    }
-    // Recalculate pledge fulfilment
-    const { recalculatePledgeFulfillment } = await import("../lib/admin.js");
-    await recalculatePledgeFulfillment(db);
-    res.json({ fixed: results.length, results });
-  } catch (err: any) {
-    res.status(500).json({ error: err?.message || String(err) });
-  }
-});
-
 adminRouter.post("/test-sms", requireAdmin, async (req, res) => {
   try {
     const { phone } = req.body;
