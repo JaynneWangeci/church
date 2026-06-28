@@ -775,65 +775,6 @@ adminRouter.post("/send-portfolio-sms", requireAdmin, requireAdminOrAbove, async
   }
 });
 
-// TEMP: move hash codes from donor_phone → transaction_desc, backfill real phones
-adminRouter.post("/fix-donor-phones", async (_req, res) => {
-  try {
-    const db = requireService();
-
-    // 1. Load all members into a map by id
-    const { data: allMembers } = await db.from("church_members").select("id, phone").not("phone", "is", null);
-    const memberPhone = new Map((allMembers || []).map(m => [m.id, m.phone]));
-
-    // 2. Load donations with hash in donor_phone
-    const { data: hashDons } = await db
-      .from("donations")
-      .select("id, donor_phone, church_member_id")
-      .not("donor_phone", "is", null);
-    if (!hashDons?.length) return res.json({ message: "No donations with hash phone found" });
-
-    const hashPattern = /^[a-f0-9]{30,}$|^\d{30,}$/;
-    const toSaveVc: { id: string; td: string }[] = [];
-    const toClearPhone: string[] = [];
-    const toSetPhone: { id: string; phone: string }[] = [];
-
-    for (const d of hashDons) {
-      const dp = d.donor_phone || "";
-      if (!hashPattern.test(dp)) continue;
-
-      toSaveVc.push({ id: d.id, td: `VC:${dp}` });
-      toClearPhone.push(d.id);
-
-      if (d.church_member_id) {
-        const p = memberPhone.get(d.church_member_id);
-        if (p) toSetPhone.push({ id: d.id, phone: p });
-      }
-    }
-
-    let moved = 0, backfilled = 0;
-
-    if (toSaveVc.length) {
-      const ids = toSaveVc.map(x => x.id);
-      for (const { id, td } of toSaveVc) {
-        await db.from("donations").update({ transaction_desc: td }).eq("id", id);
-        moved++;
-      }
-    }
-    if (toClearPhone.length) {
-      await db.from("donations").update({ donor_phone: null }).in("id", toClearPhone);
-    }
-    if (toSetPhone.length) {
-      for (const { id, phone } of toSetPhone) {
-        await db.from("donations").update({ donor_phone: phone }).eq("id", id);
-        backfilled++;
-      }
-    }
-
-    res.json({ hash_codes_moved: moved, phones_backfilled: backfilled });
-  } catch (err: any) {
-    res.status(500).json({ error: err?.message || String(err) });
-  }
-});
-
 adminRouter.post("/test-sms", requireAdmin, async (req, res) => {
   try {
     const { phone } = req.body;
