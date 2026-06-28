@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Users, TrendingUp } from "lucide-react";
 
 export default function GenderCompetition() {
   const [data, setData] = useState<{ male: number; female: number; male_members: number; female_members: number } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<string | null>(null);
+  const pulseRef = useRef<HTMLSpanElement>(null);
 
   function fetchData() {
     fetch("/api/public/gender-contributions")
@@ -11,13 +13,19 @@ export default function GenderCompetition() {
       .then(d => {
         if (d) setData(d);
         setLoading(false);
+        setLastUpdate(new Date().toLocaleTimeString());
+        if (pulseRef.current) {
+          pulseRef.current.classList.remove("animate-pulse-fast");
+          void pulseRef.current.offsetWidth;
+          pulseRef.current.classList.add("animate-pulse-fast");
+        }
       })
       .catch(() => setLoading(false));
   }
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 30000);
+    const interval = setInterval(fetchData, 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -37,7 +45,11 @@ export default function GenderCompetition() {
             <Users size={12} />
             Men vs Women
           </span>
-          <h2 className="mt-4 text-2xl font-bold text-gray-900 md:text-3xl">
+          <div className="mt-3 flex items-center justify-center gap-2">
+            <span ref={pulseRef} className="inline-block h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-[10px] font-bold text-green-700 uppercase tracking-wider">LIVE</span>
+          </div>
+          <h2 className="mt-3 text-2xl font-bold text-gray-900 md:text-3xl">
             Men vs Women Challenge
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-gray-600">
@@ -115,6 +127,11 @@ export default function GenderCompetition() {
         <div className="mt-4 text-center text-xs text-gray-500">
           Total contributions: KES {total.toLocaleString()}
         </div>
+        {lastUpdate && (
+          <div className="mt-1 text-center text-[10px] text-gray-400">
+            Updated {lastUpdate}
+          </div>
+        )}
       </div>
     </section>
   );

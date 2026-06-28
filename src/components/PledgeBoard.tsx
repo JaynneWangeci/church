@@ -313,21 +313,21 @@ export default function PledgeBoard() {
           <h2 className="mt-3 text-2xl font-bold text-gray-900">{t('See who has pledged and track fulfilment', 'Tazama walioahidi na ufuatilie utimilifu')}</h2>
 
           {/* Tab bar */}
-          <div className="mx-auto mt-6 flex max-w-2xl gap-1.5 rounded-2xl bg-gray-100/80 p-1.5 shadow-inner">
+          <div className="mx-auto mt-6 flex max-w-2xl gap-1 overflow-x-auto overflow-y-hidden flex-nowrap rounded-2xl bg-gray-100/80 p-1.5 shadow-inner scrollbar-hide [-webkit-overflow-scrolling:touch]">
             {TABS.map(s => {
               const Icon = s.icon;
               const isActive = activeSection === s.key;
               return (
                 <button key={s.key} onClick={() => setActiveSection(s.key)}
-                  className={`relative flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold transition-all duration-200 ${
+                  className={`relative flex flex-shrink-0 items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-[11px] font-bold transition-all duration-200 md:flex-1 md:gap-2 md:px-3 md:py-2.5 md:text-xs ${
                     isActive
                       ? 'bg-white text-sky-900 shadow-lg shadow-sky-900/10 scale-[1.02]'
                       : 'text-gray-500 hover:text-gray-800 hover:bg-white/50'
                   }`}>
-                  <Icon size={15} className={isActive ? 'text-sky-600' : 'text-gray-400'} />
+                  <Icon size={14} className={`${isActive ? 'text-sky-600' : 'text-gray-400'} md:size-[15px]`} />
                   {t(s.label, s.labelSw)}
                   {isActive && (
-                    <span className="absolute -bottom-0.5 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-sky-500" />
+                    <span className="absolute -bottom-0.5 left-1/2 h-0.5 w-6 -translate-x-1/2 rounded-full bg-sky-500 md:w-8" />
                   )}
                 </button>
               );

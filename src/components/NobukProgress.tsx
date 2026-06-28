@@ -27,18 +27,9 @@ export default function NobukProgress() {
   }, []);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setTimeout(() => setWidth(pct), 300);
-          observer.unobserve(entry.target);
-        }
-      },
-      { threshold: 0.3 },
-    );
-    const el = ref.current;
-    if (el) observer.observe(el);
-    return () => observer.disconnect();
+    setWidth(0);
+    const timer = setTimeout(() => setWidth(pct), 300);
+    return () => clearTimeout(timer);
   }, [pct]);
 
   return (
