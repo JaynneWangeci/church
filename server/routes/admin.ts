@@ -792,32 +792,6 @@ adminRouter.post("/send-portfolio-sms", requireAdmin, requireAdminOrAbove, async
   }
 });
 
-// TEMP: show SQL to create sms_logs table via Supabase dashboard SQL editor
-adminRouter.post("/create-sms-logs-table", async (_req, res) => {
-  res.json({
-    created: false,
-    manual: true,
-    sql: `-- Run this SQL in the Supabase dashboard SQL editor
-create table if not exists sms_logs (
-  id uuid primary key default gen_random_uuid(),
-  phone text not null,
-  recipient_name text,
-  message_preview text,
-  status text not null default 'sent',
-  message_id text,
-  cost numeric,
-  error text,
-  context text,
-  context_id text,
-  created_at timestamptz not null default now()
-);
-create index if not exists idx_sms_logs_created on sms_logs(created_at desc);
-create index if not exists idx_sms_logs_status on sms_logs(status);
-create index if not exists idx_sms_logs_context on sms_logs(context);`,
-    tip: "Paste the SQL above into your Supabase dashboard SQL editor (go to https://supabase.com → SQL Editor → New Query) and run it. After that, SMS logging will start working.",
-  });
-});
-
 adminRouter.post("/test-sms", requireAdmin, async (req, res) => {
   try {
     const { phone } = req.body;
