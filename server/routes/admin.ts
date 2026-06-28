@@ -796,8 +796,13 @@ adminRouter.post("/send-portfolio-sms", requireAdmin, requireAdminOrAbove, async
 adminRouter.post("/create-sms-logs-table", async (_req, res) => {
   try {
     const { default: { Pool } } = await import("pg");
-    const dbUrl = process.env.DATABASE_URL || process.env.DIRECT_URL;
-    if (!dbUrl) return res.json({ created: false, error: "No DATABASE_URL available" });
+    const candidates = ["DATABASE_URL", "DIRECT_URL", "POSTGRES_URL", "SUPABASE_DB_URL", "SUPABASE_URL"];
+    let dbUrl: string | undefined;
+    for (const key of candidates) {
+      const val = process.env[key];
+      if (val && (val.includes("postgres") || val.includes("supabase"))) { dbUrl = val; break; }
+    }
+    if (!dbUrl) return res.json({ created: false, error: "No database URL available", checked: candidates.map(k => ({ key: k, exists: !!process.env[k] })) });
     const pool = new Pool({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
     await pool.query(`
       create table if not exists sms_logs (
