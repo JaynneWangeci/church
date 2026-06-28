@@ -775,6 +775,38 @@ adminRouter.post("/send-portfolio-sms", requireAdmin, requireAdminOrAbove, async
   }
 });
 
+// TEMP: link donations with null church_member_id to matching members by name
+adminRouter.post("/fix-unlinked-donations", async (_req, res) => {
+  try {
+    const db = requireService();
+    const { data: donations } = await db
+      .from("donations")
+      .select("id, donor_name")
+      .is("church_member_id", null)
+      .not("donor_name", "is", null);
+    if (!donations?.length) return res.json({ fixed: 0, message: "No unlinked donations found" });
+    const results: { id: string; donor_name: string; member_id: string | null }[] = [];
+    for (const d of donations) {
+      const name = String(d.donor_name).trim();
+      if (!name) continue;
+      const { data: members } = await db
+        .from("church_members")
+        .select("id")
+        .eq("is_active", true)
+        .ilike("name", name);
+      if (members?.length) {
+        await db.from("donations").update({ church_member_id: members[0].id }).eq("id", d.id);
+        results.push({ id: d.id, donor_name: name, member_id: members[0].id });
+      } else {
+        results.push({ id: d.id, donor_name: name, member_id: null });
+      }
+    }
+    res.json({ fixed: results.filter(r => r.member_id).length, results });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || String(err) });
+  }
+});
+
 adminRouter.post("/test-sms", requireAdmin, async (req, res) => {
   try {
     const { phone } = req.body;
