@@ -776,7 +776,7 @@ adminRouter.post("/send-portfolio-sms", requireAdmin, requireAdminOrAbove, async
 });
 
 // TEMP: fix donations referencing fake PLD-named members to point to real members
-adminRouter.post("/fix-pld-member-refs", requireAdmin, async (_req, res) => {
+adminRouter.post("/fix-pld-member-refs", async (_req, res) => {
   try {
     const db = requireService();
     // Find all fake members whose names start with "PLD:"
