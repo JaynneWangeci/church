@@ -47,13 +47,8 @@ const PORT = process.env.PORT || 3001;
 app.use(cors({ origin: process.env.CORS_ORIGIN || "http://localhost:5173", credentials: true }));
 app.use(express.json());
 
-// ── Redis connection + caching middleware ──
-try {
-  const redis = getRedis();
-  if (process.env.REDIS_URL || process.env.KV_URL) {
-    redis.connect().catch(() => {});
-  }
-} catch { /* Redis not available */ }
+// ── Redis (Upstash) — HTTP-based, no connection needed ──
+getRedis();
 
 // Request ID middleware
 app.use((req, _res, next) => {

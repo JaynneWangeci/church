@@ -7,7 +7,7 @@ import { getRedis } from "./redis.js";
 import { requireService } from "./supabase.js";
 import { PLEDGE_VERSES, PAYMENT_VERSES, pickVerse } from "../routes/verses.js";
 
-const REDIS_URL = process.env.REDIS_URL || process.env.KV_URL || "";
+const REDIS_URL = process.env.REDIS_URL || process.env.KV_URL || process.env.UPSTASH_REDIS_URL || "";
 
 function getConnection() {
   if (REDIS_URL) return { url: REDIS_URL };

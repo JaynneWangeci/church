@@ -1,21 +1,21 @@
-import Redis from "ioredis";
+import { Redis } from "@upstash/redis";
 import { requireService } from "./supabase.js";
 
-const REDIS_URL = process.env.REDIS_URL || process.env.KV_URL || "";
+const REST_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_URL || "";
+const REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || "";
 
 let client: Redis | null = null;
 let enabled = false;
 
 export function getRedis(): Redis {
   if (!client) {
-    if (!REDIS_URL) {
-      client = new Redis({ host: "localhost", port: 6379, maxRetriesPerRequest: null, enableOfflineQueue: true, lazyConnect: true });
+    if (!REST_URL || !REST_TOKEN) {
+      enabled = false;
+      client = {} as Redis;
     } else {
-      client = new Redis(REDIS_URL, { maxRetriesPerRequest: null, enableOfflineQueue: true });
+      client = new Redis({ url: REST_URL, token: REST_TOKEN });
+      enabled = true;
     }
-    client.on("error", (err) => { if ((err as any)?.code !== "ECONNREFUSED") console.error("Redis error:", err.message); });
-    client.on("connect", () => { enabled = true; });
-    client.on("close", () => { enabled = false; });
   }
   return client;
 }
@@ -29,7 +29,7 @@ const DEFAULT_TTL = 60;
 export async function cacheGet<T>(key: string): Promise<T | null> {
   if (!enabled) return null;
   try {
-    const raw = await getRedis().get(key);
+    const raw = await getRedis().get<string>(key);
     return raw ? JSON.parse(raw) : null;
   } catch { return null; }
 }
@@ -37,7 +37,8 @@ export async function cacheGet<T>(key: string): Promise<T | null> {
 export async function cacheSet(key: string, data: any, ttl = DEFAULT_TTL): Promise<void> {
   if (!enabled) return;
   try {
-    await getRedis().setex(key, ttl, JSON.stringify(data));
+    await getRedis().set(key, JSON.stringify(data));
+    await getRedis().expire(key, ttl);
   } catch { /* silent */ }
 }
 
@@ -59,7 +60,6 @@ export function invalidateOnChange(resource: string, id?: string) {
   patterns.forEach(p => cacheDel(p));
 }
 
-// Fallback: wrap a DB query with cache
 export async function withCache<T>(key: string, fetcher: () => Promise<T>, ttl = DEFAULT_TTL): Promise<T> {
   const cached = await cacheGet<T>(key);
   if (cached !== null) return cached;
@@ -68,7 +68,6 @@ export async function withCache<T>(key: string, fetcher: () => Promise<T>, ttl =
   return data;
 }
 
-// Periodic cache refresh for dashboard stats
 let refreshTimers = new Map<string, NodeJS.Timeout>();
 
 export function startPeriodicRefresh(key: string, fetcher: () => Promise<any>, intervalMs = 30000) {
