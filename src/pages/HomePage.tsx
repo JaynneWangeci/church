@@ -98,9 +98,10 @@ export default function HomePage() {
       <div className="relative z-10 pt-4">
         <section id="hero"><ChurchHero /></section>
 
+        <section id="pledge-board" className="scroll-mt-20"><PledgeBoard /></section>
+
         <section id="register" data-parallax="0.08"><MemberRegistration /></section>
         <div data-parallax="-0.05"><ContributeSection /></div>
-        <section id="pledge-board" data-parallax="0.06"><PledgeBoard /></section>
         <section id="live-progress" data-parallax="-0.04"><LiveProgress /></section>
         <section id="fellowships" data-parallax="0.05"><FellowshipProgress /></section>
         <div data-parallax="-0.03"><GenderCompetition /></div>

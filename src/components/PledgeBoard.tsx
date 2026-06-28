@@ -300,7 +300,7 @@ export default function PledgeBoard() {
   const TABS = sections;
 
   return (
-    <section className="bg-gradient-to-b from-blue-50 to-white px-4 py-16">
+    <section className="sky-card-glass !bg-white/20 px-4 py-12 md:py-16">
       <div className="mx-auto max-w-6xl">
         <div className="mb-8 text-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-4 py-1.5 text-xs font-bold text-blue-700 uppercase tracking-widest">
