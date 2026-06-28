@@ -775,6 +775,96 @@ adminRouter.post("/send-portfolio-sms", requireAdmin, requireAdminOrAbove, async
   }
 });
 
+// TEMP: fix member names+phones, merge duplicates, rename using account_reference
+adminRouter.post("/fix-member-names", async (_req, res) => {
+  try {
+    const db = requireService();
+
+    // 1. Clear hash strings from phone field
+    const { data: allMembers } = await db
+      .from("church_members")
+      .select("id, name, phone")
+      .not("phone", "is", null);
+    let cleared = 0;
+    const hashPattern = /^[a-f0-9]{30,}$|^\d{30,}$/;
+    for (const m of allMembers || []) {
+      if (hashPattern.test(m.phone || "")) {
+        await db.from("church_members").update({ phone: null }).eq("id", m.id);
+        cleared++;
+      }
+    }
+
+    // 2. Load single-name members
+    const { data: singles } = await db
+      .from("church_members")
+      .select("id, name, council")
+      .eq("is_active", true)
+      .in("name", ["JANE","MARY","NANCY","PRISCILLA","STEPHEN","SUSAN","WINFRED","JOSHUA","MIRIAM","CHARITY","OSCAR"]);
+
+    if (!singles?.length) return res.json({ message: "No single-name members found", phone_hashes_cleared: cleared });
+
+    // define merges: source name → target member lookup
+    const mergeTargets: Record<string, string> = {
+      CHARITY: "CHARITY MUNENE",
+      NANCY: "NANCY THEURI",
+      MARY: "Mary Njoroge",
+      MIRIAM: "Miriam Wanjiru Kariuki",
+      STEPHEN: "Rev Stephen Gathogo",
+      WINFRED: "Winfred Ikinya",
+      OSCAR: "Oscar Kimani",
+    };
+
+    const resolved: Record<string, { id: string; name: string; council: string }> = {};
+    for (const [src, tgt] of Object.entries(mergeTargets)) {
+      const { data: ex } = await db
+        .from("church_members")
+        .select("id, name, council")
+        .eq("is_active", true)
+        .ilike("name", tgt)
+        .maybeSingle();
+      if (ex) resolved[src] = { id: ex.id, name: ex.name, council: ex.council };
+    }
+
+    const merged: string[] = [];
+    const renamed: string[] = [];
+    let updatedDons = 0;
+
+    for (const m of singles) {
+      if (resolved[m.name]) {
+        // Merge: reassign donations, deactivate source
+        const t = resolved[m.name];
+        const { data: dons } = await db.from("donations").select("id").eq("church_member_id", m.id);
+        for (const d of dons || []) {
+          await db.from("donations").update({ church_member_id: t.id, donor_name: t.name }).eq("id", d.id);
+          updatedDons++;
+        }
+        await db.from("church_members").update({ is_active: false }).eq("id", m.id);
+        merged.push(`${m.name} → ${t.name}`);
+      } else {
+        // Rename using account_reference from latest donation
+        const { data: dons } = await db
+          .from("donations")
+          .select("account_reference")
+          .eq("church_member_id", m.id)
+          .not("account_reference", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(1);
+        const full = dons?.[0]?.account_reference?.trim();
+        if (full && full.length > m.name.length) {
+          await db.from("church_members").update({ name: full }).eq("id", m.id);
+          await db.from("donations").update({ donor_name: full }).eq("church_member_id", m.id);
+          renamed.push(`${m.name} → ${full}`);
+          updatedDons++;
+        }
+      }
+    }
+
+    res.json({ phone_hashes_cleared: cleared, merged: merged.length, merged_details: merged, renamed: renamed.length, renamed_details: renamed, donations_updated: updatedDons });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || String(err) });
+  }
+});
+
 adminRouter.post("/test-sms", requireAdmin, async (req, res) => {
   try {
     const { phone } = req.body;
