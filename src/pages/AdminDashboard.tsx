@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   TrendingUp, Users, DollarSign, Clock, AlertCircle,
-  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileSpreadsheet, Search, ScanSearch, ArrowUpRight, ArrowDownRight, PieChart, Target, Save, Pencil, Monitor, Eye,   EyeOff, GitMerge, Send,
+  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileSpreadsheet, Search, ScanSearch, ArrowUpRight, ArrowDownRight, PieChart, Target, Save, Pencil, Monitor, Eye,   EyeOff, GitMerge, Send, ExternalLink, AlertTriangle,
 } from "lucide-react";
 import MemberHistoryPanel from "../components/MemberHistoryPanel";
 import {
@@ -3565,6 +3565,26 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               )}
+
+              {/* ── External Analytics (PostHog / Sentry) ── */}
+              <div className="mt-8 border-t border-gray-100 pt-8">
+                <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-ink">
+                  <ExternalLink size={14} />
+                  External Analytics
+                </h3>
+                <div className="flex flex-wrap gap-4">
+                  <a href="https://us.posthog.com/project/488895" target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 rounded-xl border border-gray-200 px-5 py-3 text-sm text-muted transition hover:border-nobuk hover:text-nobuk">
+                    <BarChart3 size={16} />
+                    Open PostHog Dashboard
+                  </a>
+                  <a href="https://swolf-tech.sentry.io" target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 rounded-xl border border-gray-200 px-5 py-3 text-sm text-muted transition hover:border-nobuk hover:text-nobuk">
+                    <AlertTriangle size={16} />
+                    Open Sentry Dashboard
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
         )}

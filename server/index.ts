@@ -1,5 +1,15 @@
 import crypto from "crypto";
 import dotenv from "dotenv";
+import * as Sentry from "@sentry/node";
+
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.VERCEL_ENV || "development",
+    tracesSampleRate: 0.1,
+  });
+}
+
 import express from "express";
 import cors from "cors";
 import { getRedis, cacheGet, cacheSet, cacheKey } from "./lib/redis.js";
@@ -50,6 +60,11 @@ app.use((req, _res, next) => {
   (req as any).requestId = (req.headers["x-request-id"] as string) || crypto.randomUUID();
   next();
 });
+
+// Sentry request handler (must be before routes)
+if (process.env.SENTRY_DSN) {
+  app.use(Sentry.expressRequestHandler());
+}
 
 app.use("/api/auth", rateLimit, authRouter);
 app.use("/api/campaigns", campaignsRouter);
@@ -104,6 +119,11 @@ if (process.env.VERCEL !== "1") {
   };
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);
+}
+
+// Sentry error handler (must be after routes)
+if (process.env.SENTRY_DSN) {
+  app.use(Sentry.expressErrorHandler());
 }
 
 export default app;

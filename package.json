@@ -12,6 +12,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@sentry/node": "^10.62.0",
+    "@sentry/react": "^10.62.0",
     "@supabase/supabase-js": "^2.45.0",
     "africastalking": "^0.7.9",
     "bcryptjs": "^2.4.3",
@@ -27,6 +29,7 @@
     "pdfjs-dist": "^4.0.379",
     "pdfkit": "^0.15.0",
     "pg": "^8.22.0",
+    "posthog-js": "^1.395.0",
     "pptxgenjs": "^4.0.1",
     "react": "^19.0.0",
     "react-countup": "^6.5.3",
