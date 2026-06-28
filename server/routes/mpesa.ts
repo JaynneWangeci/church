@@ -426,6 +426,21 @@ async function handleC2BConfirmation(req: any, res: any) {
       if (pledge) {
         donorName = pledge.donor_name;
         rawRef = `PLD:${pledge.id}`;
+        // Clean up any fake PLD member that might exist from a previous C2B
+        const { data: pldMembers } = await db
+          .from("church_members")
+          .select("id")
+          .ilike("name", `PLD:${shortId}%`);
+        if (pldMembers?.length) {
+          const { data: realMember } = await db
+            .from("church_members").select("id").eq("is_active", true).ilike("name", donorName);
+          if (realMember?.length) {
+            await db.from("donations").update({ church_member_id: realMember[0].id }).eq("church_member_id", pldMembers[0].id);
+            await db.from("church_members").delete().eq("id", pldMembers[0].id);
+          } else {
+            await db.from("church_members").update({ name: donorName }).eq("id", pldMembers[0].id);
+          }
+        }
       }
     }
     const accountRef = rawRef.startsWith("PLD:") ? rawRef : "C2B:" + receiptNumber;
