@@ -374,6 +374,22 @@ export default function AdminDashboard() {
     return () => clearInterval(id);
   }, [tab, fetchSecurityEvents]);
 
+  // Pledges auto-refresh (15s when tab is active)
+  useEffect(() => {
+    if (tab !== "pledges") return;
+    fetchPledges();
+    const id = setInterval(fetchPledges, 15000);
+    return () => clearInterval(id);
+  }, [tab, fetchPledges]);
+
+  // Fellowship reports auto-refresh (30s when tab is active)
+  useEffect(() => {
+    if (tab !== "fellowshipreports") return;
+    fetchFellowshipReport();
+    const id = setInterval(fetchFellowshipReport, 30000);
+    return () => clearInterval(id);
+  }, [tab, fetchFellowshipReport]);
+
   async function addMember(e: React.FormEvent) {
     e.preventDefault();
     if (!newName.trim()) { setMemberError("Kindly provide the member's name"); return; }
@@ -713,7 +729,7 @@ export default function AdminDashboard() {
             <p className="truncate text-[10px] text-muted sm:text-xs">{admin.name} &middot; {admin.role.replace("_", " ")}</p>
           </div>
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
-            <button onClick={() => { fetchStats(); fetchLogs(); fetchDonations(donationDateFrom || undefined, donationDateTo || undefined); fetchMembers(); fetchAdmins(); fetchAnalytics(); fetchCommittee(); loadCouncils(); loadHarambee(); }} className="rounded-lg p-1.5 text-muted transition hover:bg-cream sm:p-2" title="Refresh">
+            <button onClick={() => { fetchStats(); fetchLogs(); fetchDonations(donationDateFrom || undefined, donationDateTo || undefined); fetchMembers(); fetchAdmins(); fetchAnalytics(); fetchCommittee(); fetchPledges(); fetchFellowshipReport(); loadCouncils(); loadHarambee(); }} className="rounded-lg p-1.5 text-muted transition hover:bg-cream sm:p-2" title="Refresh">
               <RefreshCw size={14} />
             </button>
             <a href="/" className="hidden text-xs text-muted underline underline-offset-2 hover:text-nobuk sm:inline">View Site</a>

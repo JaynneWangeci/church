@@ -1,12 +1,9 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
-import { getCached, setCache } from "../lib/admin.js";
 
 export const campaignsRouter = Router();
 
 campaignsRouter.get("/:slug", async (req, res) => {
-  const cached = getCached(`campaign:${req.params.slug}`);
-  if (cached) return res.json(cached);
   try {
     const db = requireService();
     const { data } = await db
@@ -26,7 +23,7 @@ campaignsRouter.get("/:slug", async (req, res) => {
 
     const raised = sumData?.reduce((acc, d) => acc + Number(d.amount), 0) || 0;
 
-    const result = {
+    res.json({
       id: data.id,
       slug: data.slug,
       title: data.title,
@@ -38,9 +35,7 @@ campaignsRouter.get("/:slug", async (req, res) => {
       ends_at: data.ends_at,
       is_active: data.is_active,
       created_at: data.created_at,
-    };
-    setCache(`campaign:${req.params.slug}`, result);
-    res.json(result);
+    });
   } catch (err) {
     console.error("campaign error:", err);
     res.status(500).json({ error: "Server error" });
