@@ -650,11 +650,17 @@ export default function AdminDashboard() {
 
   const paybillPct = stats?.total_raised ? ((stats as any).paybill_total || 0) / stats.total_raised * 100 : 0;
 
+  const smsStats = (stats as any)?.sms;
+  const smsSent = smsStats?.total_sent ?? 0;
+  const smsFailed = smsStats?.total_failed ?? 0;
+  const smsCost = smsStats?.total_cost ?? 0;
+
   const statCards = [
     { icon: TrendingUp, label: "Total Raised", value: stats ? `KES ${stats.total_raised.toLocaleString()}` : "—" },
     { icon: Users, label: "Total Donors", value: stats?.total_donors?.toLocaleString() || "0" },
     { icon: DollarSign, label: "Average Gift", value: stats ? `KES ${stats.avg_gift.toLocaleString()}` : "—" },
     { icon: Clock, label: "Pending", value: stats?.pending_count?.toString() || "0" },
+    { icon: Send, label: "SMS Sent", value: smsSent ? smsSent.toLocaleString() : "0", sub: smsFailed ? `${smsFailed} failed` : undefined },
     { icon: TrendingUp, label: "STK Push", value: stats ? `KES ${((stats as any).stk_total || 0).toLocaleString()}` : "—" },
     { icon: TrendingUp, label: "Paybill", value: stats ? `KES ${((stats as any).paybill_total || 0).toLocaleString()} (${paybillPct.toFixed(2)}%)` : "—" },
   ];
@@ -914,6 +920,7 @@ export default function AdminDashboard() {
                     </div>
                     <p className="text-xs font-medium uppercase tracking-wider text-muted">{s.label}</p>
                     <p className="mt-1 text-xl font-bold text-ink">{s.value}</p>
+                    {(s as any).sub && <p className="mt-0.5 text-[10px] text-red-400">{(s as any).sub}</p>}
                   </div>
                 );
               })}
@@ -3959,6 +3966,40 @@ function SiteContentEditor() {
           <BulkSmsComposer />
         </div>
       </div>
+
+      {/* SMS History */}
+      {smsStats?.recent?.length > 0 && (
+        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-bold text-ink">Recent SMS Activity</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="pb-2 font-bold text-muted">Phone</th>
+                  <th className="pb-2 font-bold text-muted">Status</th>
+                  <th className="pb-2 font-bold text-muted">Message</th>
+                  <th className="pb-2 font-bold text-muted">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {smsStats.recent.map((s: any) => (
+                  <tr key={s.created_at} className="border-b border-gray-50">
+                    <td className="py-2 tabular-nums text-ink">{s.phone}</td>
+                    <td className="py-2">
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${s.status === 'sent' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        {s.status}
+                      </span>
+                    </td>
+                    <td className="max-w-[200px] truncate py-2 text-muted">{s.message_preview || "—"}</td>
+                    <td className="py-2 tabular-nums text-muted">{formatDate(s.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-3 text-[10px] text-muted">Total sent: {smsSent} · Failed: {smsFailed} · Total cost: KES {smsCost.toLocaleString("en-KE", {minimumFractionDigits:2})}</p>
+        </div>
+      )}
     </div>
   );
 }

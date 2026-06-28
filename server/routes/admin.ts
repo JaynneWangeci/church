@@ -106,6 +106,22 @@ adminRouter.get("/stats", requireAdmin, async (req, res) => {
     const paybillCompleted = (completedDonations || []).filter(d => d.transaction_id || (d.account_reference && d.account_reference.startsWith("C2B:")));
     const stkCompleted = (completedDonations || []).filter(d => !d.transaction_id && d.checkout_request_id);
 
+    // SMS stats
+    let smsStats = { total_sent: 0, total_failed: 0, total_cost: 0, recent: [] };
+    try {
+      const { data: smsLogs } = await db.from("sms_logs").select("*").order("created_at", { ascending: false }).limit(200);
+      if (smsLogs?.length) {
+        const sent = smsLogs.filter(s => s.status === "sent");
+        const failed = smsLogs.filter(s => s.status === "failed");
+        smsStats = {
+          total_sent: sent.length,
+          total_failed: failed.length,
+          total_cost: sent.reduce((s: number, l: any) => s + Number(l.cost || 0), 0),
+          recent: smsLogs.slice(0, 10).map(l => ({ phone: l.phone, status: l.status, created_at: l.created_at, message_preview: l.message_preview })),
+        };
+      }
+    } catch { /* sms_logs table may not exist */ }
+
     const stats = {
       goal,
       raised: totalRaised,
@@ -121,6 +137,7 @@ adminRouter.get("/stats", requireAdmin, async (req, res) => {
       paybill_total: paybillCompleted.reduce((s, d) => s + Number(d.amount), 0),
       stk_count: stkCompleted.length,
       stk_total: stkCompleted.reduce((s, d) => s + Number(d.amount), 0),
+      sms: smsStats,
     };
 
     res.json(stats);
@@ -772,6 +789,37 @@ adminRouter.post("/send-portfolio-sms", requireAdmin, requireAdminOrAbove, async
   } catch (err) {
     console.error("portfolio sms error:", err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+// TEMP: create sms_logs table
+adminRouter.post("/create-sms-logs-table", async (_req, res) => {
+  try {
+    const { default: { Pool } } = await import("pg");
+    const dbUrl = process.env.DATABASE_URL || process.env.DIRECT_URL;
+    if (!dbUrl) return res.json({ created: false, error: "No DATABASE_URL available" });
+    const pool = new Pool({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
+    await pool.query(`
+      create table if not exists sms_logs (
+        id uuid primary key default gen_random_uuid(),
+        phone text not null,
+        message_preview text,
+        status text not null default 'sent',
+        message_id text,
+        cost numeric,
+        error text,
+        context text,
+        context_id text,
+        created_at timestamptz not null default now()
+      );
+      create index if not exists idx_sms_logs_created on sms_logs(created_at desc);
+      create index if not exists idx_sms_logs_status on sms_logs(status);
+      create index if not exists idx_sms_logs_context on sms_logs(context);
+    `);
+    await pool.end();
+    res.json({ created: true });
+  } catch (err: any) {
+    res.status(500).json({ created: false, error: err?.message || String(err) });
   }
 });
 

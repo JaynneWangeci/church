@@ -4,7 +4,28 @@ const API_KEY = process.env.SMS_APIKEY || "";
 const SENDER_ID = process.env.SMS_SENDERID || "AIPCABahati";
 const SMS_USERNAME = process.env.SMS_USERNAME || "";
 
-export async function sendSMS(to: string, message: string): Promise<boolean> {
+function getDb() {
+  try { return require("./supabase.js").requireService(); } catch { return null; }
+}
+
+async function logSms(phone: string, message: string, ok: boolean, messageId?: string, cost?: number, err?: string, context?: string, contextId?: string) {
+  try {
+    const db = getDb();
+    if (!db) return;
+    await db.from("sms_logs").insert({
+      phone,
+      message_preview: message.slice(0, 200),
+      status: ok ? "sent" : "failed",
+      message_id: messageId || null,
+      cost: cost ?? null,
+      error: err || null,
+      context: context || null,
+      context_id: contextId || null,
+    });
+  } catch { /* sms_logs table may not exist yet */ }
+}
+
+export async function sendSMS(to: string, message: string, context?: string, contextId?: string): Promise<boolean> {
   try {
     if (!API_KEY) {
       console.warn("SAJSOFT not configured — skipping SMS send");
@@ -31,18 +52,22 @@ export async function sendSMS(to: string, message: string): Promise<boolean> {
     console.log("SAJSOFT raw response:", res.status, text);
     if (!res.ok) {
       console.error("SAJSOFT SMS error:", res.status, text);
+      await logSms(phone, message, false, undefined, undefined, text, context, contextId);
       return false;
     }
     let json: any;
     try { json = JSON.parse(text); } catch { json = null; }
     if (json?.[0]?.status_code === "1000") {
       console.log("SAJSOFT SMS sent:", json[0].message_id, "cost:", json[0].message_cost);
+      await logSms(phone, message, true, json[0].message_id, Number(json[0].message_cost) || 0, undefined, context, contextId);
       return true;
     }
     console.error("SAJSOFT SMS unexpected response:", JSON.stringify(json));
+    await logSms(phone, message, false, undefined, undefined, JSON.stringify(json), context, contextId);
     return false;
   } catch (err: any) {
     console.error("SAJSOFT SMS send error:", err?.message || err);
+    await logSms(to, message, false, undefined, undefined, err?.message || String(err), context, contextId);
     return false;
   }
 }
