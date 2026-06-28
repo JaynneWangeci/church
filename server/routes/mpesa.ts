@@ -388,8 +388,8 @@ async function handleC2BConfirmation(req: any, res: any) {
     const body = req.body;
     res.status(200).json({ ResultCode: 0, ResultDesc: "Success" });
 
-    const donorName = (body.BillRefNumber || "").trim().replace(/[%_<>]/g, "").slice(0, 100);
-    if (!donorName || donorName.length < 2) {
+    let rawRef = (body.BillRefNumber || "").trim().replace(/[%_<>]/g, "").slice(0, 100);
+    if (!rawRef || rawRef.length < 2) {
       console.log("C2B skipped: no BillRefNumber");
       return;
     }
@@ -397,7 +397,6 @@ async function handleC2BConfirmation(req: any, res: any) {
     const amount = Number(body.TransAmount) || 0;
     if (amount < 10) { console.log("C2B skipped: amount too small"); return; }
 
-    // Safety check: cap max amount
     const amountCheck = validateDonationAmount(amount);
     if (!amountCheck.valid) {
       console.log(`C2B skipped: ${amountCheck.error}`);
@@ -407,7 +406,6 @@ async function handleC2BConfirmation(req: any, res: any) {
     const phone = String(body.MSISDN || "");
     const receiptNumber = String(body.TransID || "");
 
-    // Safety check: idempotency — skip duplicate TransID
     const db = requireService();
     const { data: duplicate } = await db
       .from("donations")
@@ -418,6 +416,19 @@ async function handleC2BConfirmation(req: any, res: any) {
       console.log(`C2B skipped: duplicate receipt ${receiptNumber}`);
       return;
     }
+
+    // If BillRefNumber is a PLD pledge prefix, resolve the actual donor name
+    let donorName = rawRef;
+    if (rawRef.startsWith("PLD:")) {
+      const shortId = rawRef.replace("PLD:", "").toLowerCase();
+      const { data: pledges } = await db.from("pledges").select("id, donor_name");
+      const pledge = (pledges || []).find(p => p.id.toLowerCase().startsWith(shortId));
+      if (pledge) {
+        donorName = pledge.donor_name;
+        rawRef = `PLD:${pledge.id}`;
+      }
+    }
+    const accountRef = rawRef.startsWith("PLD:") ? rawRef : "C2B:" + receiptNumber;
 
     const { data: existing } = await db
       .from("church_members").select("id").eq("is_active", true).ilike("name", donorName);
@@ -435,7 +446,7 @@ async function handleC2BConfirmation(req: any, res: any) {
       return await db.from("donations").insert({
         donor_name: donorName, amount, phone, status: "completed", method: "mpesa",
         receipt_number: receiptNumber, church_member_id: memberId,
-        campaign_id: campaign?.id, account_reference: "C2B:" + receiptNumber,
+        campaign_id: campaign?.id, account_reference: accountRef,
         transaction_desc: "Paybill Direct",
       }).select().single();
     }, "c2b insert donation");

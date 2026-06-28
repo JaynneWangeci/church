@@ -784,26 +784,26 @@ adminRouter.post("/fix-pld-donations", async (_req, res) => {
       .select("id, donor_name, amount, receipt_number, account_reference, church_member_id")
       .ilike("donor_name", "PLD:%");
     if (!pldDonations?.length) return res.json({ fixed: 0, message: "No PLD donations found" });
+    // Get all pledges for matching
+    const { data: allPledges } = await db.from("pledges").select("id, donor_name");
     const fixes: { id: string; donor_name: string; account_reference: string }[] = [];
+    const errors: { id: string; reason: string }[] = [];
     for (const d of pldDonations) {
-      const shortId = String(d.donor_name).replace("PLD:", "");
-      const { data: pledge } = await db
-        .from("pledges")
-        .select("id, donor_name")
-        .ilike("id", `${shortId}%`)
-        .limit(1)
-        .single();
+      const shortId = String(d.donor_name).replace("PLD:", "").toLowerCase();
+      // Match by UUID prefix
+      const pledge = (allPledges || []).find(p => p.id.toLowerCase().startsWith(shortId));
       if (pledge) {
         fixes.push({ id: d.id, donor_name: pledge.donor_name, account_reference: `PLD:${pledge.id}` });
+      } else {
+        errors.push({ id: d.id, reason: `No pledge matching prefix ${shortId}` });
       }
     }
     for (const f of fixes) {
       await db.from("donations").update({ donor_name: f.donor_name, account_reference: f.account_reference }).eq("id", f.id);
     }
-    // Recalculate all pledges
     const { recalculatePledgeFulfillment } = await import("../lib/admin.js");
     await recalculatePledgeFulfillment(db);
-    res.json({ fixed: fixes.length, donations: pldDonations.map(d => ({ id: d.id, old_name: d.donor_name })), updates: fixes });
+    res.json({ fixed: fixes.length, errors, donations: pldDonations.map(d => ({ id: d.id, old_name: d.donor_name })), updates: fixes });
   } catch (err: any) {
     res.status(500).json({ error: err?.message || String(err) });
   }
