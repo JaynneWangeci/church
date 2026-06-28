@@ -775,28 +775,6 @@ adminRouter.post("/send-portfolio-sms", requireAdmin, requireAdminOrAbove, async
   }
 });
 
-// TEMP: merge theophilus council members (no auth — one-time fix)
-adminRouter.post("/fix-theophilus", async (_req, res) => {
-  try {
-    const db = requireService();
-    const { data: oldMembers, error: e1 } = await db
-      .from("church_members")
-      .select("id, name")
-      .eq("council", "theophilus");
-    if (e1) return res.status(500).json({ error: e1.message });
-    const ids = (oldMembers || []).map((m: any) => m.id);
-    if (!ids.length) return res.json({ migrated: 0, message: "No members to migrate" });
-    const { error: e2 } = await db
-      .from("church_members")
-      .update({ council: "theophilus_fellowship" })
-      .in("id", ids);
-    if (e2) return res.status(500).json({ error: e2.message });
-    res.json({ migrated: ids.length, members: oldMembers });
-  } catch (err: any) {
-    res.status(500).json({ error: err?.message || String(err) });
-  }
-});
-
 adminRouter.post("/test-sms", requireAdmin, async (req, res) => {
   try {
     const { phone } = req.body;
