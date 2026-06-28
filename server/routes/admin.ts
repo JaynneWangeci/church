@@ -788,11 +788,12 @@ adminRouter.post("/fix-pld-member-refs", async (_req, res) => {
     const results: { fake_id: string; fake_name: string; action: string; real_name?: string; real_id?: string }[] = [];
     for (const fm of fakeMembers) {
       const shortId = fm.name.replace("PLD:", "").toLowerCase();
-      // Find pledge by UUID prefix
-      const { data: pledges } = await db.from("pledges").select("id, donor_name, church_member_id");
-      const pledge = (pledges || []).find(p => p.id.toLowerCase().startsWith(shortId));
+      const { data: pledges, error: ple } = await db.from("pledges").select("id, donor_name");
+      if (ple) results.push({ fake_id: fm.id, fake_name: fm.name, action: "query_error", error: ple.message });
+      const pledge = (ple ? [] : pledges || []).find(p => p.id.toLowerCase().startsWith(shortId));
       if (!pledge) {
-        results.push({ fake_id: fm.id, fake_name: fm.name, action: "no_match" });
+        const names = ((pledges || []).slice(0, 3)).map((p: any) => p.id.slice(0, 8));
+        results.push({ fake_id: fm.id, fake_name: fm.name, action: "no_match", shortId, sample_ids: names, total_pledges: (pledges || []).length });
         continue;
       }
       const realName = pledge.donor_name;
