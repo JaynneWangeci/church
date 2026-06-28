@@ -69,10 +69,12 @@ export default function HomePage() {
   }, []);
 
   return (
-    <main className="relative min-h-screen bg-gradient-to-b from-[#0a1628] via-[#0f2847] to-[#1a3a5c] text-gray-100">
+    <main className="relative min-h-screen text-white">
+      <div className="page-bg" />
+      <div className="page-content">
       {/* Language toggle */}
       <button onClick={() => setLang(lang === 'en' ? 'sw' : 'en')}
-        className="fixed top-4 right-4 z-50 flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-[10px] font-semibold text-white/60 backdrop-blur-sm transition hover:bg-white/20 hover:text-white/90">
+        className="fixed top-4 right-4 z-50 flex items-center gap-1 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white/80 backdrop-blur-md transition hover:bg-white/25 hover:text-white shadow-lg shadow-sky-900/10">
         <Globe size={10} />
         {lang === 'en' ? 'SW' : 'EN'}
       </button>
@@ -83,8 +85,8 @@ export default function HomePage() {
           <button key={s.id} onClick={() => scrollTo(s.id)}
             className={`h-2.5 w-2.5 rounded-full transition-all duration-300 ${
               activeSection === s.id
-                ? 'nav-dot-active scale-150 bg-amber'
-                : 'bg-white/30 hover:bg-white/60'
+                ? 'scale-150 bg-white shadow-[0_0_10px_rgba(255,255,255,0.5)]'
+                : 'bg-white/40 hover:bg-white/70'
             }`}
             title={s.label}
           />
@@ -114,19 +116,19 @@ export default function HomePage() {
               className="h-full w-full object-cover"
               loading="lazy"
             />
-            <div className="absolute inset-0 bg-gradient-to-b from-[#0a1628]/92 via-[#0a1628]/70 to-[#0a1628]/92" />
+            <div className="absolute inset-0 bg-gradient-to-b from-sky-900/85 via-sky-800/70 to-sky-900/85" />
           </div>
 
           <div className="relative z-10 mx-auto max-w-3xl text-center">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-blue-500/20 px-4 py-1.5 backdrop-blur-sm">
-              <MapPin size={14} className="text-blue-300" />
-              <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">{t('Find Us', 'Tupate')}</span>
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/20 px-4 py-1.5 backdrop-blur-sm">
+              <MapPin size={14} className="text-white/80" />
+              <span className="text-xs font-bold text-white/80 uppercase tracking-wider">{t('Find Us', 'Tupate')}</span>
             </div>
             <h2 className="mb-2 text-2xl font-bold text-white">{t('Visit AIPCA Bahati Cathedral', 'Tembelea AIPCA Bahati Cathedral')}</h2>
-            <p className="mb-2 text-sm text-blue-200/70">
+            <p className="mb-2 text-sm text-white/70">
               {t('We welcome you to worship with us.', 'Tunakukaribisha kuabudu pamoja nasi.')}
             </p>
-            <p className="mb-6 font-mono text-xs text-blue-300/60">
+            <p className="mb-6 font-mono text-xs text-white/50">
               1.29098°S 36.85438°E &middot; Jogoo Road, Nairobi
             </p>
 
@@ -135,7 +137,7 @@ export default function HomePage() {
                 href="https://maps.google.com/maps?daddr=-1.29098,36.85438"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-900/40 transition-all hover:bg-blue-500 active:scale-95"
+                className="inline-flex items-center gap-2 rounded-xl bg-amber px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-amber-900/30 transition-all hover:bg-amber-dark active:scale-95"
               >
                 <MapPin size={16} />
                 {t('Open in Google Maps', 'Fungua kwenye Google Maps')}
@@ -144,7 +146,7 @@ export default function HomePage() {
                 href="https://maps.google.com/maps?q=-1.29098,36.85438+(AIPCA+Bahati+Cathedral)"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white/80 backdrop-blur-sm transition-all hover:bg-white/10 active:scale-95"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-semibold text-white backdrop-blur-sm transition-all hover:bg-white/20 active:scale-95"
               >
                 <Globe size={16} />
                 {t('View on Web', 'Tazama kwenye Tovuti')}
@@ -158,28 +160,29 @@ export default function HomePage() {
 
       {/* Mobile bottom action bar */}
       <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-50 md:hidden">
-        <div className="pointer-events-auto mx-3 mb-3 flex items-center justify-around rounded-2xl border border-white/10 bg-[#0f2847]/90 px-2 py-2 backdrop-blur-xl shadow-lg">
+        <div className="pointer-events-auto mx-3 mb-3 flex items-center justify-around rounded-2xl border border-white/20 bg-white/15 px-2 py-2 backdrop-blur-xl shadow-lg shadow-sky-900/20">
           <button onClick={() => { const el = document.getElementById('hero'); el?.scrollIntoView({ behavior: 'smooth' }); }}
             className="flex flex-col items-center gap-0.5 px-3 py-1 transition-all active:scale-90">
             <Heart size={18} className="text-amber" />
-            <span className="text-[9px] font-bold text-white/70">Give</span>
+            <span className="text-[9px] font-bold text-white/80">Give</span>
           </button>
           <button onClick={() => { const el = document.getElementById('pledge-board'); el?.scrollIntoView({ behavior: 'smooth' }); }}
             className="flex flex-col items-center gap-0.5 px-3 py-1 transition-all active:scale-90">
-            <HandHeart size={18} className="text-green-400" />
-            <span className="text-[9px] font-bold text-white/70">Pledge</span>
+            <HandHeart size={18} className="text-amber" />
+            <span className="text-[9px] font-bold text-white/80">Pledge</span>
           </button>
           <button onClick={() => window.open(`tel:${phone.replace(/\s/g, '')}`)}
             className="flex flex-col items-center gap-0.5 px-3 py-1 transition-all active:scale-90">
-            <Phone size={18} className="text-blue-400" />
-            <span className="text-[9px] font-bold text-white/70">Call</span>
+            <Phone size={18} className="text-white/80" />
+            <span className="text-[9px] font-bold text-white/80">Call</span>
           </button>
           <button onClick={handleShare}
             className="flex flex-col items-center gap-0.5 px-3 py-1 transition-all active:scale-90">
             <Share2 size={18} className="text-amber" />
-            <span className="text-[9px] font-bold text-white/70">Share</span>
+            <span className="text-[9px] font-bold text-white/80">Share</span>
           </button>
         </div>
+      </div>
       </div>
     </main>
   );

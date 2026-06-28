@@ -1,24 +1,24 @@
 @import "tailwindcss";
 
 :root {
-  --color-nobuk: #08428c;
-  --color-nobuk-light: #1a6bc4;
-  --color-nobuk-muted: #dbeafe;
+  --color-nobuk: #0284C7;
+  --color-nobuk-light: #38BDF8;
+  --color-nobuk-muted: #BAE6FD;
   --color-amber: #C4964A;
   --color-amber-light: #F5EDD6;
   --color-amber-dark: #9E7A3A;
-  --color-cream: #EFF6FF;
-  --color-cream-dark: #DBEAFE;
-  --color-ink: #1E293B;
-  --color-muted: #64748B;
+  --color-cream: #F0F9FF;
+  --color-cream-dark: #E0F2FE;
+  --color-ink: #0F172A;
+  --color-muted: #475569;
 
-  --color-linkflow-dark: #1B2838;
-  --color-linkflow-mdark: #2C4056;
-  --color-linkflow-hover: #3B5A7A;
-  --color-linkflow-body: #5B6F88;
-  --color-linkflow-heading: #1E6F9F;
-  --color-linkflow-accent: #5B9BD5;
-  --color-linkflow-bottom: #3A5A7A;
+  --color-linkflow-dark: #0C4A6E;
+  --color-linkflow-mdark: #0369A1;
+  --color-linkflow-hover: #0284C7;
+  --color-linkflow-body: #0EA5E9;
+  --color-linkflow-heading: #0284C7;
+  --color-linkflow-accent: #38BDF8;
+  --color-linkflow-bottom: #7DD3FC;
 }
 
 @theme inline {
@@ -44,6 +44,51 @@
   --font-display: "Neue Haas Grotesk Display Pro 55 Roman", "Neue Haas Grotesk Text Pro", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
+/* ── Immersive sky-blue theme ── */
+.page-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image: url('/images/a.jpeg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  will-change: transform;
+}
+.page-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg,
+    rgba(2, 132, 199, 0.55) 0%,
+    rgba(14, 165, 233, 0.4) 30%,
+    rgba(56, 189, 248, 0.3) 60%,
+    rgba(2, 132, 199, 0.6) 100%
+  );
+  backdrop-filter: brightness(0.9) saturate(1.1);
+}
+.page-content {
+  position: relative;
+  z-index: 1;
+}
+
+.sky-card {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px rgba(2, 132, 199, 0.08);
+}
+
+.sky-card-glass {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+
 html, body, #root {
   height: 100%;
   margin: 0;
@@ -63,7 +108,7 @@ html {
 
 ::selection {
   background: var(--color-amber);
-  color: var(--color-nobuk);
+  color: #ffffff;
 }
 
 /* ── Jack Portfolio ── */

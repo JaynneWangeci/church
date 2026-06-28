@@ -53,10 +53,10 @@ export default function SlideshowBackground() {
           />
         </div>
       ))}
-      <div className="fixed inset-0 bg-gradient-to-b from-[#1B2838]/75 via-[#1B2838]/50 to-[#1B2838]/85" />
-      <div className="fixed inset-0 bg-gradient-to-r from-[#1B2838]/30 to-transparent" />
-      <div className="fixed top-20 right-10 h-72 w-72 rounded-full bg-[#5B9BD5]/8 blur-3xl" />
-      <div className="fixed bottom-20 left-10 h-96 w-96 rounded-full bg-[#5B9BD5]/5 blur-3xl" />
+      <div className="fixed inset-0 bg-gradient-to-b from-sky-900/40 via-sky-700/25 to-sky-900/45" />
+      <div className="fixed inset-0 bg-gradient-to-r from-sky-900/15 to-transparent" />
+      <div className="fixed top-20 right-10 h-72 w-72 rounded-full bg-[#38BDF8]/10 blur-3xl" />
+      <div className="fixed bottom-20 left-10 h-96 w-96 rounded-full bg-[#38BDF8]/8 blur-3xl" />
     </>
   );
 }

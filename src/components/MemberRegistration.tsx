@@ -104,7 +104,7 @@ export default function MemberRegistration() {
 
   if (done) {
     return (
-      <section className="px-4 py-16" style={{ background: 'linear-gradient(180deg, rgba(10,22,40,0.95) 0%, rgba(15,40,71,0.9) 100%)' }}>
+      <section className="px-4 py-16 sky-card-glass">
         <div className="mx-auto max-w-md text-center">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-emerald-500/20 px-4 py-1.5 backdrop-blur-sm">
             <CheckCircle size={14} className="text-emerald-300" />
@@ -121,7 +121,7 @@ export default function MemberRegistration() {
   }
 
   return (
-    <section className="px-4 py-16" style={{ background: 'linear-gradient(180deg, rgba(10,22,40,0.95) 0%, rgba(15,40,71,0.9) 100%)' }}>
+    <section className="px-4 py-16 sky-card-glass">
       <div className="mx-auto max-w-md">
         <div className="mb-6 text-center">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-blue-500/20 px-4 py-1.5 backdrop-blur-sm">
@@ -173,7 +173,7 @@ export default function MemberRegistration() {
                 className="w-full rounded-xl border border-blue-400/20 bg-white/10 pl-9 pr-3 py-3 text-sm text-white outline-none transition focus:border-blue-300 placeholder:text-blue-300/40" />
             </div>
             {showSuggestions && (name.trim() || suggestions.length > 0) && (
-              <div className="absolute top-full left-0 right-0 z-30 mt-1 max-h-60 overflow-y-auto rounded-xl border border-blue-400/20 bg-[#0f2847] shadow-xl backdrop-blur-sm">
+              <div className="absolute top-full left-0 right-0 z-30 mt-1 max-h-60 overflow-y-auto rounded-xl border border-blue-400/20 bg-white/90 backdrop-blur-md shadow-xl backdrop-blur-sm">
                 {searching ? (
                   <div className="flex items-center justify-center py-4"><Loader2 size={16} className="animate-spin text-blue-300" /></div>
                 ) : suggestions.length > 0 ? (
@@ -249,7 +249,7 @@ export default function MemberRegistration() {
           )}
 
           <button type="submit" disabled={loading || !name.trim() || !council || !gender}
-            className="btn-lift flex w-full items-center justify-center gap-2 rounded-full bg-amber px-5 py-3 text-sm font-bold text-[#0a1628] shadow-lg hover:bg-amber/90 disabled:cursor-not-allowed disabled:opacity-40 transition">
+            className="btn-lift flex w-full items-center justify-center gap-2 rounded-full bg-amber px-5 py-3 text-sm font-bold text-ink shadow-lg hover:bg-amber/90 disabled:cursor-not-allowed disabled:opacity-40 transition">
             {loading ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
             {loading ? (isUpdating ? 'Updating...' : t('Registering...', 'Inaandikisha...')) : (isUpdating ? 'Save Changes' : t('Register', 'Jiandikisha'))}
           </button>

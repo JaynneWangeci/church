@@ -97,7 +97,7 @@ export default function LiveProgress() {
   }
 
   return (
-    <section className="relative overflow-hidden bg-[#0f1a13] px-4 py-20 md:py-28">
+    <section className="relative overflow-hidden bg-sky-950/40 px-4 py-20 md:py-28">
       {/* Decorative background elements */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-amber/5 blur-3xl" />

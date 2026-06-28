@@ -12,10 +12,10 @@ interface Member {
 }
 
 const councilMeta: Record<string, { label: string; icon: typeof Church; color: string }> = {
-  maranatha_fellowship: { label: 'Maranatha Fellowship', icon: Church, color: 'bg-[#1E6F9F] text-white' },
-  bethlehem_fellowship: { label: "Bethlehem Fellowship", icon: Users, color: 'bg-[#5B9BD5] text-white' },
-  jerusalem_fellowship: { label: "Jerusalem Fellowship", icon: Users, color: 'bg-[#3A5A7A] text-white' },
-  aefeso_fellowship: { label: 'Aefeso Fellowship', icon: Medal, color: 'bg-[#2C4056] text-white' },
+  maranatha_fellowship: { label: 'Maranatha Fellowship', icon: Church, color: 'bg-nobuk text-white' },
+  bethlehem_fellowship: { label: "Bethlehem Fellowship", icon: Users, color: 'bg-nobuk-light text-white' },
+  jerusalem_fellowship: { label: "Jerusalem Fellowship", icon: Users, color: 'bg-sky-700 text-white' },
+  aefeso_fellowship: { label: 'Aefeso Fellowship', icon: Medal, color: 'bg-muted text-white' },
 };
 
 function initials(name: string): string {
@@ -128,14 +128,14 @@ export default function ContributeSection() {
       <section id="contribute" className="scroll-mt-16 bg-white/10 backdrop-blur-sm px-4 py-24 md:py-32">
         <div className="mx-auto max-w-6xl">
           <div className="mx-auto mb-12 max-w-xl text-center">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#5B9BD5]/10 px-4 py-1.5 text-xs font-bold text-[#1E6F9F] uppercase tracking-widest">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-nobuk-light/10 px-4 py-1.5 text-xs font-bold text-nobuk uppercase tracking-widest">
               <Heart size={12} />
               {t('Honour', 'Heshima')}
             </span>
-            <h2 className="mt-4 text-3xl font-bold text-[#1B2838] md:text-4xl" style={{ fontFamily: '"Neue Haas Grotesk Display Pro 55 Roman", "Neue Haas Grotesk Text Pro", "Helvetica Neue", Helvetica, Arial, sans-serif', letterSpacing: '-0.02em' }}>
+            <h2 className="mt-4 text-3xl font-bold text-ink md:text-4xl" style={{ fontFamily: '"Neue Haas Grotesk Display Pro 55 Roman", "Neue Haas Grotesk Text Pro", "Helvetica Neue", Helvetica, Arial, sans-serif', letterSpacing: '-0.02em' }}>
               {t('Honour a Church Member', 'Mheshimu Mwanajumuiya')}
             </h2>
-            <p className="mx-auto mt-2 max-w-sm text-sm text-[#5B6F88]">
+            <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
               {t('Select a church member below and make a contribution in their honour.', 'Chagua mwanajumuiya hapa chini na utoe mchango kwa heshima yake.')}
             </p>
           </div>
@@ -143,11 +143,11 @@ export default function ContributeSection() {
           <div ref={ref} className="mx-auto max-w-lg">
             {/* Your name - type or select from dropdown */}
             <div ref={dropdownRef} className="relative">
-              <label className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-[#1B2838]">
-                <User size={14} className="text-[#5B9BD5]" /> {t('Your name', 'Jina lako')} <span className="text-red-500">*</span>
+              <label className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-ink">
+                <User size={14} className="text-nobuk-light" /> {t('Your name', 'Jina lako')} <span className="text-red-500">*</span>
               </label>
               <div className="relative">
-                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#5B6F88]" />
+                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
                 <input
                   type="text"
                   placeholder={t('Type your name or select from the list...', 'Andika jina lako au chagua kutoka kwenye orodha...')}
@@ -158,28 +158,28 @@ export default function ContributeSection() {
                     setShowSuggestions(true);
                   }}
                   onFocus={() => setShowSuggestions(true)}
-                  className="w-full rounded-2xl border-2 border-[#1E6F9F]/20 bg-white py-4 pl-10 pr-4 text-base font-medium text-[#1B2838] outline-none transition-all focus:border-[#1E6F9F] placeholder:text-[#5B6F88]/60"
+                  className="w-full rounded-2xl border-2 border-nobuk/20 bg-white py-4 pl-10 pr-4 text-base font-medium text-ink outline-none transition-all focus:border-nobuk placeholder:text-muted/60"
                 />
               </div>
 
               {/* Suggestions dropdown */}
               {showSuggestions && (
-                <div className="absolute top-full left-0 right-0 z-20 mt-2 overflow-hidden rounded-2xl border border-[#2C4056]/10 bg-white shadow-xl animate-scale-in">
-                  <div className="max-h-64 overflow-y-auto divide-y divide-[#2C4056]/5">
+                <div className="absolute top-full left-0 right-0 z-20 mt-2 overflow-hidden rounded-2xl border border-muted/10 bg-white shadow-xl animate-scale-in">
+                  <div className="max-h-64 overflow-y-auto divide-y divide-muted/5">
                     {allCouncils.map(council => {
                       const councilMembers = grouped[council];
                       if (!councilMembers?.length) return null;
-                      const meta = councilMeta[council] || { label: council.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), icon: Church, color: 'bg-[#2C4056] text-white' };
+                      const meta = councilMeta[council] || { label: council.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), icon: Church, color: 'bg-muted text-white' };
                       const Icon = meta.icon;
 
                       return (
                         <div key={council}>
-                          <div className="sticky top-0 flex items-center gap-2 bg-[#5B9BD5]/10 px-4 py-2">
+                          <div className="sticky top-0 flex items-center gap-2 bg-nobuk-light/10 px-4 py-2">
                             <div className={`flex h-6 w-6 items-center justify-center rounded-full ${meta.color} text-[10px]`}>
                               <Icon size={12} />
                             </div>
-                            <span className="text-xs font-bold text-[#1E6F9F] uppercase tracking-wider">{meta.label}</span>
-                            <span className="ml-auto text-[10px] text-[#5B6F88]">{councilMembers.length}</span>
+                            <span className="text-xs font-bold text-nobuk uppercase tracking-wider">{meta.label}</span>
+                            <span className="ml-auto text-[10px] text-muted">{councilMembers.length}</span>
                           </div>
                           {councilMembers.map(m => (
                             <button
@@ -192,22 +192,22 @@ export default function ContributeSection() {
                               }}
                               className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-all ${
                                 selectedMember?.id === m.id
-                                  ? 'bg-[#5B9BD5]/20 font-bold'
-                                  : 'hover:bg-[#5B9BD5]/10 hover:pl-5'
+                                  ? 'bg-nobuk-light/20 font-bold'
+                                  : 'hover:bg-nobuk-light/10 hover:pl-5'
                               }`}
                             >
                               <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
                                 selectedMember?.id === m.id
-                                  ? 'bg-[#1E6F9F] text-white'
-                                  : 'bg-[#5B9BD5]/20 text-[#1E6F9F]'
+                                  ? 'bg-nobuk text-white'
+                                  : 'bg-nobuk-light/20 text-nobuk'
                               }`}>
                                 {initials(m.name)}
                               </div>
                               <div className="min-w-0 flex-1">
-                                <p className={`text-sm ${selectedMember?.id === m.id ? 'text-[#1B2838] font-bold' : 'text-[#1B2838] font-medium'}`}>{m.name}</p>
+                                <p className={`text-sm ${selectedMember?.id === m.id ? 'text-ink font-bold' : 'text-ink font-medium'}`}>{m.name}</p>
                               </div>
                               {selectedMember?.id === m.id && (
-                                <Check size={16} className="text-[#1E6F9F]" />
+                                <Check size={16} className="text-nobuk" />
                               )}
                             </button>
                           ))}
@@ -216,7 +216,7 @@ export default function ContributeSection() {
                     })}
                     {allCouncils.every(c => !grouped[c]?.length) && inputValue.trim() && (
                       <div className="px-4 py-6 text-center">
-                        <p className="text-sm font-medium text-[#5B6F88]">Will be added as a new member: "<span className="font-bold text-[#1B2838]">{inputValue}</span>"</p>
+                        <p className="text-sm font-medium text-muted">Will be added as a new member: "<span className="font-bold text-ink">{inputValue}</span>"</p>
                       </div>
                     )}
                   </div>
@@ -226,17 +226,17 @@ export default function ContributeSection() {
 
             {/* Selected member badge */}
             {selectedMember && (
-              <div className={`mt-4 flex items-center gap-3 rounded-xl border border-[#1E6F9F]/20 bg-[#5B9BD5]/10 px-4 py-3 ${inView ? 'animate-fade-in' : 'opacity-0'}`}>
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1E6F9F]">
+              <div className={`mt-4 flex items-center gap-3 rounded-xl border border-nobuk/20 bg-nobuk-light/10 px-4 py-3 ${inView ? 'animate-fade-in' : 'opacity-0'}`}>
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-nobuk">
                   <Medal size={14} className="text-white" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-bold text-[#1B2838]">{t('Honouring', 'Kumheshimu')}: {selectedMember.name}</p>
-                  <p className="text-xs text-[#5B6F88]">{councilMeta[selectedMember.council]?.label || selectedMember.council}</p>
+                  <p className="text-sm font-bold text-ink">{t('Honouring', 'Kumheshimu')}: {selectedMember.name}</p>
+                  <p className="text-xs text-muted">{councilMeta[selectedMember.council]?.label || selectedMember.council}</p>
                 </div>
                 <button
                   onClick={() => setSelectedMember(null)}
-                  className="text-xs text-[#5B6F88] underline hover:text-[#1B2838]"
+                  className="text-xs text-muted underline hover:text-ink"
                 >
                   Change
                 </button>
@@ -244,11 +244,11 @@ export default function ContributeSection() {
             )}
 
             {(inputValue.trim() || selectedMember) && (
-              <div className={`mt-4 flex items-center gap-3 rounded-xl border border-[#1E6F9F]/20 bg-[#5B9BD5]/5 px-4 py-3 ${inView ? 'animate-fade-in' : 'opacity-0'}`}>
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1E6F9F]">
+              <div className={`mt-4 flex items-center gap-3 rounded-xl border border-nobuk/20 bg-nobuk-light/5 px-4 py-3 ${inView ? 'animate-fade-in' : 'opacity-0'}`}>
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-nobuk">
                   <Heart size={14} className="text-white" />
                 </div>
-                <p className="text-sm font-bold text-[#1B2838]">{getSelectionTitle()}</p>
+                <p className="text-sm font-bold text-ink">{getSelectionTitle()}</p>
               </div>
             )}
 
@@ -257,7 +257,7 @@ export default function ContributeSection() {
               <button
                 onClick={handleContribute}
                 disabled={autoAdding || !inputValue.trim() || !selectedMember}
-                className="btn-lift w-full rounded-full bg-[#1B2838] px-8 py-4 text-base font-bold text-white shadow-sm hover:bg-[#3B5A7A] disabled:cursor-not-allowed disabled:opacity-40"
+                className="btn-lift w-full rounded-full bg-amber px-8 py-4 text-base font-bold text-white shadow-sm hover:bg-amber-dark disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {autoAdding ? t('Saving name...', 'Inahifadhi jina...') : t('Continue to Honour', 'Endelea Kumheshimu')}
               </button>
@@ -267,10 +267,10 @@ export default function ContributeSection() {
           {/* General fund CTA */}
           <div className={`mt-10 text-center ${inView ? 'animate-fade-in' : 'opacity-0'}`} style={{ animationDelay: '0.5s' }}>
             <div className="mx-auto max-w-lg rounded-2xl border border-white/20 bg-white/70 backdrop-blur-md p-8 shadow-sm">
-              <Heart size={24} className="mx-auto mb-3 text-[#1E6F9F]" />
-              <h3 className="text-xl font-bold text-[#1B2838]">{t('Or honour via M-Pesa', 'Au heshimu kwa M-Pesa')}</h3>
-              <p className="mt-1 text-lg font-bold text-[#1E6F9F]">Paybill: 835 872</p>
-              <p className="mt-1 text-xs text-[#5B6F88]">{t('Account: Your Name', 'Akaunti: Jina Lako')}</p>
+              <Heart size={24} className="mx-auto mb-3 text-nobuk" />
+              <h3 className="text-xl font-bold text-ink">{t('Or honour via M-Pesa', 'Au heshimu kwa M-Pesa')}</h3>
+              <p className="mt-1 text-lg font-bold text-nobuk">Paybill: 835 872</p>
+              <p className="mt-1 text-xs text-muted">{t('Account: Your Name', 'Akaunti: Jina Lako')}</p>
             </div>
           </div>
 
@@ -278,10 +278,10 @@ export default function ContributeSection() {
           <div className={`mt-8 text-center ${inView ? 'animate-fade-in' : 'opacity-0'}`} style={{ animationDelay: '0.6s' }}>
             <div className="relative mb-4">
               <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
-              <div className="relative flex justify-center"><span className="bg-[#f5f7f4] px-3 text-xs text-[#5B6F88]">{t('or', 'au')}</span></div>
+              <div className="relative flex justify-center"><span className="bg-[#f5f7f4] px-3 text-xs text-muted">{t('or', 'au')}</span></div>
             </div>
             <button type="button" onClick={() => setShowPledgeForm(true)}
-              className="btn-lift inline-flex items-center gap-2 rounded-full border-2 border-[#5B9BD5]/30 bg-white px-8 py-4 text-base font-bold text-[#1E6F9F] shadow-sm hover:border-[#5B9BD5] hover:bg-blue-50 transition-all">
+              className="btn-lift inline-flex items-center gap-2 rounded-full border-2 border-nobuk-light/30 bg-white px-8 py-4 text-base font-bold text-nobuk shadow-sm hover:border-nobuk-light hover:bg-blue-50 transition-all">
               <HandHeart size={20} />
               {t('Make a Pledge — Track Your Giving', 'Weka Ahadi — Fuatilia Mchango Wako')}
             </button>

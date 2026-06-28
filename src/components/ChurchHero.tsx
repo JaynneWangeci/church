@@ -122,7 +122,7 @@ export default function ChurchHero() {
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out ${
           scrolled
-            ? 'top-3 mx-4 max-w-6xl xl:mx-auto rounded-2xl bg-[#1B2838]/80 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/20'
+            ? 'top-3 mx-4 max-w-6xl xl:mx-auto rounded-2xl bg-white/20 backdrop-blur-xl border border-white/25 shadow-2xl shadow-sky-900/20'
             : 'top-0 bg-transparent'
         }`}
         style={{
@@ -133,7 +133,7 @@ export default function ChurchHero() {
         <div className="flex items-center justify-between px-5 py-3">
           <div className="flex items-center gap-3">
             <div className="relative flex h-9 w-9 items-center justify-center">
-              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#5B9BD5]/40 to-[#5B9BD5]/10 animate-pulse" />
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#38BDF8]/40 to-[#38BDF8]/10 animate-pulse" />
               <img
                 src="/images/a.jpeg"
                 alt="AIPCA"
@@ -152,7 +152,7 @@ export default function ChurchHero() {
               className="group relative overflow-hidden rounded-full bg-white/10 px-5 py-2 text-sm font-semibold text-white transition-all duration-300 hover:bg-white/20 hover:shadow-lg hover:shadow-white/10 active:scale-[0.97]"
             >
               <span className="relative z-10 flex items-center gap-2">
-                <Heart size={14} className="text-[#5B9BD5] group-hover:scale-110 transition-transform duration-300" />
+                <Heart size={14} className="text-[#38BDF8] group-hover:scale-110 transition-transform duration-300" />
                 {t('Give Now', 'Toa Sasa')}
               </span>
             </button>
@@ -199,10 +199,10 @@ export default function ChurchHero() {
           }}
         >
           <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#5B9BD5] opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-[#5B9BD5]" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#38BDF8] opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-[#38BDF8]" />
           </span>
-          <span className="text-[9px] font-semibold tracking-[0.2em] text-[#5B9BD5] uppercase">
+          <span className="text-[9px] font-semibold tracking-[0.2em] text-[#38BDF8] uppercase">
             2026 · {t('Tujenge Pamoja', 'Tujenge Pamoja')}
           </span>
         </div>
@@ -223,7 +223,7 @@ export default function ChurchHero() {
                 opacity: i < revealedChars ? 1 : 0,
                 transform: i < revealedChars ? 'translateY(0) scale(1)' : 'translateY(30px) scale(0.9)',
                 transition: `opacity 0.4s ease-out, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1) ${i * 0.02}s`,
-                color: char === '.' || char === ',' ? '#5B9BD5' : undefined,
+                color: char === '.' || char === ',' ? '#38BDF8' : undefined,
               }}
             >
               {char === ' ' ? '\u00A0' : char}
@@ -240,7 +240,7 @@ export default function ChurchHero() {
             transition: 'opacity 0.6s ease-out 0.2s, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.2s',
           }}
         >
-          <span className="italic text-[#5B9BD5]/70">&ldquo;{t('Unless the Lord builds the house, its builders labour in vain.', 'Bwana asipoijenga nyumba, wajengi hufanya kazi bure.')}&rdquo;</span>
+          <span className="italic text-[#38BDF8]/70">&ldquo;{t('Unless the Lord builds the house, its builders labour in vain.', 'Bwana asipoijenga nyumba, wajengi hufanya kazi bure.')}&rdquo;</span>
           <br />
           <span className="text-white/20">Psalm 127:1</span>
         </p>
@@ -256,7 +256,7 @@ export default function ChurchHero() {
         >
           <button
             onClick={() => setShowGive(true)}
-            className="group relative overflow-hidden rounded-full bg-white px-5 py-2.5 text-xs font-bold text-[#1B2838] transition-all duration-300 hover:shadow-xl hover:shadow-white/20 active:scale-[0.97]"
+            className="group relative overflow-hidden rounded-full bg-white px-5 py-2.5 text-xs font-bold text-sky-900 transition-all duration-300 hover:shadow-xl hover:shadow-white/20 active:scale-[0.97]"
           >
             <span className="relative z-10">{t('Give to the Harambee', 'Toa kwa Harambee')}</span>
             <span className="absolute inset-0 bg-gradient-to-r from-white via-[#E8F0FE] to-white translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />

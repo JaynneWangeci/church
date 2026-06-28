@@ -21,7 +21,7 @@ export default function Footer() {
         <div className="flex flex-col items-center justify-between gap-8 md:flex-row">
           <div className="text-center md:text-left">
             <div className="flex items-center justify-center gap-2 md:justify-start">
-              <Church size={18} className="text-[#5B9BD5]" />
+              <Church size={18} className="text-nobuk-light" />
               <span className="font-heading text-lg font-bold text-white">AIPCA Bahati Cathedral</span>
             </div>
             <p className="mt-1 text-sm text-white/50">
@@ -30,24 +30,24 @@ export default function Footer() {
           </div>
 
           <div className="flex items-center gap-6">
-            <a href="#about" className="text-sm text-white/50 transition hover:text-[#5B9BD5]">
+            <a href="#about" className="text-sm text-white/50 transition hover:text-nobuk-light">
               {t("About", "Kuhusu")}
             </a>
-            <a href="#contribute" className="text-sm text-white/50 transition hover:text-[#5B9BD5]">
+            <a href="#contribute" className="text-sm text-white/50 transition hover:text-nobuk-light">
               {t("Contribute", "Changia")}
             </a>
-            <a href="#give" className="flex items-center gap-1 text-sm font-semibold text-[#5B9BD5] transition hover:text-[#3A5A7A]">
+            <a href="#give" className="flex items-center gap-1 text-sm font-semibold text-nobuk-light transition hover:text-sky-700">
               <Heart size={14} />
               {t("Give", "Toa")}
             </a>
-            <a href="/policy" className="text-sm text-white/50 transition hover:text-[#5B9BD5]">
+            <a href="/policy" className="text-sm text-white/50 transition hover:text-nobuk-light">
               {t("Privacy", "Sera")}
             </a>
           </div>
 
           <div className="flex items-center gap-4">
             {phone && (
-              <a href={`tel:${phone}`} className="flex items-center gap-1 text-sm text-white/50 transition hover:text-[#5B9BD5]">
+              <a href={`tel:${phone}`} className="flex items-center gap-1 text-sm text-white/50 transition hover:text-nobuk-light">
                 <Phone size={14} />
                 {phone}
               </a>
