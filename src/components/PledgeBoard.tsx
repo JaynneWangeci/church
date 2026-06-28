@@ -193,25 +193,33 @@ export default function PledgeBoard() {
         setPayProcessing(false); return;
       }
       setPayErrors(prev => ({ ...prev, [pledgeId]: 'Check your phone and enter PIN to complete...' }));
-      const id = setInterval(async () => {
-        try {
-          const r = await fetch(`/api/mpesa/status/${body.CheckoutRequestID}`);
-          const s = await r.json().catch(() => ({}));
-          if (s.status === 'completed') {
-            clearInterval(id);
-            setPayProcessing(false);
-            setPayAmounts(p => { const n = { ...p }; delete n[pledgeId]; return n; });
-            setPayPhones(p => { const n = { ...p }; delete n[pledgeId]; return n; });
-            setPayErrors(p => { const n = { ...p }; delete n[pledgeId]; return n; });
-            handleCommitSearch();
-            window.dispatchEvent(new Event('pledge:changed'));
-          } else if (s.status === 'failed') {
-            clearInterval(id);
-            setPayProcessing(false);
-            setPayErrors(prev => ({ ...prev, [pledgeId]: 'Payment was cancelled or failed' }));
-          }
-        } catch { clearInterval(id); setPayProcessing(false); setPayErrors(prev => ({ ...prev, [pledgeId]: 'Status check failed' })); }
-      }, 3000);
+      let pollCount = 0;
+      const poll = () => {
+        pollCount++;
+        fetch(`/api/mpesa/status/${body.CheckoutRequestID}`)
+          .then(r => r.json().catch(() => ({})))
+          .then(s => {
+            if (s.status === 'completed') {
+              setPayProcessing(false);
+              setPayAmounts(p => { const n = { ...p }; delete n[pledgeId]; return n; });
+              setPayPhones(p => { const n = { ...p }; delete n[pledgeId]; return n; });
+              setPayErrors(p => { const n = { ...p }; delete n[pledgeId]; return n; });
+              handleCommitSearch();
+              window.dispatchEvent(new Event('pledge:changed'));
+              return;
+            }
+            if (s.status === 'failed') {
+              setPayProcessing(false);
+              setPayErrors(prev => ({ ...prev, [pledgeId]: 'Payment was cancelled or failed' }));
+              return;
+            }
+            // Exponential backoff: 2s → 3s → 5s → 8s → max 10s
+            const delay = Math.min(2000 * Math.pow(1.5, pollCount), 10000);
+            setTimeout(poll, delay);
+          })
+          .catch(() => { setPayProcessing(false); setPayErrors(prev => ({ ...prev, [pledgeId]: 'Status check failed' })); });
+      };
+      poll();
     } catch {
       setPayProcessing(false);
       setPayErrors(prev => ({ ...prev, [pledgeId]: 'Network error. Try again.' }));

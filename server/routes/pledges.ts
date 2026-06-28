@@ -6,6 +6,7 @@ import { withRetry } from "../lib/financial-safety.js";
 import { stkPushToPhone } from "./mpesa.js";
 import { PLEDGE_VERSES, pickVerse } from "./verses.js";
 import { enqueueFollowUp } from "../lib/queue.js";
+import { cacheGet, cacheSet, cacheKey } from "../lib/redis.js";
 import { savePhoneForName } from "../lib/contacts.js";
 
 export const pledgesRouter = Router();
@@ -102,6 +103,10 @@ pledgesRouter.post("/", async (req, res) => {
 
 pledgesRouter.get("/", async (_req, res) => {
   try {
+    const cacheKeyStr = cacheKey("pledges", "list");
+    const cached = await cacheGet<any>(cacheKeyStr);
+    if (cached) return res.json(cached);
+
     const db = requireService();
     await recalculatePledgeFulfillment(db);
     const { data, error } = await db
@@ -110,7 +115,9 @@ pledgesRouter.get("/", async (_req, res) => {
       .order("amount", { ascending: false });
 
     if (error) return res.status(500).json({ error: error.message });
-    res.json({ pledges: data || [] });
+    const result = { pledges: data || [] };
+    await cacheSet(cacheKeyStr, result, 5).catch(() => {});
+    res.json(result);
   } catch (err) {
     console.error("pledges list error:", err);
     res.status(500).json({ error: "Server error" });

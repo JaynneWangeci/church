@@ -5,6 +5,7 @@ import { requireAdmin } from "../lib/admin.js";
 import { PAYMENT_VERSES, pickVerse } from "./verses.js";
 import { enqueueFollowUp } from "../lib/queue.js";
 import { savePhoneForName } from "../lib/contacts.js";
+import { cacheGet, cacheSet, cacheKey } from "../lib/redis.js";
 import {
   checkPhoneStkRateLimit,
   validateDonationAmount,
@@ -298,6 +299,12 @@ mpesaRouter.post("/resend-whatsapp/:id", requireAdmin, async (req, res) => {
 mpesaRouter.get("/status/:checkoutRequestId", async (req, res) => {
   try {
     const { checkoutRequestId } = req.params;
+
+    // Check cache first (completed/failed statuses rarely change)
+    const cacheKeyStr = cacheKey("mpesa", "status", checkoutRequestId);
+    const cached = await cacheGet<any>(cacheKeyStr);
+    if (cached) return res.json(cached);
+
     const db = requireService();
 
     const { data: donation } = await db
@@ -307,7 +314,9 @@ mpesaRouter.get("/status/:checkoutRequestId", async (req, res) => {
       .single();
 
     if (donation?.status === "completed") {
-      return res.json({ ResultCode: "0", status: "completed", receipt_number: donation.receipt_number });
+      const result = { ResultCode: "0", status: "completed", receipt_number: donation.receipt_number };
+      await cacheSet(cacheKeyStr, result, 60).catch(() => {});
+      return res.json(result);
     }
 
     if (ENV === "sandbox") {
@@ -357,10 +366,14 @@ mpesaRouter.get("/status/:checkoutRequestId", async (req, res) => {
 
       donationConfirmation({ ...donation, receipt_number: receiptNumber });
 
-      return res.json({ ResultCode: "0", status: "completed", receipt_number: receiptNumber });
+      const completedResult = { ResultCode: "0", status: "completed", receipt_number: receiptNumber };
+      await cacheSet(cacheKeyStr, completedResult, 60).catch(() => {});
+      return res.json(completedResult);
     }
 
-    res.json({ status: "pending" });
+    const pendingResult = { status: "pending" };
+    await cacheSet(cacheKeyStr, pendingResult, 2).catch(() => {});
+    res.json(pendingResult);
   } catch (err) {
     console.error("mpesa status error:", err);
     res.status(500).json({ error: "Query failed" });

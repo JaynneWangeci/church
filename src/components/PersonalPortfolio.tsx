@@ -82,21 +82,30 @@ export default function PersonalPortfolio({ name, onClose }: Props) {
 
     setPayError('Check your phone and enter your M-Pesa PIN to complete...');
 
-    const pollId = setInterval(async () => {
-      const statusRes = await fetch(`/api/mpesa/status/${data.CheckoutRequestID}`);
-      const statusData = await statusRes.json().catch(() => ({}));
-      if (statusData.status === "completed") {
-        clearInterval(pollId);
-        setPayProcessing(false);
-        setPayingPledge(null); setPayAmount(''); setPayPhone('');
-        load();
-        window.dispatchEvent(new Event('pledge:changed'));
-      } else if (statusData.status === "failed") {
-        clearInterval(pollId);
-        setPayProcessing(false);
-        setPayError('Payment failed or was cancelled.');
-      }
-    }, 3000);
+    let pollCount = 0;
+    const poll = () => {
+      pollCount++;
+      fetch(`/api/mpesa/status/${data.CheckoutRequestID}`)
+        .then(r => r.json().catch(() => ({})))
+        .then(s => {
+          if (s.status === "completed") {
+            setPayProcessing(false);
+            setPayingPledge(null); setPayAmount(''); setPayPhone('');
+            load();
+            window.dispatchEvent(new Event('pledge:changed'));
+            return;
+          }
+          if (s.status === "failed") {
+            setPayProcessing(false);
+            setPayError('Payment failed or was cancelled.');
+            return;
+          }
+          const delay = Math.min(2000 * Math.pow(1.5, pollCount), 10000);
+          setTimeout(poll, delay);
+        })
+        .catch(() => { setPayProcessing(false); setPayError('Status check failed.'); });
+    };
+    poll();
   }
 
   if (loading) return (
