@@ -775,40 +775,6 @@ adminRouter.post("/send-portfolio-sms", requireAdmin, requireAdminOrAbove, async
   }
 });
 
-// TEMP: fix PLD donations with truncated donor_name
-adminRouter.post("/fix-pld-donations", async (_req, res) => {
-  try {
-    const db = requireService();
-    const { data: pldDonations } = await db
-      .from("donations")
-      .select("id, donor_name, amount, receipt_number, account_reference, church_member_id")
-      .ilike("donor_name", "PLD:%");
-    if (!pldDonations?.length) return res.json({ fixed: 0, message: "No PLD donations found" });
-    // Get all pledges for matching
-    const { data: allPledges } = await db.from("pledges").select("id, donor_name");
-    const fixes: { id: string; donor_name: string; account_reference: string }[] = [];
-    const errors: { id: string; reason: string }[] = [];
-    for (const d of pldDonations) {
-      const shortId = String(d.donor_name).replace("PLD:", "").toLowerCase();
-      // Match by UUID prefix
-      const pledge = (allPledges || []).find(p => p.id.toLowerCase().startsWith(shortId));
-      if (pledge) {
-        fixes.push({ id: d.id, donor_name: pledge.donor_name, account_reference: `PLD:${pledge.id}` });
-      } else {
-        errors.push({ id: d.id, reason: `No pledge matching prefix ${shortId}` });
-      }
-    }
-    for (const f of fixes) {
-      await db.from("donations").update({ donor_name: f.donor_name, account_reference: f.account_reference }).eq("id", f.id);
-    }
-    const { recalculatePledgeFulfillment } = await import("../lib/admin.js");
-    await recalculatePledgeFulfillment(db);
-    res.json({ fixed: fixes.length, errors, donations: pldDonations.map(d => ({ id: d.id, old_name: d.donor_name })), updates: fixes });
-  } catch (err: any) {
-    res.status(500).json({ error: err?.message || String(err) });
-  }
-});
-
 adminRouter.post("/test-sms", requireAdmin, async (req, res) => {
   try {
     const { phone } = req.body;
