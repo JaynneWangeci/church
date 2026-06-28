@@ -163,7 +163,7 @@ export default function PersonalPortfolio({ name, onClose }: Props) {
               </h3>
               <div className="space-y-2">
                 {data.pledges.map((p: any) => {
-                  const pct = p.amount > 0 ? Math.min(100, Math.round((p.paid / p.amount) * 100)) : 0;
+                  const pct = p.amount > 0 ? Math.min(100, (p.paid / p.amount) * 100) : 0;
                   return (
                     <div key={p.id} className="rounded-lg border border-gray-100 bg-white p-3 shadow-sm">
                       <div className="flex items-center justify-between">

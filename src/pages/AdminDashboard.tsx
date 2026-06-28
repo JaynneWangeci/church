@@ -2587,7 +2587,7 @@ export default function AdminDashboard() {
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs tabular-nums">
                               <span className="text-muted whitespace-nowrap">Donations: KES {f.donation.total.toLocaleString("en-KE")}</span>
                               <span className="text-green-700 font-medium whitespace-nowrap">Pledged: KES {f.pledge.paid.toLocaleString("en-KE")}</span>
-                              <span className="text-amber-dark font-medium whitespace-nowrap">Rate: {f.pledge.fulfillment_rate}%</span>
+                              <span className="text-amber-dark font-medium whitespace-nowrap">Rate: {Number(f.pledge.fulfillment_rate).toFixed(2)}%</span>
                             </div>
                           </summary>
 
@@ -2625,7 +2625,7 @@ export default function AdminDashboard() {
                               <div className="rounded-lg border border-gray-50 bg-gray-50/50 p-2.5">
                                 <p className="text-[9px] font-bold uppercase tracking-wider text-muted">Fulfillment Rate</p>
                                 <p className={`text-sm font-bold tabular-nums ${pledgePct >= 100 ? 'text-green-700' : pledgePct >= 50 ? 'text-amber-dark' : 'text-red-600'}`}>
-                                  {f.pledge.fulfillment_rate}%
+                                  {Number(f.pledge.fulfillment_rate).toFixed(2)}%
                                 </p>
                                 <p className="text-[10px] text-muted tabular-nums">{f.pledge.active} active · {f.pledge.fulfilled} done</p>
                               </div>
@@ -2803,7 +2803,7 @@ export default function AdminDashboard() {
                       { label: "Total Raised", value: `KES ${dashboardData.kpis.total_raised.toLocaleString("en-KE")}`, change: dashboardData.kpis.period_change, icon: TrendingUp, color: "bg-blue-600" },
                       { label: "Total Donations", value: dashboardData.kpis.total_donations.toLocaleString(), change: dashboardData.kpis.count_change, icon: DollarSign, color: "bg-emerald-600" },
                       { label: "Average Gift", value: `KES ${dashboardData.kpis.avg_gift.toLocaleString("en-KE")}`, icon: Users, color: "bg-violet-600" },
-                      { label: "Pledge Fulfillment", value: `${dashboardData.pledges.fulfillment_rate}%`, subtitle: `${dashboardData.pledges.fulfilled}/${dashboardData.pledges.active + dashboardData.pledges.fulfilled} fulfilled`, icon: Target, color: "bg-amber-600" },
+                      { label: "Pledge Fulfillment", value: `${Number(dashboardData.pledges.fulfillment_rate).toFixed(2)}%`, subtitle: `${dashboardData.pledges.fulfilled}/${dashboardData.pledges.active + dashboardData.pledges.fulfilled} fulfilled`, icon: Target, color: "bg-amber-600" },
                       { label: "Days Remaining", value: dashboardData.harambee ? `${dashboardData.harambee.days_remaining} days` : "—", subtitle: dashboardData.harambee?.passed ? "Event passed" : `Until ${dashboardData.harambee?.date || "27 Sep 2026"}`, icon: Clock, color: "bg-rose-600" },
                     ].map((k) => {
                       const Icon = k.icon;
@@ -2997,7 +2997,7 @@ export default function AdminDashboard() {
                       </div>
                       <div className="rounded-lg bg-violet-50 p-3 text-center">
                         <p className="text-xs font-medium text-violet-700">Rate</p>
-                        <p className="mt-1 text-lg font-bold text-violet-900">{dashboardData.pledges.fulfillment_rate}%</p>
+                        <p className="mt-1 text-lg font-bold text-violet-900">{Number(dashboardData.pledges.fulfillment_rate).toFixed(2)}%</p>
                       </div>
                     </div>
                     {dashboardData.pledges.total > 0 && (

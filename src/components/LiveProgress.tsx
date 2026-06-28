@@ -126,7 +126,7 @@ export default function LiveProgress({ compact }: { compact?: boolean }) {
             <span className="text-[10px] font-bold uppercase tracking-widest text-white/50">Harambee</span>
           </div>
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-amber/30 bg-amber/10">
-            <span className="text-xs font-bold text-amber tabular-nums">{pct.toFixed(0)}%</span>
+            <span className="text-xs font-bold text-amber tabular-nums">{pct.toFixed(2)}%</span>
           </div>
         </div>
         <div className="mb-3 flex items-end justify-between gap-2">

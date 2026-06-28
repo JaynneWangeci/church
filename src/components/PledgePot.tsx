@@ -160,7 +160,7 @@ export default function PledgePot() {
           <div className="text-[8px] font-medium text-green-400/50 uppercase tracking-widest">Paid</div>
           <div className="flex items-baseline justify-center gap-1">
             <span className="text-xs font-bold text-green-400 tabular-nums">KES {paid.toLocaleString()}</span>
-            <span className="text-[8px] text-green-400/50">{pct.toFixed(1)}%</span>
+            <span className="text-[8px] text-green-400/50">{pct.toFixed(2)}%</span>
           </div>
         </div>
       </div>

@@ -14,7 +14,7 @@ function PledgeRing({ pct, size = 56 }: { pct: number; size?: number }) {
       <circle cx="26" cy="26" r={r} fill="none" stroke="currentColor" strokeWidth="4" className="text-gray-200" />
       <circle cx="26" cy="26" r={r} fill="none" stroke="currentColor" strokeWidth="4" strokeDasharray={circ} strokeDashoffset={offset}
         strokeLinecap="round" className="text-blue-600 transition-all duration-700" style={{ transform: 'rotate(-90deg)', transformOrigin: 'center' }} />
-      <text x="26" y="26" textAnchor="middle" dominantBaseline="central" className="fill-gray-900 text-xs font-bold" fontSize="10">{Math.round(pct)}%</text>
+      <text x="26" y="26" textAnchor="middle" dominantBaseline="central" className="fill-gray-900 text-xs font-bold" fontSize="10">{pct.toFixed(2)}%</text>
     </svg>
   );
 }
@@ -368,7 +368,7 @@ export default function PledgeBoard() {
                 {result && result.pledges.length > 0 && (
                   <div className="mt-4 space-y-3">
                     {result.pledges.map((p: any) => {
-                      const pct = p.amount > 0 ? Math.min(100, Math.round((p.paid / p.amount) * 100)) : 0;
+                      const pct = p.amount > 0 ? Math.min(100, (p.paid / p.amount) * 100) : 0;
                       return (
                         <div key={p.id} className="rounded-lg bg-blue-50 p-3 text-left">
                           <div className="flex items-center justify-between">
@@ -381,7 +381,7 @@ export default function PledgeBoard() {
                             </div>
                             {p.status === 'fulfilled'
                               ? <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-700">{t('Fulfilled ✓', 'Imekamilika ✓')}</span>
-                              : <span className="text-sm font-bold text-blue-700">{pct}%</span>
+                              : <span className="text-sm font-bold text-blue-700">{pct.toFixed(2)}%</span>
                             }
                           </div>
                           <div className="mt-1 flex gap-3 text-xs text-gray-600">
@@ -437,7 +437,7 @@ export default function PledgeBoard() {
             {commitPledges !== null && (
               <div className="mx-auto mt-6 max-w-lg space-y-3">
                 {commitPledges.length > 0 ? commitPledges.map((p: any) => {
-                  const pct = p.amount > 0 ? Math.min(100, Math.round((p.paid / p.amount) * 100)) : 0;
+                  const pct = p.amount > 0 ? Math.min(100, (p.paid / p.amount) * 100) : 0;
                   return (
                     <div key={p.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
                       <div className="flex items-center justify-between">
