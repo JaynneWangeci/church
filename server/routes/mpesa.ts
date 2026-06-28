@@ -6,6 +6,7 @@ import { PAYMENT_VERSES, pickVerse } from "./verses.js";
 import { enqueueFollowUp } from "../lib/queue.js";
 import { savePhoneForName } from "../lib/contacts.js";
 import { cacheGet, cacheSet, cacheKey } from "../lib/redis.js";
+import { rateLimitMiddleware } from "../lib/rateLimiter.js";
 import {
   checkPhoneStkRateLimit,
   validateDonationAmount,
@@ -150,7 +151,7 @@ export function donationConfirmation(donation: any): void {
 
 // ── STK Push (public, rate-limited) ── //
 
-mpesaRouter.post("/stkpush", async (req, res) => {
+mpesaRouter.post("/stkpush", rateLimitMiddleware(), async (req, res) => {
   try {
     const { phone, amount, account_reference, transaction_desc, donation_id } = req.body;
     if (!phone || !amount) return res.status(400).json({ error: "phone and amount required" });

@@ -7,6 +7,7 @@ import { stkPushToPhone } from "./mpesa.js";
 import { PLEDGE_VERSES, pickVerse } from "./verses.js";
 import { enqueueFollowUp } from "../lib/queue.js";
 import { cacheGet, cacheSet, cacheKey } from "../lib/redis.js";
+import { rateLimitMiddleware } from "../lib/rateLimiter.js";
 import { savePhoneForName } from "../lib/contacts.js";
 
 export const pledgesRouter = Router();
@@ -230,7 +231,7 @@ pledgesRouter.post("/:id/verify-phone", async (req, res) => {
   }
 });
 
-pledgesRouter.post("/:id/pay-with-mpesa", async (req, res) => {
+pledgesRouter.post("/:id/pay-with-mpesa", rateLimitMiddleware(), async (req, res) => {
   try {
     const db = requireService();
     const { phone, amount } = req.body;
