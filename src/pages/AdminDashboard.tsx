@@ -3780,42 +3780,15 @@ function SiteContentEditor() {
   const [backingUp, setBackingUp] = useState(false);
   const [backupMsg, setBackupMsg] = useState("");
 
-  // SMS logs (paginated, not from parent scope)
-  const [smsLogs, setSmsLogs] = useState<any[]>([]);
-  const [smsTotal, setSmsTotal] = useState(0);
-  const [smsOffset, setSmsOffset] = useState(0);
-  const [smsLoadingLogs, setSmsLoadingLogs] = useState(false);
-  const [smsContexts, setSmsContexts] = useState<string[]>([]);
-  const [smsFilterContext, setSmsFilterContext] = useState("");
+  // SMS stats (local, not from parent scope)
+  const [smsStats, setSmsStats] = useState<any>(null);
+  const smsSent = smsStats?.total_sent ?? 0;
+  const smsFailed = smsStats?.total_failed ?? 0;
+  const smsCost = smsStats?.total_cost ?? 0;
 
   useEffect(() => {
     const stored = localStorage.getItem("admin");
     if (stored) setAdminLocal(JSON.parse(stored));
-  }, []);
-
-  const loadSmsLogs = useCallback(async (offsetVal = 0, contextFilter = "") => {
-    setSmsLoadingLogs(true);
-    try {
-      const token = localStorage.getItem("token");
-      const params = new URLSearchParams({ limit: "100", offset: String(offsetVal) });
-      if (contextFilter) params.set("context", contextFilter);
-      const [logsRes, ctxRes] = await Promise.all([
-        fetch(`/api/admin/sms-logs?${params}`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("/api/admin/sms-log-contexts", { headers: { Authorization: `Bearer ${token}` } }),
-      ]);
-      if (logsRes.ok) {
-        const data = await logsRes.json();
-        if (offsetVal === 0) setSmsLogs(data.logs);
-        else setSmsLogs(prev => [...prev, ...data.logs]);
-        setSmsTotal(data.total);
-        setSmsOffset(offsetVal + data.logs.length);
-      }
-      if (ctxRes.ok) {
-        const data = await ctxRes.json();
-        setSmsContexts(data.contexts || []);
-      }
-    } catch {}
-    setSmsLoadingLogs(false);
   }, []);
 
   useEffect(() => {
@@ -3824,7 +3797,8 @@ function SiteContentEditor() {
       fetch("/api/settings").then(r => r.ok ? r.json() : null),
       fetch("/api/admin/campaigns", { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null),
       fetch("/api/admin/backups", { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null),
-    ]).then(([settingsData, campData, backupData]) => {
+      fetch("/api/admin/stats", { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null),
+    ]).then(([settingsData, campData, backupData, statsData]) => {
       if (settingsData?.settings) {
         setContent(prev => ({
           ...prev,
@@ -3840,10 +3814,10 @@ function SiteContentEditor() {
       }
       if (campData?.campaigns) setCampaigns(campData.campaigns);
       if (backupData?.backups) setBackups(backupData.backups);
+      if (statsData?.sms) setSmsStats(statsData.sms);
       setLoading(false);
     }).catch(() => setLoading(false));
-    loadSmsLogs(0, "");
-  }, [loadSmsLogs]);
+  }, []);
 
   function updateCard(i: number, field: string, value: string) {
     const cards = [...content.cards];
@@ -4241,64 +4215,39 @@ function SiteContentEditor() {
         </div>
       </div>
 
-      {/* SMS Logs */}
-      <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-ink">SMS Logs</h2>
-          <div className="flex items-center gap-2">
-            <select value={smsFilterContext} onChange={e => { const v = e.target.value; setSmsFilterContext(v); setSmsLogs([]); setSmsOffset(0); loadSmsLogs(0, v); }}
-              className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs text-ink outline-none focus:border-nobuk">
-              <option value="">All types</option>
-              {smsContexts.map(ctx => <option key={ctx} value={ctx}>{ctx}</option>)}
-            </select>
-            <span className="text-xs text-muted">{smsTotal} total</span>
-          </div>
-        </div>
-
-        <div className="max-h-[600px] overflow-y-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 bg-white">
-              <tr className="border-b border-gray-100">
-                <th className="pb-2 font-bold text-muted">Phone</th>
-                <th className="pb-2 font-bold text-muted">Status</th>
-                <th className="pb-2 font-bold text-muted">Context</th>
-                <th className="pb-2 font-bold text-muted">Message</th>
-                <th className="pb-2 font-bold text-muted">Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {smsLogs.length === 0 && !smsLoadingLogs && (
-                <tr><td colSpan={5} className="py-8 text-center text-muted">No SMS messages yet.</td></tr>
-              )}
-              {smsLogs.map((s: any) => (
-                <tr key={s.created_at + s.phone} className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="py-2 tabular-nums text-ink whitespace-nowrap">{s.phone}</td>
-                  <td className="py-2">
-                    <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${s.status === 'sent' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                      {s.status}
-                    </span>
-                  </td>
-                  <td className="py-2 text-muted">{s.context || "—"}</td>
-                  <td className="max-w-[250px] truncate py-2 text-muted" title={s.message_preview}>{s.message_preview || "—"}</td>
-                  <td className="py-2 tabular-nums text-muted whitespace-nowrap">{formatDate(s.created_at)}</td>
+      {/* SMS History */}
+      {smsStats?.recent?.length > 0 && (
+        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-bold text-ink">Recent SMS Activity</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="pb-2 font-bold text-muted">Phone</th>
+                  <th className="pb-2 font-bold text-muted">Status</th>
+                  <th className="pb-2 font-bold text-muted">Message</th>
+                  <th className="pb-2 font-bold text-muted">Time</th>
                 </tr>
-              ))}
-              {smsLoadingLogs && (
-                <tr><td colSpan={5} className="py-4 text-center text-muted">Loading...</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {smsOffset < smsTotal && (
-          <div className="mt-3 text-center">
-            <button onClick={() => loadSmsLogs(smsOffset, smsFilterContext)} disabled={smsLoadingLogs}
-              className="rounded-lg border border-gray-200 px-4 py-1.5 text-xs font-semibold text-ink hover:bg-gray-50 disabled:opacity-40">
-              {smsLoadingLogs ? "Loading..." : `Load more (${smsTotal - smsOffset} remaining)`}
-            </button>
+              </thead>
+              <tbody>
+                {smsStats.recent.map((s: any) => (
+                  <tr key={s.created_at} className="border-b border-gray-50">
+                    <td className="py-2 tabular-nums text-ink">{s.phone}</td>
+                    <td className="py-2">
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${s.status === 'sent' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        {s.status}
+                      </span>
+                    </td>
+                    <td className="max-w-[200px] truncate py-2 text-muted">{s.message_preview || "—"}</td>
+                    <td className="py-2 tabular-nums text-muted">{formatDate(s.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
+          <p className="mt-3 text-[10px] text-muted">Total sent: {smsSent} · Failed: {smsFailed} · Total cost: KES {smsCost.toLocaleString("en-KE", {minimumFractionDigits:2})}</p>
+        </div>
+      )}
     </div>
   );
 }

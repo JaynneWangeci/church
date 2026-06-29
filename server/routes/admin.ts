@@ -991,37 +991,3 @@ adminRouter.get("/backups", requireAdmin, requireSuperAdmin, async (_req, res) =
     res.status(500).json({ error: "Server error" });
   }
 });
-
-// ── Paginated SMS Logs ──
-
-adminRouter.get("/sms-logs", requireAdmin, async (req, res) => {
-  try {
-    const db = requireService();
-    const limit = Math.min(Number(req.query.limit) || 100, 500);
-    const offset = Number(req.query.offset) || 0;
-    const context = req.query.context as string | undefined;
-
-    let query = db.from("sms_logs").select("*", { count: "exact" }).order("created_at", { ascending: false }).range(offset, offset + limit - 1);
-    if (context) query = query.eq("context", context);
-
-    const { data, count, error } = await query;
-    if (error) return res.status(500).json({ error: error.message });
-
-    res.json({ logs: data || [], total: count || 0, limit, offset });
-  } catch (err) {
-    console.error("sms logs error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-adminRouter.get("/sms-log-contexts", requireAdmin, async (_req, res) => {
-  try {
-    const db = requireService();
-    const { data } = await db.from("sms_logs").select("context").order("created_at", { ascending: false }).limit(1000);
-    const contexts = [...new Set((data || []).map((l: any) => l.context).filter(Boolean))];
-    res.json({ contexts });
-  } catch (err) {
-    console.error("sms contexts error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
