@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
+import { getActiveCampaignId } from "../lib/campaigns.js";
 import { sendSMS } from "../lib/sajsoft.js";
 import { requireAdmin } from "../lib/admin.js";
 import { PAYMENT_VERSES, pickVerse } from "./verses.js";
@@ -454,21 +455,20 @@ async function handleC2BConfirmation(req: any, res: any) {
       if (newMember) memberId = newMember.id;
     }
 
-    const { data: campaign } = await db
-      .from("campaigns").select("id").eq("slug", "development-fund").single();
+    const campaignId = await getActiveCampaignId(db);
 
     const { data: donation } = await withRetry(async () => {
       const vc = phone ? require("crypto").createHash("sha256").update(phone).digest("hex") : null;
       return await db.from("donations").insert({
         donor_name: donorName, amount, donor_phone: phone, status: "completed", method: "mpesa",
         receipt_number: receiptNumber, church_member_id: memberId,
-        campaign_id: campaign?.id, account_reference: accountRef,
+        campaign_id: campaignId, account_reference: accountRef,
         transaction_desc: vc ? `VC:${vc}` : "Paybill Direct",
       }).select().single();
     }, "c2b insert donation");
 
-    if (donation && campaign?.id) {
-      await db.rpc("increment_campaign_raised", { campaign_id: campaign.id, amount }).catch(() => {});
+    if (donation && campaignId) {
+      await db.rpc("increment_campaign_raised", { campaign_id: campaignId, amount }).catch(() => {});
     }
     if (donation && phone) {
       donationConfirmation({ ...donation, receipt_number: receiptNumber });

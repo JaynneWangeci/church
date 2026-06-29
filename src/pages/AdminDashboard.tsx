@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   TrendingUp, Users, DollarSign, Clock, AlertCircle,
-  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileSpreadsheet, Search, ScanSearch, ArrowUpRight, ArrowDownRight, PieChart, Target, Save, Pencil, Monitor, Eye,   EyeOff, GitMerge, Send, ExternalLink, AlertTriangle,
+  Download, LogOut, RefreshCw, Shield, UserPlus, Trash2, Medal, Church, Settings, BarChart3, FileSpreadsheet, Search, ScanSearch, ArrowUpRight, ArrowDownRight, PieChart, Target, Save, Pencil, Monitor, Eye,   EyeOff, GitMerge, Send, ExternalLink, AlertTriangle, Plus,
 } from "lucide-react";
 import MemberHistoryPanel from "../components/MemberHistoryPanel";
 import {
@@ -3747,6 +3747,8 @@ function SiteContentEditor() {
   const [msg, setMsg] = useState("");
   const [translating, setTranslating] = useState(false);
   const [content, setContent] = useState({
+    church_name: "AIPCA Bahati Cathedral",
+    church_address: "",
     goal_amount: 30000000,
     church_phone: "0727278577",
     whatsapp_phone: "0728066733",
@@ -3757,29 +3759,64 @@ function SiteContentEditor() {
     ],
     about_desc_en: "",
     harambee_reason_en: "",
+    harambee_starts_at: "",
+    harambee_ends_at: "",
   });
 
+  const [admin, setAdminLocal] = useState<any>(null);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [campaignsLoading, setCampaignsLoading] = useState(false);
+
+  // Campaign creation form
+  const [showNewCampaign, setShowNewCampaign] = useState(false);
+  const [newCampTitle, setNewCampTitle] = useState("");
+  const [newCampDesc, setNewCampDesc] = useState("");
+  const [newCampGoal, setNewCampGoal] = useState("");
+  const [newCampSlug, setNewCampSlug] = useState("");
+  const [campMsg, setCampMsg] = useState("");
+
+  // Backup
+  const [backups, setBackups] = useState<any[]>([]);
+  const [backingUp, setBackingUp] = useState(false);
+  const [backupMsg, setBackupMsg] = useState("");
+
+  // SMS stats (local, not from parent scope)
+  const [smsStats, setSmsStats] = useState<any>(null);
+  const smsSent = smsStats?.total_sent ?? 0;
+  const smsFailed = smsStats?.total_failed ?? 0;
+  const smsCost = smsStats?.total_cost ?? 0;
+
   useEffect(() => {
-    fetch("/api/settings")
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data?.settings) {
-          if (data.settings.church_phone) {
-            setContent(prev => ({ ...prev, church_phone: data.settings.church_phone }));
-          }
-          if (data.settings.whatsapp_phone) {
-            setContent(prev => ({ ...prev, whatsapp_phone: data.settings.whatsapp_phone }));
-          }
-          if (data.settings.site_content) {
-            try {
-              const parsed = JSON.parse(data.settings.site_content);
-              setContent(prev => ({ ...prev, ...parsed, cards: parsed.cards?.map((c: any) => ({ title_en: c.title_en, text_en: c.text_en })) || prev.cards }));
-            } catch {}
-          }
+    const stored = localStorage.getItem("admin");
+    if (stored) setAdminLocal(JSON.parse(stored));
+  }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    Promise.all([
+      fetch("/api/settings").then(r => r.ok ? r.json() : null),
+      fetch("/api/admin/campaigns", { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null),
+      fetch("/api/admin/backups", { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null),
+      fetch("/api/admin/stats", { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null),
+    ]).then(([settingsData, campData, backupData, statsData]) => {
+      if (settingsData?.settings) {
+        setContent(prev => ({
+          ...prev,
+          church_phone: settingsData.settings.church_phone || prev.church_phone,
+          whatsapp_phone: settingsData.settings.whatsapp_phone || prev.whatsapp_phone,
+        }));
+        if (settingsData.settings.site_content) {
+          try {
+            const parsed = JSON.parse(settingsData.settings.site_content);
+            setContent(prev => ({ ...prev, ...parsed }));
+          } catch {}
         }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      }
+      if (campData?.campaigns) setCampaigns(campData.campaigns);
+      if (backupData?.backups) setBackups(backupData.backups);
+      if (statsData?.sms) setSmsStats(statsData.sms);
+      setLoading(false);
+    }).catch(() => setLoading(false));
   }, []);
 
   function updateCard(i: number, field: string, value: string) {
@@ -3804,38 +3841,24 @@ function SiteContentEditor() {
 
   async function handleSave() {
     setSaving(true); setTranslating(true); setMsg("Translating to Swahili...");
-
     try {
-      // Auto-translate all English fields to Swahili
       const cards = await Promise.all(content.cards.map(async (card) => ({
         title_en: card.title_en,
         title_sw: await translateText(card.title_en),
         text_en: card.text_en,
         text_sw: await translateText(card.text_en),
       })));
-
       const about_desc_sw = await translateText(content.about_desc_en);
       const harambee_reason_sw = await translateText(content.harambee_reason_en);
-
       setTranslating(false); setMsg("Saving...");
-
-      const payload = {
-        goal_amount: content.goal_amount,
-        cards,
-        about_desc_en: content.about_desc_en,
-        about_desc_sw,
-        harambee_reason_en: content.harambee_reason_en,
-        harambee_reason_sw,
-      };
-
+      const payload = { goal_amount: content.goal_amount, cards, about_desc_en: content.about_desc_en, about_desc_sw, harambee_reason_en: content.harambee_reason_en, harambee_reason_sw, church_name: content.church_name, church_address: content.church_address, harambee_starts_at: content.harambee_starts_at, harambee_ends_at: content.harambee_ends_at };
       const token = localStorage.getItem("token");
       const res = await fetch("/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ site_content: JSON.stringify(payload), church_phone: content.church_phone, whatsapp_phone: content.whatsapp_phone }),
       });
-      if (res.ok) setMsg("Saved successfully!");
-      else setMsg("Failed to save");
+      if (res.ok) setMsg("Saved successfully!"); else setMsg("Failed to save");
     } catch { setMsg("Network error"); }
     setSaving(false); setTranslating(false);
   }
@@ -3851,8 +3874,7 @@ function SiteContentEditor() {
     try {
       const token = localStorage.getItem("token");
       const res = await fetch("/api/mpesa/test-whatsapp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ phone: num }),
       });
       const data = await res.json();
@@ -3861,10 +3883,72 @@ function SiteContentEditor() {
     setWaTesting(false);
   }
 
+  async function handleActivateCampaign(id: string) {
+    setCampMsg(""); setCampaignsLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`/api/admin/campaigns/${id}/activate`, {
+        method: "POST", headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setCampMsg(`Now displaying: ${data.campaign.title}`);
+        const campRes = await fetch("/api/admin/campaigns", { headers: { Authorization: `Bearer ${token}` } });
+        const campData = await campRes.json();
+        if (campData?.campaigns) setCampaigns(campData.campaigns);
+      } else setCampMsg(data.error || "Failed");
+    } catch { setCampMsg("Network error"); }
+    setCampaignsLoading(false);
+  }
+
+  async function handleCreateCampaign() {
+    if (!newCampTitle || !newCampGoal) { setCampMsg("Title and goal required"); return; }
+    setCampMsg(""); setCampaignsLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/admin/campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ title: newCampTitle, description: newCampDesc, goal: Number(newCampGoal), slug: newCampSlug || undefined }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCampMsg(`Campaign "${data.campaign.title}" created!`);
+        setShowNewCampaign(false); setNewCampTitle(""); setNewCampDesc(""); setNewCampGoal(""); setNewCampSlug("");
+        const campRes = await fetch("/api/admin/campaigns", { headers: { Authorization: `Bearer ${token}` } });
+        const campData = await campRes.json();
+        if (campData?.campaigns) setCampaigns(campData.campaigns);
+      } else setCampMsg(data.error || "Failed");
+    } catch { setCampMsg("Network error"); }
+    setCampaignsLoading(false);
+  }
+
+  async function handleBackup() {
+    setBackingUp(true); setBackupMsg("Running backup...");
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/admin/backup", {
+        method: "POST", headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setBackupMsg(`Backup complete! ID: ${data.backup_id.slice(0, 8)}... Tables: ${Object.keys(data.summary).join(", ")}`);
+        const bRes = await fetch("/api/admin/backups", { headers: { Authorization: `Bearer ${token}` } });
+        const bData = await bRes.json();
+        if (bData?.backups) setBackups(bData.backups);
+      } else setBackupMsg(data.error || "Backup failed");
+    } catch { setBackupMsg("Network error"); }
+    setBackingUp(false);
+  }
+
   if (loading) return <div className="flex justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-2 border-nobuk border-t-transparent" /></div>;
+
+  const isSuper = admin?.role === "super_admin";
 
   return (
     <div className="space-y-6">
+
+      {/* ─── Site Content ─── */}
       <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
         <div className="mb-6 flex items-center justify-between">
           <div>
@@ -3883,61 +3967,91 @@ function SiteContentEditor() {
           </div>
         )}
 
-        {/* Church Phone */}
-        <div className="mb-4">
-          <label className="mb-1.5 block text-sm font-bold text-ink">Church Phone (displayed on site)</label>
-          <input type="text" value={content.church_phone} onChange={e => setContent({...content, church_phone: e.target.value})}
-            className="w-full max-w-xs rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" />
-        </div>
-
-        {/* WhatsApp Phone */}
-        <div className="mb-6">
-          <label className="mb-1.5 block text-sm font-bold text-ink">WhatsApp Number (for sending messages)</label>
-          <div className="flex items-center gap-2">
-            <input type="text" value={content.whatsapp_phone} onChange={e => setContent({...content, whatsapp_phone: e.target.value})}
-              className="w-full max-w-xs rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" />
-            <button onClick={handleTestWhatsApp} disabled={waTesting || !content.whatsapp_phone.trim()}
-              className="btn-lift flex items-center gap-1.5 rounded-xl bg-green-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-green-700 disabled:opacity-40">
-              <Send size={14} /> {waTesting ? "Sending..." : "Send Test"}
-            </button>
+        <div className="grid gap-6 sm:grid-cols-2">
+          {/* Church Name */}
+          <div>
+            <label className="mb-1.5 block text-sm font-bold text-ink">Church Name</label>
+            <input type="text" value={content.church_name} onChange={e => setContent({...content, church_name: e.target.value})}
+              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" placeholder="AIPCA Bahati Cathedral" />
           </div>
-          <div className="mt-2 flex items-center gap-2">
-            <input type="text" value={waTestPhone} onChange={e => setWaTestPhone(e.target.value)} placeholder="Custom test number (optional)"
-              className="w-full max-w-xs rounded-xl border border-gray-200 px-3 py-1.5 text-xs text-ink outline-none focus:border-nobuk placeholder:text-muted/50" />
-            <button onClick={() => { const n = waTestPhone.trim(); if (!n) return; setWaTesting(true); setWaTestMsg("Sending..."); const t = localStorage.getItem("token"); fetch("/api/mpesa/test-whatsapp", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` }, body: JSON.stringify({ phone: n }) }).then(r => r.json()).then(d => { setWaTestMsg(d.ok ? "Test message sent successfully!" : d.error || "Failed"); setWaTesting(false); }).catch(() => { setWaTestMsg("Network error"); setWaTesting(false); }); }}
-              disabled={waTesting || !waTestPhone.trim()}
-              className="rounded-lg border border-green-300 px-2.5 py-1.5 text-[10px] font-semibold text-green-700 hover:bg-green-50 disabled:opacity-40 transition">
-              Send to custom
-            </button>
-          </div>
-          {waTestMsg && (
-            <p className={`mt-1 text-xs ${waTestMsg.includes("success") ? "text-green-600" : "text-red-600"}`}>{waTestMsg}</p>
-          )}
-        </div>
 
-        {/* Goal */}
-        <div className="mb-6">
-          <label className="mb-1.5 block text-sm font-bold text-ink">Goal Amount (KES)</label>
-          <input type="number" value={content.goal_amount} onChange={e => setContent({...content, goal_amount: Number(e.target.value)})}
-            className="w-full max-w-xs rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" />
+          {/* Church Phone */}
+          <div>
+            <label className="mb-1.5 block text-sm font-bold text-ink">Church Phone</label>
+            <input type="text" value={content.church_phone} onChange={e => setContent({...content, church_phone: e.target.value})}
+              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" />
+          </div>
+
+          {/* WhatsApp Phone */}
+          <div>
+            <label className="mb-1.5 block text-sm font-bold text-ink">WhatsApp Number</label>
+            <div className="flex items-center gap-2">
+              <input type="text" value={content.whatsapp_phone} onChange={e => setContent({...content, whatsapp_phone: e.target.value})}
+                className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" />
+              <button onClick={handleTestWhatsApp} disabled={waTesting || !content.whatsapp_phone.trim()}
+                className="btn-lift flex items-center gap-1.5 rounded-xl bg-green-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-green-700 disabled:opacity-40">
+                <Send size={14} /> {waTesting ? "..." : "Test"}
+              </button>
+            </div>
+            <div className="mt-1 flex items-center gap-2">
+              <input type="text" value={waTestPhone} onChange={e => setWaTestPhone(e.target.value)} placeholder="Custom number (optional)"
+                className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-ink outline-none focus:border-nobuk placeholder:text-muted/50" />
+              <button onClick={() => { const n = waTestPhone.trim(); if (!n) return; setWaTesting(true); setWaTestMsg("Sending..."); const t = localStorage.getItem("token"); fetch("/api/mpesa/test-whatsapp", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` }, body: JSON.stringify({ phone: n }) }).then(r => r.json()).then(d => { setWaTestMsg(d.ok ? "Sent!" : d.error || "Failed"); setWaTesting(false); }).catch(() => { setWaTestMsg("Error"); setWaTesting(false); }); }}
+                disabled={waTesting || !waTestPhone.trim()}
+                className="rounded-lg border border-green-300 px-2 py-1 text-[10px] font-semibold text-green-700 hover:bg-green-50 disabled:opacity-40 transition">
+                Send
+              </button>
+            </div>
+            {waTestMsg && (
+              <p className={`mt-1 text-xs ${waTestMsg.includes("success") || waTestMsg === "Sent!" ? "text-green-600" : "text-red-600"}`}>{waTestMsg}</p>
+            )}
+          </div>
+
+          {/* Church Address */}
+          <div>
+            <label className="mb-1.5 block text-sm font-bold text-ink">Church Address</label>
+            <input type="text" value={content.church_address} onChange={e => setContent({...content, church_address: e.target.value})}
+              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" placeholder="P.O. Box 123, Bahati, Kenya" />
+          </div>
+
+          {/* Goal */}
+          <div>
+            <label className="mb-1.5 block text-sm font-bold text-ink">Goal Amount (KES)</label>
+            <input type="number" value={content.goal_amount} onChange={e => setContent({...content, goal_amount: Number(e.target.value)})}
+              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" />
+          </div>
+
+          {/* Harambee Start */}
+          <div>
+            <label className="mb-1.5 block text-sm font-bold text-ink">Harambee Start Date</label>
+            <input type="date" value={content.harambee_starts_at?.split("T")[0] || ""} onChange={e => setContent({...content, harambee_starts_at: e.target.value})}
+              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" />
+          </div>
+
+          {/* Harambee End */}
+          <div>
+            <label className="mb-1.5 block text-sm font-bold text-ink">Harambee End Date</label>
+            <input type="date" value={content.harambee_ends_at?.split("T")[0] || ""} onChange={e => setContent({...content, harambee_ends_at: e.target.value})}
+              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" />
+          </div>
         </div>
 
         {/* About description */}
-        <div className="mb-6">
+        <div className="mt-6">
           <label className="mb-1.5 block text-sm font-bold text-ink">About Description</label>
           <textarea value={content.about_desc_en} onChange={e => setContent({...content, about_desc_en: e.target.value})} rows={2}
             className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" placeholder="The construction of this Great House of God started in 2006..." />
         </div>
 
         {/* Harambee reason */}
-        <div className="mb-6">
+        <div className="mt-4">
           <label className="mb-1.5 block text-sm font-bold text-ink">Harambee Reason</label>
           <textarea value={content.harambee_reason_en} onChange={e => setContent({...content, harambee_reason_en: e.target.value})} rows={2}
             className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-ink outline-none focus:border-nobuk" placeholder="Together we are building the house of the Lord..." />
         </div>
 
         {/* Cards */}
-        <h3 className="mb-3 text-sm font-bold text-ink uppercase tracking-wider">Objectives Cards</h3>
+        <h3 className="mb-3 mt-6 text-sm font-bold text-ink uppercase tracking-wider">Objectives Cards</h3>
         {content.cards.map((card, i) => (
           <div key={i} className="mb-5 rounded-xl border border-gray-100 bg-gray-50 p-4">
             <p className="mb-3 text-xs font-bold text-muted uppercase">Card {i + 1}</p>
@@ -3957,7 +4071,141 @@ function SiteContentEditor() {
         ))}
       </div>
 
-      {/* Bulk SMS */}
+      {/* ─── Campaign Management (super admin only) ─── */}
+      {isSuper && (
+        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-ink">Campaign Management</h2>
+            <button onClick={() => setShowNewCampaign(!showNewCampaign)}
+              className="btn-lift flex items-center gap-1.5 rounded-xl bg-nobuk px-4 py-2 text-xs font-bold text-white hover:bg-nobuk-light">
+              <Plus size={14} /> {showNewCampaign ? "Cancel" : "New Harambee"}
+            </button>
+          </div>
+          {campMsg && (
+            <div className={`mb-3 rounded-lg px-4 py-2 text-sm font-medium text-white ${camMsg.includes("error") || camMsg.includes("Failed") ? "bg-red-500" : "bg-green-600"}`}>
+              {campMsg}
+            </div>
+          )}
+
+          {/* Create new campaign form */}
+          {showNewCampaign && (
+            <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <h3 className="mb-3 text-sm font-bold text-ink">New Harambee Campaign</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-ink">Title *</label>
+                  <input type="text" value={newCampTitle} onChange={e => setNewCampTitle(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" placeholder="Development Fund" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-ink">Slug (optional)</label>
+                  <input type="text" value={newCampSlug} onChange={e => setNewCampSlug(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" placeholder="development-fund" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-ink">Goal (KES) *</label>
+                  <input type="number" value={newCampGoal} onChange={e => setNewCampGoal(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" placeholder="30000000" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold text-ink">Description</label>
+                  <textarea value={newCampDesc} onChange={e => setNewCampDesc(e.target.value)} rows={2}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink outline-none focus:border-nobuk" placeholder="Building the house of the Lord..." />
+                </div>
+              </div>
+              <button onClick={handleCreateCampaign} disabled={campaignsLoading || !newCampTitle || !newCampGoal}
+                className="btn-lift mt-3 rounded-xl bg-nobuk px-5 py-2 text-sm font-bold text-white hover:bg-nobuk-light disabled:opacity-50">
+                {campaignsLoading ? "Creating..." : "Create Campaign"}
+              </button>
+            </div>
+          )}
+
+          {/* Campaign list */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="pb-2 font-bold text-muted">Campaign</th>
+                  <th className="pb-2 font-bold text-muted">Goal</th>
+                  <th className="pb-2 font-bold text-muted">Raised</th>
+                  <th className="pb-2 font-bold text-muted">%</th>
+                  <th className="pb-2 font-bold text-muted">Status</th>
+                  <th className="pb-2 font-bold text-muted">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {campaigns.map((c: any) => {
+                  const pct = c.goal > 0 ? Math.min((c.raised / c.goal) * 100, 100) : 0;
+                  return (
+                    <tr key={c.id} className="border-b border-gray-50">
+                      <td className="py-2.5 font-semibold text-ink">{c.title}</td>
+                      <td className="py-2.5 tabular-nums text-muted">KES {c.goal.toLocaleString()}</td>
+                      <td className="py-2.5 tabular-nums text-muted">KES {c.raised.toLocaleString()}</td>
+                      <td className="py-2.5 tabular-nums text-muted">{pct.toFixed(1)}%</td>
+                      <td className="py-2.5">
+                        <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${c.is_displayed ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-500"}`}>
+                          {c.is_displayed ? "Displayed" : "Inactive"}
+                        </span>
+                      </td>
+                      <td className="py-2.5">
+                        {!c.is_displayed && (
+                          <button onClick={() => handleActivateCampaign(c.id)} disabled={campaignsLoading}
+                            className="rounded-lg bg-nobuk px-3 py-1 text-[10px] font-bold text-white hover:bg-nobuk-light disabled:opacity-40">
+                            Set as current
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-3 text-[10px] text-muted">The "Displayed" campaign is shown on every page. Old campaigns are preserved with their donation history.</p>
+        </div>
+      )}
+
+      {/* ─── Database Backup (super admin only) ─── */}
+      {isSuper && (
+        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-ink">Database Backup</h2>
+            <button onClick={handleBackup} disabled={backingUp}
+              className="btn-lift flex items-center gap-1.5 rounded-xl bg-nobuk px-4 py-2 text-xs font-bold text-white hover:bg-nobuk-light disabled:opacity-50">
+              <RefreshCw size={14} className={backingUp ? "animate-spin" : ""} />
+              {backingUp ? "Backing up..." : "Backup Now"}
+            </button>
+          </div>
+          {backupMsg && (
+            <div className={`mb-3 rounded-lg px-4 py-2 text-sm font-medium text-white ${backupMsg.includes("complete") ? "bg-green-600" : "bg-red-500"}`}>
+              {backupMsg}
+            </div>
+          )}
+          {backups.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="pb-2 font-bold text-muted">Date</th>
+                    <th className="pb-2 font-bold text-muted">Tables</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {backups.slice(0, 10).map((b: any) => (
+                    <tr key={b.id} className="border-b border-gray-50">
+                      <td className="py-2 tabular-nums text-ink">{formatDate(b.created_at)}</td>
+                      <td className="py-2 text-muted">{b.summary ? Object.entries(b.summary).map(([k, v]) => `${k}:${v}`).join(", ") : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="mt-3 text-[10px] text-muted">Daily automatic backup runs at 6 AM UTC via Vercel Cron. Also pushes to GitHub if GITHUB_TOKEN is configured.</p>
+        </div>
+      )}
+
+      {/* ─── Bulk SMS ─── */}
       <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-bold text-ink">Bulk SMS Campaign</h2>
         <p className="mb-3 text-sm text-muted">Send an SMS to all church members with phone numbers on record.</p>

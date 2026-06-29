@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
 import { requireAdmin } from "../lib/admin.js";
+import { getActiveCampaignId } from "../lib/campaigns.js";
 import { savePhoneForName } from "../lib/contacts.js";
 
 export const c2bRouter = Router();
@@ -131,14 +132,8 @@ c2bRouter.post("/confirmation", async (req, res) => {
     payerName = payerName || "Anonymous";
 
     // Look up campaign
-    const { data: campaign } = await db
-      .from("campaigns")
-      .select("id")
-      .eq("slug", "development-fund")
-      .eq("is_active", true)
-      .single();
-
-    if (!campaign) {
+    const campaignId = await getActiveCampaignId(db);
+    if (!campaignId) {
       console.warn("[c2b] no active campaign");
       return res.json({ ResultCode: 0, ResultDesc: "Success" });
     }
@@ -196,7 +191,7 @@ c2bRouter.post("/confirmation", async (req, res) => {
 
     const vc = phone ? require("crypto").createHash("sha256").update(phone).digest("hex") : null;
     await db.from("donations").insert({
-      campaign_id: campaign.id,
+      campaign_id: campaignId,
       donor_name: payerName,
       amount: Number(TransAmount),
       method: "mpesa",

@@ -1,5 +1,6 @@
 ﻿import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
+import { getActiveCampaignId } from "../lib/campaigns.js";
 
 export const fellowshipsRouter = Router();
 
@@ -24,13 +25,12 @@ fellowshipsRouter.get("/progress", async (_req, res) => {
       general_member: { label: "General Member", color: "#6B7280" },
     };
 
-    const { data: campaign } = await db
-      .from("campaigns")
-      .select("id, goal")
-      .eq("slug", "development-fund")
-      .single();
-    const goal = Number(campaign?.goal || 30000000);
-    const campaignId = campaign?.id;
+    const campaignId = await getActiveCampaignId(db);
+    let goal = 30000000;
+    if (campaignId) {
+      const { data: camp } = await db.from("campaigns").select("goal").eq("id", campaignId).single();
+      if (camp) goal = Number(camp.goal);
+    }
 
     const { data: members } = await db
       .from("church_members")

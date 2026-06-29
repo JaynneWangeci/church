@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
+import { getActiveCampaignId } from "../lib/campaigns.js";
 import { requireAdmin, requireAdminOrAbove, recalculatePledgeFulfillment } from "../lib/admin.js";
 import { sendSMS } from "../lib/sajsoft.js";
 import { withRetry } from "../lib/financial-safety.js";
@@ -60,11 +61,10 @@ pledgesRouter.post("/", async (req, res) => {
     }
 
     // No existing pledge — create new
-    const { data: campaign } = await db
-      .from("campaigns")
-      .select("id")
-      .eq("slug", campaign_id || "development-fund")
-      .single();
+    let pledgeCampaignId = campaign_id;
+    if (!pledgeCampaignId) {
+      pledgeCampaignId = await getActiveCampaignId(db);
+    }
 
     const { data, error } = await db
       .from("pledges")
@@ -261,7 +261,7 @@ pledgesRouter.post("/:id/pay-with-mpesa", rateLimitMiddleware(), async (req, res
     if (!pledge) return res.status(404).json({ error: "Pledge not found" });
 
     // Try to find campaign
-    const { data: campaign } = await db.from("campaigns").select("id").eq("slug", "development-fund").single();
+    const pledgeCampaignId = pledge.campaign_id || await getActiveCampaignId(db);
 
     // Create a donation record linked to this pledge
     const { data: donation, error: donErr } = await db
@@ -272,7 +272,7 @@ pledgesRouter.post("/:id/pay-with-mpesa", rateLimitMiddleware(), async (req, res
         phone,
         status: "pending",
         method: "mpesa",
-        campaign_id: campaign?.id,
+        campaign_id: pledgeCampaignId,
         account_reference: `PLD:${req.params.id}`,
         transaction_desc: "Pledge Payment",
       })

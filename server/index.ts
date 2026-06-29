@@ -28,6 +28,7 @@ import { pledgesRouter } from "./routes/pledges.js";
 import { remindersRouter } from "./routes/reminders.js";
 import { analyticsRouter } from "./routes/analytics.js";
 import { settingsRouter } from "./routes/settings.js";
+import { backupRouter } from "./routes/backup.js";
 import { translateRouter } from "./routes/translate.js";
 import { versesRouter } from "./routes/verses.js";
 import { fellowshipsRouter } from "./routes/fellowships.js";
@@ -82,6 +83,7 @@ app.use("/api/verses", versesRouter);
 app.use("/api/track", trackRouter);
 app.use("/api/fellowships", fellowshipsRouter);
 app.use("/api/public", publicRouter);
+app.use("/api/backups", backupRouter);
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 

@@ -18,7 +18,7 @@ export default function LiveProgress({ compact }: { compact?: boolean }) {
   const pct = Math.min((raised / goal) * 100, 100);
 
   useEffect(() => {
-    fetch('/api/campaigns/development-fund')
+    fetch('/api/campaigns/active')
       .then(r => r.ok && r.json())
       .then(data => { if (data) { setRaised(Number(data.raised ?? 0)); setGoal(Number(data.goal ?? 30000000)); setEndsAt(data.ends_at || null); } })
       .catch(() => {});
@@ -28,7 +28,7 @@ export default function LiveProgress({ compact }: { compact?: boolean }) {
       .catch(() => {});
 
     const interval = setInterval(() => {
-      fetch('/api/campaigns/development-fund')
+    fetch('/api/campaigns/active')
         .then(r => r.ok && r.json())
         .then(data => { if (data) { setRaised(Number(data.raised ?? 0)); setGoal(Number(data.goal ?? 30000000)); setEndsAt(data.ends_at || null); } })
         .catch(() => {});

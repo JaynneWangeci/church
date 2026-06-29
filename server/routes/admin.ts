@@ -6,6 +6,7 @@ import {
   filterDonationsByRole, verifyPassword, hashPassword, getClientIp,
   recalculatePledgeFulfillment,
 } from "../lib/admin.js";
+import { getActiveCampaignId } from "../lib/campaigns.js";
 import { sendSMS, sendTestSMS } from "../lib/sajsoft.js";
 import { getPhoneForName, savePhoneForName } from "../lib/contacts.js";
 import { REMINDER_VERSES, CONGRATULATION_VERSES, pickVerse } from "./verses.js";
@@ -17,14 +18,12 @@ adminRouter.get("/stats", requireAdmin, async (req, res) => {
     const admin = (req as any).admin;
     const db = requireService();
 
-    const { data: campaign } = await db
-      .from("campaigns")
-      .select("*")
-      .eq("slug", "development-fund")
-      .single();
-
-    const goal = Number(campaign?.goal || 30000000);
-    const campaignId = campaign?.id;
+    const campaignId = await getActiveCampaignId(db);
+    let goal = 30000000;
+    if (campaignId) {
+      const { data: camp } = await db.from("campaigns").select("goal").eq("id", campaignId).single();
+      if (camp) goal = Number(camp.goal);
+    }
 
     let query = db.from("donations")
       .select("id, amount, donor_name, status, method, receipt_number, phone, message, created_at, campaign_id, checkout_request_id, account_reference, transaction_id")
@@ -364,12 +363,7 @@ adminRouter.get("/fellowship-report", requireAdmin, async (req, res) => {
 
     await recalculatePledgeFulfillment(db);
 
-    const { data: campaign } = await db
-      .from("campaigns")
-      .select("*")
-      .eq("slug", "development-fund")
-      .single();
-    const campaignId = campaign?.id;
+    const campaignId = await getActiveCampaignId(db);
 
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -800,5 +794,200 @@ adminRouter.post("/test-sms", requireAdmin, async (req, res) => {
     res.json(result);
   } catch (err: any) {
     res.status(500).json({ ok: false, error: err?.message || String(err) });
+  }
+});
+
+// ── Campaign Management ──
+
+adminRouter.get("/campaigns", requireAdmin, requireSuperAdmin, async (_req, res) => {
+  try {
+    const db = requireService();
+    const { data } = await db.from("campaigns").select("*").order("created_at", { ascending: false });
+    const { data: activeSetting } = await db.from("settings").select("value").eq("key", "active_campaign_id").maybeSingle();
+    const activeId = activeSetting?.value || null;
+
+    const result = await Promise.all((data || []).map(async (c: any) => {
+      const { data: sumData } = await db.from("donations").select("amount").eq("campaign_id", c.id).eq("status", "completed");
+      const raised = (sumData || []).reduce((s: number, d: any) => s + Number(d.amount), 0);
+      return {
+        id: c.id, slug: c.slug, title: c.title, description: c.description,
+        goal: Number(c.goal), raised, currency: c.currency,
+        starts_at: c.starts_at, ends_at: c.ends_at,
+        is_active: c.is_active, created_at: c.created_at,
+        is_displayed: c.id === activeId,
+      };
+    }));
+    res.json({ campaigns: result });
+  } catch (err) {
+    console.error("list campaigns error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+adminRouter.post("/campaigns", requireAdmin, requireSuperAdmin, async (req, res) => {
+  try {
+    const db = requireService();
+    const { title, description, goal, slug, currency, starts_at, ends_at } = req.body;
+    if (!title || !goal) return res.status(400).json({ error: "title and goal required" });
+
+    const actualSlug = slug || title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const { data, error } = await db.from("campaigns").insert({
+      title, description: description || "", goal, slug: actualSlug,
+      currency: currency || "KES", starts_at: starts_at || new Date().toISOString(),
+      ends_at: ends_at || null, is_active: true,
+    }).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+
+    const admin = (req as any).admin;
+    await logAudit({ adminId: admin.id, action: "create_campaign", resourceType: "campaign", resourceId: data.id, ipAddress: (req as any).adminIp, userAgent: (req as any).userAgent });
+    res.status(201).json({ campaign: data });
+  } catch (err) {
+    console.error("create campaign error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+adminRouter.put("/campaigns/:id", requireAdmin, requireSuperAdmin, async (req, res) => {
+  try {
+    const db = requireService();
+    const { title, description, goal, slug, currency, starts_at, ends_at } = req.body;
+    const updates: Record<string, any> = {};
+    if (title !== undefined) updates.title = title;
+    if (description !== undefined) updates.description = description;
+    if (goal !== undefined) updates.goal = goal;
+    if (slug !== undefined) updates.slug = slug;
+    if (currency !== undefined) updates.currency = currency;
+    if (starts_at !== undefined) updates.starts_at = starts_at;
+    if (ends_at !== undefined) updates.ends_at = ends_at;
+
+    const { data, error } = await db.from("campaigns").update(updates).eq("id", req.params.id).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+
+    const admin = (req as any).admin;
+    await logAudit({ adminId: admin.id, action: "update_campaign", resourceType: "campaign", resourceId: data.id, ipAddress: (req as any).adminIp, userAgent: (req as any).userAgent });
+    res.json({ campaign: data });
+  } catch (err) {
+    console.error("update campaign error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+adminRouter.post("/campaigns/:id/activate", requireAdmin, requireSuperAdmin, async (req, res) => {
+  try {
+    const db = requireService();
+    const { data: campaign } = await db.from("campaigns").select("id, title").eq("id", req.params.id).single();
+    if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+
+    await db.from("settings").upsert({ key: "active_campaign_id", value: req.params.id }, { onConflict: "key" });
+
+    const admin = (req as any).admin;
+    await logAudit({ adminId: admin.id, action: "activate_campaign", resourceType: "campaign", resourceId: req.params.id, details: { title: campaign.title }, ipAddress: (req as any).adminIp, userAgent: (req as any).userAgent });
+    res.json({ ok: true, campaign: { id: campaign.id, title: campaign.title } });
+  } catch (err) {
+    console.error("activate campaign error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ── Database Backup ──
+
+adminRouter.post("/backup", requireAdmin, requireSuperAdmin, async (req, res) => {
+  try {
+    const db = requireService();
+
+    // Export all key tables
+    const tables = ["campaigns", "donations", "pledges", "church_members", "settings", "admin_users", "sms_logs"];
+    const dump: Record<string, any[]> = {};
+
+    for (const table of tables) {
+      try {
+        const { data } = await db.from(table).select("*");
+        dump[table] = data || [];
+      } catch { dump[table] = []; }
+    }
+
+    const backupId = uuid();
+    const now = new Date().toISOString();
+    const backupRecord = {
+      id: backupId,
+      created_at: now,
+      data: dump,
+      summary: Object.fromEntries(Object.entries(dump).map(([k, v]) => [k, v.length])),
+    };
+
+    // Store in Supabase backups table
+    const { error } = await db.from("backups").insert(backupRecord).single();
+    if (error) {
+      console.error("backup insert error:", error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    // Try git backup via GitHub API if token is configured
+    let gitResult: any = { pushed: false, reason: "no token" };
+    const githubToken = process.env.GITHUB_TOKEN;
+    const githubRepo = process.env.GITHUB_REPO || process.env.VERCEL_GIT_REPO_SLUG;
+    if (githubToken && githubRepo) {
+      try {
+        const backupDir = "backups";
+        const filename = `${backupDir}/${now.slice(0, 10)}-${backupId.slice(0, 8)}.json`;
+        const content = Buffer.from(JSON.stringify(dump, null, 2)).toString("base64");
+
+        // Check if file exists to get its SHA
+        const getRes = await fetch(`https://api.github.com/repos/${githubRepo}/contents/${filename}`, {
+          headers: { Authorization: `Bearer ${githubToken}` },
+        });
+        const existingSha = getRes.ok ? (await getRes.json()).sha : undefined;
+
+        // Commit the backup file
+        const commitRes = await fetch(`https://api.github.com/repos/${githubRepo}/contents/${filename}`, {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${githubToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: `backup: ${now.slice(0, 10)} - ${Object.keys(dump).join(", ")} data dump`,
+            content,
+            sha: existingSha,
+            branch: "backups",
+          }),
+        });
+        gitResult = await commitRes.json();
+
+        // Also update a latest.json pointer
+        const latestRes = await fetch(`https://api.github.com/repos/${githubRepo}/contents/${backupDir}/latest.json`, {
+          headers: { Authorization: `Bearer ${githubToken}` },
+        });
+        const latestSha = latestRes.ok ? (await latestRes.json()).sha : undefined;
+        await fetch(`https://api.github.com/repos/${githubRepo}/contents/${backupDir}/latest.json`, {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${githubToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: `backup: update latest.json pointer`,
+            content: Buffer.from(JSON.stringify({ backupId, created_at: now, file: filename }, null, 2)).toString("base64"),
+            sha: latestSha,
+            branch: "backups",
+          }),
+        });
+      } catch (gitErr: any) {
+        gitResult = { error: (gitErr as Error).message };
+      }
+    }
+
+    const admin = (req as any).admin;
+    await logAudit({ adminId: admin.id, action: "backup", details: { backupId, tables: Object.keys(dump), git: gitResult.pushed }, ipAddress: (req as any).adminIp, userAgent: (req as any).userAgent });
+
+    res.json({ ok: true, backup_id: backupId, created_at: now, summary: backupRecord.summary, git: gitResult.pushed ? { pushed: true } : gitResult });
+  } catch (err) {
+    console.error("backup error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+adminRouter.get("/backups", requireAdmin, requireSuperAdmin, async (_req, res) => {
+  try {
+    const db = requireService();
+    const { data } = await db.from("backups").select("id, created_at, summary").order("created_at", { ascending: false }).limit(30);
+    res.json({ backups: data || [] });
+  } catch (err) {
+    console.error("list backups error:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });

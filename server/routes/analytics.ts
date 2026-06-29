@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
 import { requireAdmin, logAudit, recalculatePledgeFulfillment } from "../lib/admin.js";
+import { getActiveCampaignId } from "../lib/campaigns.js";
 import { cacheGet, cacheSet, cacheKey } from "../lib/redis.js";
 
 export const analyticsRouter = Router();
@@ -26,12 +27,7 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
     const p30Start = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
     const p30End = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const { data: campaign } = await db
-      .from("campaigns")
-      .select("id")
-      .eq("slug", "development-fund")
-      .single();
-    const campaignId = campaign?.id;
+    const campaignId = await getActiveCampaignId(db);
 
     const campaignFilter = (q: any) => campaignId ? q.eq("campaign_id", campaignId) : q;
 

@@ -282,7 +282,7 @@ export default function DonationForm() {
     setFinalHonouredMember(params.honoredMemberId ? members.find(m => m.id === params.honoredMemberId) || null : null);
 
     try {
-      const campRes = await fetch("/api/campaigns/development-fund");
+      const campRes = await fetch("/api/campaigns/active");
       const campData = await campRes.json();
       if (!campData?.id) { setError("We're setting up the campaign. Please try again shortly."); setStep("form"); return; }
 

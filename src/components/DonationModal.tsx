@@ -224,7 +224,7 @@ export default function DonationModal({ member, onClose, donorName: initialDonor
     }
 
     try {
-      const campRes = await fetch('/api/campaigns/development-fund');
+      const campRes = await fetch('/api/campaigns/active');
       if (!campRes.ok) {
         const errData = await campRes.json().catch(() => ({}));
         setError(errData?.error || "We're having trouble connecting. Kindly try again.");
