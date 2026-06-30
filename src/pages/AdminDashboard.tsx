@@ -49,6 +49,7 @@ export default function AdminDashboard() {
   const [editMemberGender, setEditMemberGender] = useState("");
   const [editMemberPhone, setEditMemberPhone] = useState("");
   const [memberCouncilFilter, setMemberCouncilFilter] = useState("");
+  const [memberGenderFilter, setMemberGenderFilter] = useState("");
   const [admins, setAdmins] = useState<AdminUserRecord[]>([]);
   const [showAddAdmin, setShowAddAdmin] = useState(false);
   const [newAdminEmail, setNewAdminEmail] = useState("");
@@ -1516,6 +1517,9 @@ export default function AdminDashboard() {
                 <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer select-none">
                       <input type="checkbox" checked={churchMembers.length > 0 && churchMembers.filter(m => {
                     if (memberCouncilFilter && m.council !== memberCouncilFilter) return false;
+                    if (memberGenderFilter === "male" && m.gender !== "male") return false;
+                    if (memberGenderFilter === "female" && m.gender !== "female") return false;
+                    if (memberGenderFilter === "unset" && m.gender) return false;
                     if (memberSearch && !m.name.toLowerCase().includes(memberSearch.toLowerCase())) return false;
                     return true;
                   }).every(m => selectedMembers.has(m.id))}
@@ -1523,10 +1527,17 @@ export default function AdminDashboard() {
                     className="h-4 w-4 rounded border-gray-300 text-nobuk focus:ring-nobuk" />
                   All
                 </label>
-                <select value={memberCouncilFilter} onChange={e => { setMemberCouncilFilter(e.target.value); setSelectedMembers(new Set()); }}
+                <select value={memberCouncilFilter} onChange={e => { setMemberCouncilFilter(e.target.value); setMemberGenderFilter(""); setSelectedMembers(new Set()); }}
                   className="rounded-lg border border-gray-200 bg-cream px-3 py-2.5 text-sm text-ink outline-none focus:border-nobuk">
                   <option value="">All Fellowships</option>
                   {councils.map(c => <option key={c.slug} value={c.slug}>{c.name}</option>)}
+                </select>
+                <select value={memberGenderFilter} onChange={e => { setMemberGenderFilter(e.target.value); setMemberCouncilFilter(""); setMemberSearch(""); setSelectedMembers(new Set()); }}
+                  className="rounded-lg border border-gray-200 bg-cream px-3 py-2.5 text-sm text-ink outline-none focus:border-nobuk">
+                  <option value="">All Genders</option>
+                  <option value="male">Men</option>
+                  <option value="female">Women</option>
+                  <option value="unset">Unset</option>
                 </select>
                 {selectedMembers.size > 0 && (
                   <button onClick={handleBulkDelete}
@@ -1564,9 +1575,11 @@ export default function AdminDashboard() {
                 <div className="space-y-4">
                   {Object.entries(groupedMembers).sort(([a], [b]) => (COUNCIL_ORDER[a] || 99) - (COUNCIL_ORDER[b] || 99)).map(([council, councilMembers]) => {
                     if (memberCouncilFilter && council !== memberCouncilFilter) return null;
-                    const filteredCouncil = memberSearch
-                      ? councilMembers.filter(m => m.name.toLowerCase().includes(memberSearch.toLowerCase()))
-                      : councilMembers;
+                    let filteredCouncil = councilMembers;
+                    if (memberGenderFilter === "male") filteredCouncil = filteredCouncil.filter(m => m.gender === "male");
+                    else if (memberGenderFilter === "female") filteredCouncil = filteredCouncil.filter(m => m.gender === "female");
+                    else if (memberGenderFilter === "unset") filteredCouncil = filteredCouncil.filter(m => !m.gender);
+                    if (memberSearch) filteredCouncil = filteredCouncil.filter(m => m.name.toLowerCase().includes(memberSearch.toLowerCase()));
                     if (filteredCouncil.length === 0) return null;
                     return (
                       <div key={council}>
@@ -3393,21 +3406,17 @@ export default function AdminDashboard() {
                             </div>
                           </div>
                           <div className="space-y-2 text-sm">
-                            <div className="flex items-center gap-2">
-                              <div className="h-3 w-3 rounded-full bg-blue-500" />
-                              <span className="text-muted">Men</span>
-                              <span className="ml-auto font-bold text-ink">{dashboardData.members.gender.male}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="h-3 w-3 rounded-full bg-pink-500" />
-                              <span className="text-muted">Women</span>
-                              <span className="ml-auto font-bold text-ink">{dashboardData.members.gender.female}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="h-3 w-3 rounded-full bg-gray-300" />
-                              <span className="text-muted">Unset</span>
-                              <span className="ml-auto font-bold text-ink">{dashboardData.members.gender.unset}</span>
-                            </div>
+                            {[{ label: "Men", key: "male", color: "bg-blue-500", dot: "bg-blue-500" },
+                              { label: "Women", key: "female", color: "bg-pink-500", dot: "bg-pink-500" },
+                              { label: "Unset", key: "unset", color: "bg-gray-300", dot: "bg-gray-300" },
+                            ].map(({ label, key, dot }) => (
+                              <button key={key} onClick={() => { setMemberGenderFilter(key); setMemberCouncilFilter(""); setMemberSearch(""); setTab("members"); }}
+                                className="flex w-full items-center gap-2 rounded-lg px-1 py-0.5 text-left transition hover:bg-cream">
+                                <div className={`h-3 w-3 rounded-full ${dot} shrink-0`} />
+                                <span className="text-muted text-xs">{label}</span>
+                                <span className="ml-auto font-bold text-ink text-xs tabular-nums">{dashboardData.members.gender[key as "male" | "female" | "unset"]}</span>
+                              </button>
+                            ))}
                           </div>
                         </div>
 
@@ -3470,8 +3479,12 @@ export default function AdminDashboard() {
                                 {(() => {
                                   const gc = dashboardData.members.gender_contributions;
                                   const total = gc.male + gc.female + (gc.unset || 0) + (gc.general || 0);
-                                  const bar = (value: number, color: string, label: string) => (
-                                    <div>
+                                  const bar = (value: number, color: string, label: string, filter?: { gender?: string; council?: string }) => (
+                                    <button onClick={() => {
+                                      if (filter?.gender) { setMemberGenderFilter(filter.gender); setMemberCouncilFilter(""); }
+                                      else if (filter?.council) { setMemberCouncilFilter(filter.council); setMemberGenderFilter(""); }
+                                      setMemberSearch(""); setTab("members");
+                                    }} className="w-full text-left">
                                       <div className="flex items-center justify-between gap-2 mb-0.5">
                                         <div className="flex items-center gap-1.5">
                                           <div className={`h-2.5 w-2.5 rounded-full ${color} shrink-0`} />
@@ -3484,14 +3497,14 @@ export default function AdminDashboard() {
                                           width: total > 0 ? `${(value / total) * 100}%` : "0%"
                                         }} />
                                       </div>
-                                    </div>
+                                    </button>
                                   );
                                   return (
                                     <>
-                                      {bar(gc.male, "bg-blue-500", "Men")}
-                                      {bar(gc.female, "bg-pink-500", "Women")}
-                                      {gc.unset ? bar(gc.unset, "bg-gray-300", "Unset") : null}
-                                      {gc.general ? bar(gc.general, "bg-gray-500", "General") : null}
+                                      {bar(gc.male, "bg-blue-500", "Men", { gender: "male" })}
+                                      {bar(gc.female, "bg-pink-500", "Women", { gender: "female" })}
+                                      {gc.unset ? bar(gc.unset, "bg-gray-300", "Unset", { gender: "unset" }) : null}
+                                      {gc.general ? bar(gc.general, "bg-gray-500", "General", { council: "general_member" }) : null}
                                       <div className="pt-1 text-[10px] text-muted text-center border-t border-gray-50">
                                         Total: KES {total.toLocaleString("en-KE")}
                                       </div>
