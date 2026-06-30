@@ -111,14 +111,41 @@ c2bRouter.post("/confirmation", async (req, res) => {
     const LastName = sanitize(raw.LastName || "");
 
     const phone = MSISDN;
-    const accountRef = BillRefNumber;
+    let accountRef = BillRefNumber;
 
     const db = requireService();
 
     // Resolve the best name
     let payerName = resolvePayerName(FirstName, MiddleName, LastName, BillRefNumber);
 
-    // If no name from Safaricom, try looking up by phone
+    // If BillRefNumber is a PLD pledge reference, resolve the actual donor name from the pledge
+    if (accountRef && accountRef.trim().toUpperCase().startsWith("PLD:")) {
+      const shortId = accountRef.replace(/^PLD:/i, "").toLowerCase();
+      const { data: pledges } = await db.from("pledges").select("id, donor_name");
+      const pledge = (pledges || []).find(p => p.id.toLowerCase().startsWith(shortId));
+      if (pledge) {
+        payerName = pledge.donor_name;
+        // Update accountRef to full pledge ID so the donation links back
+        accountRef = `PLD:${pledge.id}`;
+        // Clean up any fake PLD member created by a previous C2B
+        const { data: pldMembers } = await db
+          .from("church_members")
+          .select("id")
+          .ilike("name", `PLD:${shortId}%`);
+        if (pldMembers?.length) {
+          const { data: realMember } = await db
+            .from("church_members").select("id").eq("is_active", true).ilike("name", payerName);
+          if (realMember?.length) {
+            await db.from("donations").update({ church_member_id: realMember[0].id }).eq("church_member_id", pldMembers[0].id);
+            await db.from("church_members").delete().eq("id", pldMembers[0].id);
+          } else {
+            await db.from("church_members").update({ name: payerName }).eq("id", pldMembers[0].id);
+          }
+        }
+      }
+    }
+
+    // If no name from Safaricom or pledge, try looking up by phone
     if (!payerName && phone) {
       const { data: prevDonation } = await db
         .from("donations")
