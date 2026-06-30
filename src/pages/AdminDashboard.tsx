@@ -3418,12 +3418,15 @@ export default function AdminDashboard() {
                               <DollarSign size={14} className="text-nobuk" />
                               <h4 className="text-xs font-bold text-ink">Contributions by Gender</h4>
                               {(() => {
-                                const { male: mM, female: fM } = dashboardData.members.gender_contributions;
-                                if (mM === fM) return <span className="text-[10px] font-bold text-gray-500">— TIED</span>;
+                                const { male: mM, female: fM, unset: uM } = dashboardData.members.gender_contributions;
+                                const max = Math.max(mM, fM, uM || 0);
+                                if (max === 0) return null;
+                                const label = max === mM ? "Men leading" : max === fM ? "Women leading" : "Unset leading";
+                                const color = max === mM ? "text-blue-600" : max === fM ? "text-pink-600" : "text-gray-500";
                                 return (
-                                  <span className={`flex items-center gap-0.5 text-[10px] font-bold tabular-nums ${mM > fM ? "text-blue-600" : "text-pink-600"}`}>
-                                    {mM > fM ? <ArrowUpRight size={11} /> : <ArrowUpRight size={11} />}
-                                    {mM > fM ? "Men leading" : "Women leading"}
+                                  <span className={`flex items-center gap-0.5 text-[10px] font-bold tabular-nums ${color}`}>
+                                    <ArrowUpRight size={11} />
+                                    {label}
                                   </span>
                                 );
                               })()}
@@ -3433,10 +3436,15 @@ export default function AdminDashboard() {
                                 <ResponsiveContainer width={112} height={112}>
                                   <RePie>
                                     <Pie
-                                      data={[
-                                        { name: "Men", value: dashboardData.members.gender_contributions.male || 1 },
-                                        { name: "Women", value: dashboardData.members.gender_contributions.female || 1 },
-                                      ]}
+                                      data={(() => {
+                                        const { male, female, unset } = dashboardData.members.gender_contributions;
+                                        const data = [
+                                          { name: "Men", value: male || 1 },
+                                          { name: "Women", value: female || 1 },
+                                        ];
+                                        if (unset) data.push({ name: "Unset", value: unset });
+                                        return data;
+                                      })()}
                                       dataKey="value"
                                       nameKey="name"
                                       cx="50%"
@@ -3447,6 +3455,7 @@ export default function AdminDashboard() {
                                     >
                                       <Cell fill="#3B82F6" />
                                       <Cell fill="#EC4899" />
+                                      {dashboardData.members.gender_contributions.unset ? <Cell fill="#D1D5DB" /> : null}
                                     </Pie>
                                     <Tooltip
                                       contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 11 }}
@@ -3467,7 +3476,7 @@ export default function AdminDashboard() {
                                   <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
                                     <div className="h-full rounded-full bg-blue-500 transition-all" style={{
                                       width: `${(() => {
-                                        const total = dashboardData.members.gender_contributions.male + dashboardData.members.gender_contributions.female;
+                                        const total = dashboardData.members.gender_contributions.male + dashboardData.members.gender_contributions.female + (dashboardData.members.gender_contributions.unset || 0);
                                         return total > 0 ? (dashboardData.members.gender_contributions.male / total) * 100 : 0;
                                       })()}%`
                                     }} />
@@ -3484,14 +3493,33 @@ export default function AdminDashboard() {
                                   <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
                                     <div className="h-full rounded-full bg-pink-500 transition-all" style={{
                                       width: `${(() => {
-                                        const total = dashboardData.members.gender_contributions.male + dashboardData.members.gender_contributions.female;
+                                        const total = dashboardData.members.gender_contributions.male + dashboardData.members.gender_contributions.female + (dashboardData.members.gender_contributions.unset || 0);
                                         return total > 0 ? (dashboardData.members.gender_contributions.female / total) * 100 : 0;
                                       })()}%`
                                     }} />
                                   </div>
                                 </div>
+                                {dashboardData.members.gender_contributions.unset ? (
+                                  <div>
+                                    <div className="flex items-center justify-between gap-2 mb-0.5">
+                                      <div className="flex items-center gap-1.5">
+                                        <div className="h-2.5 w-2.5 rounded-full bg-gray-300 shrink-0" />
+                                        <span className="text-xs text-muted">Unset</span>
+                                      </div>
+                                      <span className="text-xs font-bold text-ink tabular-nums">KES {dashboardData.members.gender_contributions.unset.toLocaleString("en-KE")}</span>
+                                    </div>
+                                    <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                                      <div className="h-full rounded-full bg-gray-300 transition-all" style={{
+                                        width: `${(() => {
+                                          const total = dashboardData.members.gender_contributions.male + dashboardData.members.gender_contributions.female + (dashboardData.members.gender_contributions.unset || 0);
+                                          return total > 0 ? ((dashboardData.members.gender_contributions.unset || 0) / total) * 100 : 0;
+                                        })()}%`
+                                      }} />
+                                    </div>
+                                  </div>
+                                ) : null}
                                 <div className="pt-1 text-[10px] text-muted text-center border-t border-gray-50">
-                                  Total: KES {(dashboardData.members.gender_contributions.male + dashboardData.members.gender_contributions.female).toLocaleString("en-KE")}
+                                  Total: KES {(dashboardData.members.gender_contributions.male + dashboardData.members.gender_contributions.female + (dashboardData.members.gender_contributions.unset || 0)).toLocaleString("en-KE")}
                                 </div>
                               </div>
                             </div>
