@@ -244,15 +244,15 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
     // ── Donations by gender ──
     const { data: genderDonations } = await db
       .from("donations")
-      .select("amount, church_members!church_member_id!inner(gender)")
-      .eq("status", "completed")
-      .not("church_member_id", "is", null);
-    let maleContributions = 0, femaleContributions = 0, unsetContributions = 0;
+      .select("amount, church_members!church_member_id(gender)")
+      .eq("status", "completed");
+    let maleContributions = 0, femaleContributions = 0, unsetContributions = 0, generalContributions = 0;
     for (const d of genderDonations || []) {
-      const gender = (d as any).church_members?.gender;
+      const linkedMember = (d as any).church_members;
       const amt = Number(d.amount);
-      if (gender === "male") maleContributions += amt;
-      else if (gender === "female") femaleContributions += amt;
+      if (!linkedMember) generalContributions += amt;
+      else if (linkedMember.gender === "male") maleContributions += amt;
+      else if (linkedMember.gender === "female") femaleContributions += amt;
       else unsetContributions += amt;
     }
 
@@ -469,6 +469,7 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
           male: Math.round(maleContributions),
           female: Math.round(femaleContributions),
           unset: Math.round(unsetContributions),
+          general: Math.round(generalContributions),
         },
       },
       pledges: {
