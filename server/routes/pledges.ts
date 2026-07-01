@@ -180,35 +180,11 @@ pledgesRouter.get("/search/name", async (req, res) => {
     const q = String(req.query.q || "").trim().replace(/[%_<>]/g, "").slice(0, 100);
     if (!q) return res.json({ pledges: [], donations: [], honoured: [] });
 
-    // Look up church_member by exact name — used as fallback for pledges
-    const { data: member } = await db
-      .from("church_members")
-      .select("id, phone")
-      .ilike("name", q)
-      .maybeSingle();
-
-    // Primary: pledges by exact donor_name
-    const { data: pledgesByName } = await db
+    const { data: pledges } = await db
       .from("pledges")
       .select("id, donor_name, amount, paid, remaining, status, rating, color_hex, created_at")
       .ilike("donor_name", q)
       .order("amount", { ascending: false });
-
-    // Fallback: pledges by member phone (catches name mismatches)
-    let pledgesByPhone: any[] = [];
-    if (member?.phone) {
-      const { data: phonePledges } = await db
-        .from("pledges")
-        .select("id, donor_name, amount, paid, remaining, status, rating, color_hex, created_at")
-        .eq("phone", member.phone)
-        .order("amount", { ascending: false });
-      pledgesByPhone = phonePledges || [];
-    }
-
-    // Merge & deduplicate pledges
-    const pledgeMap = new Map<string, any>();
-    for (const p of [...(pledgesByName || []), ...pledgesByPhone]) pledgeMap.set(p.id, p);
-    const pledges = Array.from(pledgeMap.values());
 
     const [
       { data: donationsByName },

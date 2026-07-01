@@ -131,37 +131,15 @@ remindersRouter.get("/portfolio", async (req, res) => {
     const q = String(req.query.name || "").trim().replace(/[%_<>]/g, "").slice(0, 100);
     if (!q) return res.status(400).json({ error: "name required" });
 
-    // Look up church_member by exact name
-    const { data: member } = await db
+    // Get matching member ids for sub-queries
+    const { data: matchingMembers } = await db
       .from("church_members")
-      .select("id, phone")
-      .ilike("name", q)
-      .maybeSingle();
+      .select("id")
+      .ilike("name", q);
+    const memberIds = (matchingMembers || []).map(m => m.id);
 
-    // Pledges: primary by donor_name match, fallback by member phone
-    const { data: pledgesByName } = await db
-      .from("pledges")
-      .select("*")
-      .ilike("donor_name", q)
-      .order("created_at", { ascending: false });
-
-    let pledgesByPhone: any[] = [];
-    if (member?.phone) {
-      const { data: phonePledges } = await db
-        .from("pledges")
-        .select("*")
-        .eq("phone", member.phone)
-        .order("created_at", { ascending: false });
-      pledgesByPhone = phonePledges || [];
-    }
-
-    const pledgeMap = new Map<string, any>();
-    for (const p of [...(pledgesByName || []), ...pledgesByPhone]) pledgeMap.set(p.id, p);
-    const pledges = Array.from(pledgeMap.values());
-
-    const memberIds = member ? [member.id] : [];
-
-    const [donationsByDonor, donationsByMember, donationsByHonour, honouredRes] = await Promise.all([
+    const [pledgesRes, donationsByDonor, donationsByMember, donationsByHonour, honouredRes] = await Promise.all([
+      db.from("pledges").select("*").ilike("donor_name", q).order("created_at", { ascending: false }),
       // donations where donor_name matches
       db.from("donations").select("id, donor_name, amount, status, receipt_number, phone, created_at").eq("status", "completed").ilike("donor_name", q).order("created_at", { ascending: false }),
       // donations where church_member_id matches (donor's member record)
@@ -171,6 +149,8 @@ remindersRouter.get("/portfolio", async (req, res) => {
       // people who honoured this person (donations where honored_member_id matches)
       memberIds.length ? db.from("donations").select("id, donor_name, honour_known_as, amount, phone, created_at").eq("status", "completed").in("honored_member_id", memberIds).order("created_at", { ascending: false }) : { data: [] },
     ]);
+
+    const pledges = pledgesRes.data || [];
 
     // Merge donations: de-duplicate by id
     const donationMap = new Map();
