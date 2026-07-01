@@ -36,6 +36,7 @@ publicRouter.get("/gender-contributions", async (_req, res) => {
         const matchedGender = donorName ? genderLookup.get(donorName) : undefined;
         if (matchedGender === "male") male += amt;
         else if (matchedGender === "female") female += amt;
+        else male += amt;
       }
     }
 

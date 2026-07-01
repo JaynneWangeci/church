@@ -263,7 +263,7 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
         const matchedGender = donorName ? genderLookup.get(donorName) : undefined;
         if (matchedGender === "male") maleContributions += amt;
         else if (matchedGender === "female") femaleContributions += amt;
-        else generalContributions += amt;
+        else maleContributions += amt;
       } else if (linkedMember.gender === "male") maleContributions += amt;
       else if (linkedMember.gender === "female") femaleContributions += amt;
       else unsetContributions += amt;
