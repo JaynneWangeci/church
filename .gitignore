@@ -64,3 +64,4 @@ CRON_SECRET.txt
 samplereport.xlsx
 member-template.pdf
 App.snack.tsx
+query.mjs
