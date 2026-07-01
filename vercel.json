@@ -29,13 +29,13 @@
         { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
         { "key": "Cross-Origin-Resource-Policy", "value": "same-origin" },
         { "key": "Cross-Origin-Embedder-Policy", "value": "unsafe-none" },
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://db.onlinewebfonts.com; font-src 'self' https://fonts.gstatic.com https://db.onlinewebfonts.com; img-src 'self' data: blob: https://staticmap.openstreetmap.de; connect-src 'self' https://ktyfkzyigauhwqgfpjsc.supabase.co; frame-ancestors 'none'; form-action 'self'; base-uri 'self'" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://db.onlinewebfonts.com; font-src 'self' https://fonts.gstatic.com https://db.onlinewebfonts.com; img-src 'self' data: blob: https://staticmap.openstreetmap.de; connect-src 'self' https://ktyfkzyigauhwqgfpjsc.supabase.co; frame-ancestors 'none'; form-action 'self'; base-uri 'self'" },
         { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" }
       ]
     }
   ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|images/|assets/|favicon\\.svg|manifest\\.json|sw\\.js|og-image\\.svg).*)", "destination": "/index.html" }
   ]
 }
