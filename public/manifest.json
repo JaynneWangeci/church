@@ -1,0 +1,40 @@
+{
+  "name": "AIPCA Bahati Cathedral — Tujenge Pamoja 2026",
+  "short_name": "AIPCA Harambee",
+  "description": "Support the AIPCA Bahati Cathedral Development Fund. Pledge, donate, and track the Tujenge Pamoja 2026 campaign.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f1a",
+  "theme_color": "#c9a84c",
+  "orientation": "portrait-primary",
+  "categories": ["religion", "finance", "community"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/images/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/images/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/images/screenshot-home.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Home page — campaign overview and pledge stats"
+    }
+  ]
+}
