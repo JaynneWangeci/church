@@ -2,7 +2,7 @@ import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
 import { requireAdmin, logAudit, recalculatePledgeFulfillment } from "../lib/admin.js";
 import { getActiveCampaignId } from "../lib/campaigns.js";
-import { cacheGet, cacheSet, cacheKey } from "../lib/redis.js";
+
 
 export const analyticsRouter = Router();
 
@@ -12,10 +12,6 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
 
     await recalculatePledgeFulfillment(db);
 
-    // Try cache first
-    const cacheKeyStr = cacheKey("analytics", "dashboard", "v2");
-    const cached = await cacheGet<any>(cacheKeyStr);
-    if (cached) return res.json(cached);
     const now = new Date();
     const periods = {
       "7d": new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
@@ -499,9 +495,6 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
         passed: harambeeDiffMs < 0,
       },
     };
-
-    // Cache for 60 seconds
-    await cacheSet(cacheKeyStr, result, 60);
 
     res.json(result);
   } catch (err) {

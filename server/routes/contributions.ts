@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireService } from "../lib/supabase.js";
 import { requireAdmin, logAudit, recalculatePledgeFulfillment } from "../lib/admin.js";
-import { cacheGet, cacheSet, cacheKey, invalidateOnChange } from "../lib/redis.js";
+
 
 export const contributionsRouter = Router();
 
@@ -9,10 +9,6 @@ contributionsRouter.get("/analytics", requireAdmin, async (req, res) => {
   try {
     const db = requireService();
 
-    // Try Redis cache first
-    const cacheKeyStr = cacheKey("analytics", "contributions");
-    const cached = await cacheGet<any>(cacheKeyStr);
-    if (cached) return res.json(cached);
 
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -100,9 +96,6 @@ contributionsRouter.get("/analytics", requireAdmin, async (req, res) => {
       overall_total: overallTotal,
       overall_count: overallCount,
     };
-
-    // Cache for 60 seconds
-    await cacheSet(cacheKeyStr, result, 60);
 
     res.json(result);
   } catch (err) {

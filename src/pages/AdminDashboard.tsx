@@ -391,6 +391,32 @@ export default function AdminDashboard() {
     return () => clearInterval(id);
   }, [tab, fetchFellowshipReport]);
 
+  // Overview auto-refresh (30s when tab is active)
+  useEffect(() => {
+    if (tab !== "overview") return;
+    fetchStats();
+    fetchAnalytics();
+    fetchDonations();
+    const id = setInterval(() => { fetchStats(); fetchAnalytics(); fetchDonations(); }, 30000);
+    return () => clearInterval(id);
+  }, [tab, fetchStats, fetchAnalytics, fetchDonations]);
+
+  // Members auto-refresh (30s when tab is active)
+  useEffect(() => {
+    if (tab !== "members") return;
+    fetchMembers();
+    const id = setInterval(fetchMembers, 30000);
+    return () => clearInterval(id);
+  }, [tab, fetchMembers]);
+
+  // Analytics auto-refresh (30s when tab is active)
+  useEffect(() => {
+    if (tab !== "analytics") return;
+    fetchAnalytics();
+    const id = setInterval(fetchAnalytics, 30000);
+    return () => clearInterval(id);
+  }, [tab, fetchAnalytics]);
+
   async function addMember(e: React.FormEvent) {
     e.preventDefault();
     if (!newName.trim()) { setMemberError("Kindly provide the member's name"); return; }
