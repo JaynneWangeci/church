@@ -562,7 +562,7 @@ export default function PledgeBoard() {
                   onKeyDown={e => e.key === 'Enter' && handleSearch()}
                   placeholder={t('Search your full name...', 'Tafuta jina lako kamili...')}
                   className="w-full rounded-full border border-gray-200 bg-white py-3 pl-11 pr-4 text-sm text-gray-900 outline-none focus:border-amber-500" />
-                {renderDropdown(trackOpen, trackFiltered, trackGrouped, trackAllCouncils, search, (name) => { setSearch(name); setTrackOpen(false); handleSearch(); })}
+                {renderDropdown(trackOpen, trackFiltered, trackGrouped, trackAllCouncils, search, (name) => { setSearch(name); setTrackOpen(false); handleSearch(name); })}
               </div>
               <button onClick={handleSearch}
                 className="mt-3 w-full rounded-full bg-amber-600 py-3 text-sm font-bold text-white hover:bg-amber-700 transition-all">
