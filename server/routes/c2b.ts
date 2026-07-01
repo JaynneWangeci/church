@@ -192,7 +192,20 @@ c2bRouter.post("/confirmation", async (req, res) => {
     let memberCouncil = "general_member";
 
     if (payerName !== "Anonymous" && payerName.length >= 2) {
-      const existing = await findMember(db, payerName, accountRef);
+      let existing = await findMember(db, payerName, accountRef);
+
+      // Fallback: search by phone if name lookup failed
+      if (!existing && phone) {
+        const { data: phoneMember } = await db
+          .from("church_members")
+          .select("id, council, gender, phone")
+          .eq("is_active", true)
+          .eq("phone", phone)
+          .maybeSingle();
+        if (phoneMember) {
+          existing = phoneMember;
+        }
+      }
 
       if (existing) {
         // Member already exists — use their council, don't override

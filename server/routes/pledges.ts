@@ -75,7 +75,7 @@ pledgesRouter.post("/", async (req, res) => {
         reminder_freq: reminder_freq || "weekly",
         paid: 0,
         remaining: newAmount,
-        campaign_id: campaign?.id,
+        campaign_id: pledgeCampaignId,
       })
       .select()
       .single();
