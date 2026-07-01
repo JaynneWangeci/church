@@ -152,7 +152,7 @@ pledgesRouter.get("/:name", async (req, res) => {
     const { data: pledges, error } = await db
       .from("pledges")
       .select("id, donor_name, amount, paid, remaining, status, rating, created_at")
-      .ilike("donor_name", `%${name}%`)
+      .ilike("donor_name", name)
       .order("created_at", { ascending: false });
 
     if (error) return res.status(500).json({ error: error.message });
@@ -160,7 +160,7 @@ pledgesRouter.get("/:name", async (req, res) => {
     const { data: honouredMembers } = await db
       .from("church_members")
       .select("id")
-      .ilike("name", `%${name}%`);
+      .ilike("name", name);
     const honouredIds = (honouredMembers || []).map(m => m.id);
 
     const { data: honoured } = honouredIds.length
@@ -183,15 +183,15 @@ pledgesRouter.get("/search/name", async (req, res) => {
     const { data: pledges } = await db
       .from("pledges")
       .select("id, donor_name, amount, paid, remaining, status, rating, color_hex, created_at")
-      .ilike("donor_name", `%${q}%`)
+      .ilike("donor_name", q)
       .order("amount", { ascending: false });
 
     const [
       { data: donationsByName },
       { data: honourMemberIds },
     ] = await Promise.all([
-      db.from("donations").select("id, donor_name, amount, created_at, honored_member_id, receipt_number, phone").eq("status", "completed").ilike("donor_name", `%${q}%`),
-      db.from("church_members").select("id").ilike("name", `%${q}%`),
+      db.from("donations").select("id, donor_name, amount, created_at, honored_member_id, receipt_number, phone").eq("status", "completed").ilike("donor_name", q),
+      db.from("church_members").select("id").ilike("name", q),
     ]);
 
     const honourIds2 = (honourMemberIds || []).map(m => m.id);
@@ -206,7 +206,7 @@ pledgesRouter.get("/search/name", async (req, res) => {
     const { data: honouredMembers } = await db
       .from("church_members")
       .select("id")
-      .ilike("name", `%${q}%`);
+      .ilike("name", q);
     const honouredIds = (honouredMembers || []).map(m => m.id);
 
     const { data: honoured } = honouredIds.length

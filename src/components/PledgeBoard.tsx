@@ -155,17 +155,19 @@ export default function PledgeBoard() {
   const commitExtra = Object.keys(commitGrouped).filter(c => !councilMeta[c]);
   const commitAllCouncils = [...commitCouncilOrder, ...commitExtra];
 
-  async function handleSearch() {
-    if (!search.trim()) { setResult(null); return; }
-    const res = await fetch(`/api/pledges/search/name?q=${encodeURIComponent(search.trim())}`);
+  async function handleSearch(name?: string) {
+    const q = (name ?? search).trim();
+    if (!q) { setResult(null); return; }
+    const res = await fetch(`/api/pledges/search/name?q=${encodeURIComponent(q)}`);
     if (res.ok) setResult(await res.json());
   }
 
-  async function handleCommitSearch() {
+  async function handleCommitSearch(name?: string) {
     try {
-      if (!commitSearch.trim()) { setCommitPledges(null); return; }
+      const q = (name ?? commitSearch).trim();
+      if (!q) { setCommitPledges(null); return; }
       setCommitLoading(true);
-      const res = await fetch(`/api/pledges/search/name?q=${encodeURIComponent(commitSearch.trim())}`);
+      const res = await fetch(`/api/pledges/search/name?q=${encodeURIComponent(q)}`);
       if (res.ok) {
         const data = await res.json();
         setCommitPledges(data.pledges || []);
@@ -362,7 +364,7 @@ export default function PledgeBoard() {
                     onFocus={() => setTrackOpen(true)}
                     placeholder={t('Type your name to see progress...', 'Andika jina lako kuona maendeleo...')}
                     className="w-full rounded-full border border-gray-200 bg-white py-3 pl-11 pr-4 text-sm text-gray-900 outline-none focus:border-blue-500" />
-                  {renderDropdown(trackOpen, trackFiltered, trackGrouped, trackAllCouncils, search, (name) => { setSearch(name); setTrackOpen(false); handleSearch(); })}
+                {renderDropdown(trackOpen, trackFiltered, trackGrouped, trackAllCouncils, search, (name) => { setSearch(name); setTrackOpen(false); handleSearch(name); })}
                 </div>
 
                 {result && result.pledges.length > 0 && (
@@ -426,7 +428,7 @@ export default function PledgeBoard() {
                   onKeyDown={e => e.key === 'Enter' && handleCommitSearch()}
                   placeholder={t('Search your name...', 'Tafuta jina lako...')}
                   className="w-full rounded-full border border-gray-200 bg-white py-3 pl-11 pr-4 text-sm text-gray-900 outline-none focus:border-green-500" />
-                {renderDropdown(commitOpen, commitFiltered, commitGrouped, commitAllCouncils, commitSearch, (name) => { setCommitSearch(name); setCommitOpen(false); handleCommitSearch(); })}
+                {renderDropdown(commitOpen, commitFiltered, commitGrouped, commitAllCouncils, commitSearch, (name) => { setCommitSearch(name); setCommitOpen(false); handleCommitSearch(name); })}
               </div>
               <button onClick={handleCommitSearch} disabled={commitLoading}
                 className="mt-3 w-full rounded-full bg-green-600 py-3 text-sm font-bold text-white hover:bg-green-700 transition-all disabled:opacity-50">

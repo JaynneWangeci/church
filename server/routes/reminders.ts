@@ -135,13 +135,13 @@ remindersRouter.get("/portfolio", async (req, res) => {
     const { data: matchingMembers } = await db
       .from("church_members")
       .select("id")
-      .ilike("name", `%${q}%`);
+      .ilike("name", q);
     const memberIds = (matchingMembers || []).map(m => m.id);
 
     const [pledgesRes, donationsByDonor, donationsByMember, donationsByHonour, honouredRes] = await Promise.all([
-      db.from("pledges").select("*").ilike("donor_name", `%${q}%`).order("created_at", { ascending: false }),
+      db.from("pledges").select("*").ilike("donor_name", q).order("created_at", { ascending: false }),
       // donations where donor_name matches
-      db.from("donations").select("id, donor_name, amount, status, receipt_number, phone, created_at").eq("status", "completed").ilike("donor_name", `%${q}%`).order("created_at", { ascending: false }),
+      db.from("donations").select("id, donor_name, amount, status, receipt_number, phone, created_at").eq("status", "completed").ilike("donor_name", q).order("created_at", { ascending: false }),
       // donations where church_member_id matches (donor's member record)
       memberIds.length ? db.from("donations").select("id, donor_name, amount, status, receipt_number, phone, created_at").eq("status", "completed").in("church_member_id", memberIds).order("created_at", { ascending: false }) : { data: [] },
       // donations where honored_member_id matches (donations in honour of this person)
