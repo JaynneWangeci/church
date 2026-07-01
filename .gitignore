@@ -53,6 +53,8 @@ supabasepat.txt
 *.jpg
 *.jpeg
 *.png
+!public/images/icon-192.png
+!public/images/icon-512.png
 supabase/.temp/
 
 # typescript

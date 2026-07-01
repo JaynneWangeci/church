@@ -36,6 +36,12 @@
   ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" },
-    { "source": "/((?!api/|images/|assets/|favicon\\.svg|manifest\\.json|sw\\.js|og-image\\.svg).*)", "destination": "/index.html" }
+    { "source": "/images/(.*)", "destination": "/images/$1" },
+    { "source": "/assets/(.*)", "destination": "/assets/$1" },
+    { "source": "/favicon.svg", "destination": "/favicon.svg" },
+    { "source": "/manifest.json", "destination": "/manifest.json" },
+    { "source": "/sw.js", "destination": "/sw.js" },
+    { "source": "/og-image.svg", "destination": "/og-image.svg" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
