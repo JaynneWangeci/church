@@ -1,8 +1,8 @@
 import { Redis } from "@upstash/redis";
 import { requireService } from "./supabase.js";
 
-const REST_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_URL || "";
-const REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || "";
+const REST_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "";
+const REST_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || "";
 
 let client: Redis | null = null;
 let enabled = false;

@@ -97,11 +97,19 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
         .eq("is_active", true)
         .gte("created_at", periods["30d"].toISOString()),
 
-      // Gender breakdown (fetch all active members with gender)
+      // Gender breakdown (fetch all active members with name & gender)
       db.from("church_members")
-        .select("gender")
+        .select("name, gender")
         .eq("is_active", true),
     ]);
+
+    // Build gender lookup by name for donations with null church_member_id
+    const genderLookup = new Map<string, string>();
+    for (const m of (genderCounts.data || []) as any[]) {
+      if (m.name && m.gender) {
+        genderLookup.set(m.name.toLowerCase().trim(), m.gender);
+      }
+    }
 
     // ── Daily aggregation ──
     const dailyMap: Record<string, number> = {};
@@ -244,14 +252,19 @@ analyticsRouter.get("/dashboard", requireAdmin, async (req, res) => {
     // ── Donations by gender ──
     const { data: genderDonations } = await db
       .from("donations")
-      .select("amount, church_members!church_member_id(gender)")
+      .select("amount, donor_name, church_members!church_member_id(gender)")
       .eq("status", "completed");
     let maleContributions = 0, femaleContributions = 0, unsetContributions = 0, generalContributions = 0;
     for (const d of genderDonations || []) {
       const linkedMember = (d as any).church_members;
       const amt = Number(d.amount);
-      if (!linkedMember) generalContributions += amt;
-      else if (linkedMember.gender === "male") maleContributions += amt;
+      if (!linkedMember) {
+        const donorName = ((d as any).donor_name || "").toLowerCase().trim();
+        const matchedGender = donorName ? genderLookup.get(donorName) : undefined;
+        if (matchedGender === "male") maleContributions += amt;
+        else if (matchedGender === "female") femaleContributions += amt;
+        else generalContributions += amt;
+      } else if (linkedMember.gender === "male") maleContributions += amt;
       else if (linkedMember.gender === "female") femaleContributions += amt;
       else unsetContributions += amt;
     }
